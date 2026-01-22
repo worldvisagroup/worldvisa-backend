@@ -1,0 +1,22 @@
+{
+  "watch": [
+    "app.js",
+    "routes/**/*.js",
+    "controllers/**/*.js",
+    "models/**/*.js",
+    "services/**/*.js",
+    "utils/**/*.js",
+    "middleware/**/*.js",
+    "templates/**/*.tsx",
+    "templates/**/*.ts"
+  ],
+  "ext": "js,json,tsx,ts",
+  "ignore": [
+    "node_modules/",
+    "dist/",
+    "*.test.js"
+  ],
+  "exec": "npm run build:templates && node app.js",
+  "delay": "1000"
+}
+

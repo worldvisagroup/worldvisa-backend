@@ -1,0 +1,105 @@
+{
+    "profileSummaryTable": {
+        "title": "Profile Summary",
+        "content": "| Field | Value |\n|-------|-------|\n| Client Name | [CLIENT_NAME] |\n| Date of Birth / Age | [DOB_AGE] |\n| Nationality | [NATIONALITY] |\n| Marital Status | [MARITAL_STATUS] |\n| Primary Occupation | [PRIMARY_OCCUPATION] |\n| ANZSCO Code | [ANZSCO_CODE] |\n| Assessing Authority | [ASSESSING_AUTHORITY] |\n| Total Experience | [TOTAL_EXPERIENCE] |\n| Current Employer | [CURRENT_EMPLOYER] |\n| Report Date | [REPORT_DATE] |\n| Consultant / Case Owner | [CONSULTANT] |"
+    },
+    "profileSummarySnapshots": {
+        "title": "Snapshot",
+        "content": [
+            "- [EDUCATION_SNAPSHOT]",
+            "- [EXPERIENCE_SNAPSHOT]",
+            "- [ENGLISH_SNAPSHOT]",
+            "- [ASSESSMENT_SNAPSHOT]"
+        ]
+    },
+    "prPathwayTable": {
+        "title": "PR Pathways Considered (Australia)",
+        "content": "| PR Pathway | Visa Subclass / Stream | Core Eligibility Met? |\n|------------|------------------------|-----------------------|\n| Skilled Independent | Subclass 189 | [ELIGIBILITY_189] |\n| State Nominated | Subclass 190 | [ELIGIBILITY_190] |\n| Regional Nominated | Subclass 491 | [ELIGIBILITY_491] |"
+    },
+    "prPathwayEligibilityTable": {
+        "title": "Points Eligibility Computation (Australia SkillSelect)",
+        "subheading": "Points Breakdown by Component",
+        "content": "| Component | Description | Points |\n|-----------|-------------|--------|\n| Age | [AGE_DESCRIPTION] | [AGE_POINTS] |\n| English Language | [ENGLISH_DESCRIPTION] | [ENGLISH_POINTS] |\n| Overseas Work Experience | [OVERSEAS_DESCRIPTION] | [OVERSEAS_POINTS] |\n| Education | [EDUCATION_DESCRIPTION] | [EDUCATION_POINTS] |\n| Partner Skills | [PARTNER_DESCRIPTION] | [PARTNER_POINTS] |\n| Total Points (Subclass 189) | | [TOTAL_189] |\n| Total Points (Subclass 190) | | [TOTAL_190] |\n| Total Points (Subclass 491) | | [TOTAL_491] |"
+    },
+    "prPathwayTotalPointsByVisaSubclass": {
+        "title": "Total Points by Visa Subclass",
+        "content": "| Visa Subclass | Description | Total Points |\n|---------------|-------------|--------------|\n| 189 | Skilled Independent visa | [TOTAL_189] points |\n| 190 | Skilled Nominated visa (State/Territory) | [TOTAL_190] points |\n| 491 | Skilled Work Regional (Provisional) visa | [TOTAL_491] points |"
+    },
+    "crossStateNominationMatrix": {
+        "title": "Cross-State Nomination Matrix (All 8 Australian States & Territories)",
+        "content": "| State / Territory | Current Status | Competitiveness | Key Sectors (tailored to [OCCUPATION]) |\n|-------------------|----------------|-----------------|--------------------------------------------------|\n| NSW | [NSW_STATUS] | [NSW_COMPETITIVENESS] | [NSW_SECTORS] |\n| VIC | [VIC_STATUS] | [VIC_COMPETITIVENESS] | [VIC_SECTORS] |\n| QLD | [QLD_STATUS] | [QLD_COMPETITIVENESS] | [QLD_SECTORS] |\n| SA | [SA_STATUS] | [SA_COMPETITIVENESS] | [SA_SECTORS] |\n| WA | [WA_STATUS] | [WA_COMPETITIVENESS] | [WA_SECTORS] |\n| TAS | [TAS_STATUS] | [TAS_COMPETITIVENESS] | [TAS_SECTORS] |\n| NT | [NT_STATUS] | [NT_COMPETITIVENESS] | [NT_SECTORS] |\n| ACT | [ACT_STATUS] | [ACT_COMPETITIVENESS] | [ACT_SECTORS] |"
+    },
+    "prPathwayInterpretation": {
+        "title": "Interpretation",
+        "content": [
+            "- [INTERPRETATION_1]",
+            "- [INTERPRETATION_2]",
+            "- [INTERPRETATION_3]",
+            "- [INTERPRETATION_4]",
+            "- [INTERPRETATION_5]"
+        ]
+    },
+    "labourMarketOutlookByRegion": {
+        "title": "Labour Market Outlook (by Region)",
+        "content": "| Region | Demand Level | Typical Job Titles | Key Industries | Hiring Channels |\n|--------|--------------|-------------------|----------------|-----------------|\n| New South Wales | [NSW_DEMAND] | [NSW_JOBS] | [NSW_INDUSTRIES] | [NSW_CHANNELS] |\n| Victoria | [VIC_DEMAND] | [VIC_JOBS] | [VIC_INDUSTRIES] | [VIC_CHANNELS] |\n| Queensland | [QLD_DEMAND] | [QLD_JOBS] | [QLD_INDUSTRIES] | [QLD_CHANNELS] |\n| South Australia | [SA_DEMAND] | [SA_JOBS] | [SA_INDUSTRIES] | [SA_CHANNELS] |\n| Western Australia | [WA_DEMAND] | [WA_JOBS] | [WA_INDUSTRIES] | [WA_CHANNELS] |\n| Tasmania | [TAS_DEMAND] | [TAS_JOBS] | [TAS_INDUSTRIES] | [TAS_CHANNELS] |\n| Northern Territory | [NT_DEMAND] | [NT_JOBS] | [NT_INDUSTRIES] | [NT_CHANNELS] |\n| ACT | [ACT_DEMAND] | [ACT_JOBS] | [ACT_INDUSTRIES] | [ACT_CHANNELS] |"
+    },
+    "salaryBenchmarks": {
+        "title": "Salary Benchmarks (Annual – AUD)",
+        "content": "| Region | Start (P25) | Median (P50) | Top (P75/P90) | Source / Year |\n|--------|-------------|--------------|---------------|---------------|\n| NSW | [NSW_START] | [NSW_MEDIAN] | [NSW_TOP] | [NSW_SOURCE] |\n| VIC | [VIC_START] | [VIC_MEDIAN] | [VIC_TOP] | [VIC_SOURCE] |\n| QLD | [QLD_START] | [QLD_MEDIAN] | [QLD_TOP] | [QLD_SOURCE] |\n| SA | [SA_START] | [SA_MEDIAN] | [SA_TOP] | [SA_SOURCE] |\n| WA | [WA_START] | [WA_MEDIAN] | [WA_TOP] | [WA_SOURCE] |\n| TAS | [TAS_START] | [TAS_MEDIAN] | [TAS_TOP] | [TAS_SOURCE] |\n| ACT | [ACT_START] | [ACT_MEDIAN] | [ACT_TOP] | [ACT_SOURCE] |"
+    },
+    "stepByStepPlanAndSLA": {
+        "title": "Step-by-Step Plan & SLA",
+        "content": "| Step | Action | Owner | Docs | ETA |\n|------|--------|-------|------|-----|\n| 1 | Lodge [ASSESSING_AUTHORITY] Assessment | Client | Degree, work docs | 8–12 weeks |\n| 2 | Confirm English Result | Client | Test score | 2–3 weeks |\n| 3 | Submit EOIs: 189/190/491 | WVisa | Assess + English | 1 week |\n| 4 | Visa Application Lodgement | WVisa | PCC, Medicals | 6–9 months |"
+    },
+    "riskRegisterMitigations": {
+        "title": "Risk Register & Mitigations",
+        "content": "| Risk | Likelihood | Impact | Mitigation |\n|------|------------|--------|------------|\n| [RISK_1] | [LIKELIHOOD_1] | [IMPACT_1] | [MITIGATION_1] |\n| [RISK_2] | [LIKELIHOOD_2] | [IMPACT_2] | [MITIGATION_2] |\n| [RISK_3] | [LIKELIHOOD_3] | [IMPACT_3] | [MITIGATION_3] |\n| [RISK_4] | [LIKELIHOOD_4] | [IMPACT_4] | [MITIGATION_4] |"
+    },
+    "outcomeForecast": {
+        "title": "Outcome Forecast",
+        "content": [
+            "- [FORECAST_BEST]",
+            "- [FORECAST_BASE]",
+            "- [FORECAST_CONSERVATIVE]",
+            "- [FORECAST_RECOMMENDATION]"
+        ]
+    },
+    "whyMaraAdvantage": {
+        "title": "Why Choose a MARA-Registered Migration Agent",
+        "content": "When your visa shapes your future, trust only those legally authorised to guide it. A MARA-registered agent brings legal precision, accountability, and expertise — not guesswork."
+    },
+    "legalAuthorityAccountability": {
+        "title": "Legal Authority & Accountability",
+        "content": "Only MARA agents can lawfully provide migration advice in Australia. They're trained in migration law, licensed by the Migration Agents Registration Authority, and answerable under Australian law for every recommendation made."
+    },
+    "upToDateExpertise": {
+        "title": "Up-to-Date Expertise",
+        "content": "MARA agents complete mandatory annual training (CPD) to stay current on migration legislation, visa policies, and program updates — ensuring every application meets the latest compliance standards."
+    },
+    "riskMitigation": {
+        "title": "Risk Mitigation & Success",
+        "content": [
+            "- Selecting the right visa subclass",
+            "- Ensuring accurate and complete documentation",
+            "- Timing applications strategically",
+            "- Representing clients when required"
+        ]
+    },
+    "timeCostPeaceOfMind": {
+        "title": "Time, Cost & Peace of Mind",
+        "content": [
+            "- Faster processing times",
+            "- Higher success rates",
+            "- Less stress and uncertainty",
+            "- Savings from avoiding costly re-applications"
+        ]
+    },
+    "maraSummary": {
+        "title": "In Summary",
+        "content": "A MARA-registered agent is your licensed legal expert, trusted advisor, and success partner — transforming your migration journey into a compliant, confident, and stress-free experience."
+    },
+    "worldVisaAdvantage": {
+        "title": "World Visa Advantage",
+        "content": "With 21 years of success, MARA-Registered Experts, and comprehensive documentation execution support, World Visa ensures your Australian PR journey is handled with legal accuracy, ethical integrity, and professional excellence — from ACS assessment to visa approval."
+    }
+}

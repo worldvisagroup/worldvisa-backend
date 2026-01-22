@@ -1,0 +1,658 @@
+[{
+        "itemName": "Additional State EOI (all)",
+        "itemDescription": "Additional State EOI (all)",
+        "itemId": "445172000001736299",
+        "amount": 20000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": true
+    },
+    {
+        "itemName": "Visit Visa",
+        "itemDescription": "Visit Visa",
+        "itemId": "445172000001736505",
+        "amount": 10000,
+        "country": "all countries",
+        "service": "visit",
+        "addOn": false
+    },
+    {
+        "itemName": "Visitor Visa (MARA)",
+        "itemDescription": "Visitor Visa (MARA)",
+        "itemId": "445172000001780036",
+        "amount": 25000,
+        "country": "australia",
+        "service": "visit",
+        "addOn": true
+    },
+    {
+        "itemName": "Student Visa",
+        "itemDescription": "Student Visa",
+        "itemId": "445172000001798001",
+        "amount": 12500,
+        "country": "all countries",
+        "service": "study",
+        "addOn": false
+    },
+    {
+        "itemName": "EOI and State Nomination",
+        "itemDescription": "EOI and State Nomination",
+        "itemId": "445172000001824001",
+        "amount": 15000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": true
+    },
+    {
+        "itemName": "Additional PNP Canada",
+        "itemDescription": "Additional PNP Canada",
+        "itemId": "445172000001828009",
+        "amount": 10000,
+        "country": "canada",
+        "service": "pr",
+        "addOn": true
+    },
+    {
+        "itemName": "Work Permit",
+        "itemDescription": "Work Permit",
+        "itemId": "445172000001870059",
+        "amount": 40000,
+        "country": "all countries",
+        "service": "work",
+        "addOn": false
+    },
+    {
+        "itemName": "Temporary Dependent Visa",
+        "itemDescription": "Temporary Dependent Visa",
+        "itemId": "445172000001870068",
+        "amount": 20000,
+        "country": "all countries",
+        "service": "work",
+        "addOn": true
+    },
+    {
+        "itemName": "Work Permit Rejection",
+        "itemDescription": "Work Permit Rejection",
+        "itemId": "445172000001870101",
+        "amount": 60000,
+        "country": "all countries",
+        "service": "work",
+        "addOn": true
+    },
+    {
+        "itemName": "Express Entry profile & All PNPs",
+        "itemDescription": "Express Entry profile & All PNPs",
+        "itemId": "445172000001870110",
+        "amount": 40000,
+        "country": "canada",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Canada Spouse ECA",
+        "itemDescription": "Canada Spouse ECA",
+        "itemId": "445172000001870119",
+        "amount": 7500,
+        "country": "canada",
+        "service": "pr",
+        "addOn": true
+    },
+    {
+        "itemName": "pr Dependent Visa Canada",
+        "itemDescription": "pr Dependent Visa Canada",
+        "itemId": "445172000001870128",
+        "amount": 50000,
+        "country": "canada",
+        "service": "pr",
+        "addOn": true
+    },
+    {
+        "itemName": "Partner Visa pr (MARA)",
+        "itemDescription": "Partner Visa pr (MARA)",
+        "itemId": "445172000001870146",
+        "amount": 150000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": true
+    },
+    {
+        "itemName": "Student Visa Rejection",
+        "itemDescription": "Student Visa Rejection",
+        "itemId": "445172000001870177",
+        "amount": 20000,
+        "country": "all countries",
+        "service": "study",
+        "addOn": true
+    },
+    {
+        "itemName": "Australia Parent Visa (MARA)",
+        "itemDescription": "Australia Parent Visa (MARA)",
+        "itemId": "445172000001874001",
+        "amount": 300000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Visitor Visa Dependent",
+        "itemDescription": "Visitor Visa Dependent",
+        "itemId": "445172000001938001",
+        "amount": 5000,
+        "country": "all countries",
+        "service": "visit",
+        "addOn": true
+    },
+    {
+        "itemName": "Spouse Skill Assessment",
+        "itemDescription": "Spouse Skill Assessment",
+        "itemId": "445172000001963001",
+        "amount": 15000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": true
+    },
+    {
+        "itemName": "Renewal Express Entry",
+        "itemDescription": "Renewal Express Entry",
+        "itemId": "445172000001976003",
+        "amount": 15000,
+        "country": "canada",
+        "service": "pr",
+        "addOn": true
+    },
+    {
+        "itemName": "EOI and DHA (MARA)",
+        "itemDescription": "EOI and DHA (MARA)",
+        "itemId": "445172000002036001",
+        "amount": 65000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": true
+    },
+    {
+        "itemName": "Canada ECA only",
+        "itemDescription": "Canada ECA only",
+        "itemId": "445172000002039139",
+        "amount": 7500,
+        "country": "canada",
+        "service": "pr",
+        "addOn": true
+    },
+    {
+        "itemName": "Germany Opportunity Card.",
+        "itemDescription": "Germany Opportunity Card.",
+        "itemId": "445172000002084069",
+        "amount": 52000,
+        "country": "germany",
+        "service": "work",
+        "addOn": false
+    },
+    {
+        "itemName": "Visitor Visa Rejection (MARA)",
+        "itemDescription": "Visitor Visa Rejection (MARA)",
+        "itemId": "445172000002168001",
+        "amount": 30000,
+        "country": "australia",
+        "service": "visit",
+        "addOn": true
+    },
+    {
+        "itemName": "NIV-Australia",
+        "itemDescription": "NIV-Australia",
+        "itemId": "445172000002414001",
+        "amount": 200000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Student Visa (MARA)",
+        "itemDescription": "Student Visa (MARA)",
+        "itemId": "445172000002508001",
+        "amount": 25000,
+        "country": "australia",
+        "service": "Study",
+        "addOn": false
+    },
+    {
+        "itemName": "Sweden Job Seeker Visa",
+        "itemDescription": "Sweden Job Seeker Visa",
+        "itemId": "445172000002543057",
+        "amount": 40000,
+        "country": "Sweden",
+        "service": "Work",
+        "addOn": false
+    },
+    {
+        "itemName": "EOI and DHA Australia",
+        "itemDescription": "EOI and DHA Australia",
+        "itemId": "445172000002852039",
+        "amount": 45000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Subclass 400 Australia (MARA)",
+        "itemDescription": "Subclass 400 Australia (MARA)",
+        "itemId": "445172000002875011",
+        "amount": 40000,
+        "country": "australia",
+        "service": "Work",
+        "addOn": false
+    },
+    {
+        "itemName": "Australia pr SIP",
+        "itemDescription": "Australia pr SIP",
+        "itemId": "445172000002940203",
+        "amount": 75000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Temporary Dependent Visa Rejection",
+        "itemDescription": "Temporary Dependent Visa Rejection",
+        "itemId": "445172000003290249",
+        "amount": 30000,
+        "country": "all countries",
+        "service": "work",
+        "addOn": false
+    },
+    {
+        "itemName": "Basic Package Australia",
+        "itemDescription": "Basic Package Australia",
+        "itemId": "445172000003366001",
+        "amount": 19999,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Skill Assessment Australia (MARA)",
+        "itemDescription": "Skill Assessment Australia (MARA)",
+        "itemId": "445172000003399001",
+        "amount": 75000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Sot Booking USA",
+        "itemDescription": "Sot Booking USA",
+        "itemId": "445172000003399010",
+        "amount": 15000,
+        "country": "USA",
+        "service": "Visit",
+        "addOn": false
+    },
+    {
+        "itemName": "Portugal Job Seeker Visa",
+        "itemDescription": "Portugal Job Seeker Visa",
+        "itemId": "445172000003437001",
+        "amount": 40000,
+        "country": "Portugal",
+        "service": "work",
+        "addOn": false
+    },
+    {
+        "itemName": "Visa Application pr Australia",
+        "itemDescription": "Visa Application pr Australia",
+        "itemId": "445172000003598001",
+        "amount": 35000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Express Entry Spouse",
+        "itemDescription": "Express Entry Spouse",
+        "itemId": "445172000003743031",
+        "amount": 20000,
+        "country": "canada",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Skill Assessment Australia",
+        "itemDescription": "Skill Assessment Australia",
+        "itemId": "445172000003865001",
+        "amount": 40000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Spouse Skill Assessment (MARA)",
+        "itemDescription": "Spouse Skill Assessment (MARA)",
+        "itemId": "445172000003898023",
+        "amount": 25000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Express Entry, PNP & Visa",
+        "itemDescription": "Express Entry, PNP & Visa",
+        "itemId": "445172000004302001",
+        "amount": 65000,
+        "country": "canada",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Express Entry Application Renewal",
+        "itemDescription": "Express Entry Application Renewal",
+        "itemId": "445172000004313078",
+        "amount": 15000,
+        "country": "canada",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Advanced Package Canada",
+        "itemDescription": "Advanced Package Canada",
+        "itemId": "445172000004304027",
+        "amount": 75000,
+        "country": "canada",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Advance Package Australia pr",
+        "itemDescription": "Advance Package Australia pr",
+        "itemId": "445172000004394001",
+        "amount": 75000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Australia premium pr (MARA)",
+        "itemDescription": "Australia premium pr (MARA)",
+        "itemId": "445172000004394022",
+        "amount": 124999,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Visa Application pr (MARA)",
+        "itemDescription": "Visa Application pr (MARA)",
+        "itemId": "445172000004496001",
+        "amount": 50000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Re-Skill Assessment MARA",
+        "itemDescription": "Re-Skill Assessment MARA",
+        "itemId": "445172000004584003",
+        "amount": 25000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Visitor Visa Rejection",
+        "itemDescription": "Visitor Visa Rejection",
+        "itemId": "445172000004918001",
+        "amount": 15000,
+        "country": "all countries",
+        "service": "visit",
+        "addOn": false
+    },
+    {
+        "itemName": "EOI & State Nomination (MARA) SIP",
+        "itemDescription": "EOI & State Nomination (MARA) SIP",
+        "itemId": "445172000005023193",
+        "amount": 40000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Australia DHA (MARA) SIP",
+        "itemDescription": "Australia DHA (MARA) SIP",
+        "itemId": "445172000005097001",
+        "amount": 35000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Australia EOI - MARA",
+        "itemDescription": "Australia EOI - MARA",
+        "itemId": "445172000005118073",
+        "amount": 25000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Visitor Visa",
+        "itemDescription": "Visitor Visa",
+        "itemId": "445172000005202087",
+        "amount": 10000,
+        "country": "all countries",
+        "service": "visit",
+        "addOn": false
+    },
+    {
+        "itemName": "Australia RRV",
+        "itemDescription": "Australia RRV",
+        "itemId": "445172000005627001",
+        "amount": 125000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "ZAB Assessment Germany",
+        "itemDescription": "ZAB Assessment Germany",
+        "itemId": "445172000005734107",
+        "amount": 10000,
+        "country": "germany",
+        "service": "Work",
+        "addOn": false
+    },
+    {
+        "itemName": "MARA consultation call",
+        "itemDescription": "MARA consultation call",
+        "itemId": "445172000007092001",
+        "amount": 5500,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Temporary Work (Short Stay Specialist) visa (subclass 400)",
+        "itemDescription": "Temporary Work (Short Stay Specialist) visa (subclass 400)",
+        "itemId": "445172000008024932",
+        "amount": 25000,
+        "country": "australia",
+        "service": "visit",
+        "addOn": false
+    },
+    {
+        "itemName": "Parents Grand Parents pr",
+        "itemDescription": "Parents Grand Parents pr",
+        "itemId": "445172000008033031",
+        "amount": 50000,
+        "country": "canada",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Germany Opportunity Card",
+        "itemDescription": "Germany Opportunity Card",
+        "itemId": "445172000008033076",
+        "amount": 55000,
+        "country": "germany",
+        "service": "Work",
+        "addOn": false
+    },
+    {
+        "itemName": "Work Visa",
+        "itemDescription": "Work Visa",
+        "itemId": "445172000008033103",
+        "amount": 40000,
+        "country": "uk",
+        "service": "work",
+        "addOn": false
+    },
+    {
+        "itemName": "India Young professionals Scheme Visa UK",
+        "itemDescription": "India Young professionals Scheme Visa UK",
+        "itemId": "445172000008033206",
+        "amount": 30000,
+        "country": "uk",
+        "service": "work",
+        "addOn": false
+    },
+    {
+        "itemName": "Child visa Australia (MARA)",
+        "itemDescription": "Child visa Australia (MARA)",
+        "itemId": "445172000008018128",
+        "amount": 125000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Aged Dependent Relative visa (MARA)",
+        "itemDescription": "Aged Dependent Relative visa (MARA)",
+        "itemId": "445172000008018146",
+        "amount": 125000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Remaining Relative visa (MARA)",
+        "itemDescription": "Remaining Relative visa (MARA)",
+        "itemId": "445172000008018155",
+        "amount": 125000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Employer Nomination Scheme visa (MARA)",
+        "itemDescription": "Employer Nomination Scheme visa (MARA)",
+        "itemId": "445172000008018191",
+        "amount": 125000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Regional Sponsored Migration Scheme visa (subclass 187) MARA",
+        "itemDescription": "Regional Sponsored Migration Scheme visa (subclass 187) MARA",
+        "itemId": "445172000008018200",
+        "amount": 125000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Skilled Regional visa (subclass 887) (MARA)",
+        "itemDescription": "Skilled Regional visa (subclass 887) (MARA)",
+        "itemId": "445172000008018254",
+        "amount": 300000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "prospective Marriage visa Australia (MARA)",
+        "itemDescription": "prospective Marriage visa Australia (MARA)",
+        "itemId": "445172000008018371",
+        "amount": 75000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Temporary Graduate visa Australia (MARA)",
+        "itemDescription": "Temporary Graduate visa Australia (MARA)",
+        "itemId": "445172000008018389",
+        "amount": 40000,
+        "country": "australia",
+        "service": "work",
+        "addOn": false
+    },
+    {
+        "itemName": "Australia Work and Holiday Visa (MARA)",
+        "itemDescription": "Australia Work and Holiday Visa (MARA)",
+        "itemId": "445172000008018407",
+        "amount": 35000,
+        "country": "australia",
+        "service": "work",
+        "addOn": false
+    },
+    {
+        "itemName": "Temporary Activity visa SC 408 (MARA)",
+        "itemDescription": "Temporary Activity visa SC 408 (MARA)",
+        "itemId": "445172000008019077",
+        "amount": 40000,
+        "country": "australia",
+        "service": "work",
+        "addOn": false
+    },
+    {
+        "itemName": "Advance Package Australia pr",
+        "itemDescription": "Advance Package Australia pr",
+        "itemId": "445172000008069001",
+        "amount": 75000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Supervisa Canada",
+        "itemDescription": "Supervisa Canada",
+        "itemId": "445172000008947025",
+        "amount": 30000,
+        "country": "canada",
+        "service": "visit",
+        "addOn": false
+    },
+    {
+        "itemName": "Spouse EOI (MARA)",
+        "itemDescription": "Spouse EOI (MARA)",
+        "itemId": "445172000009264001",
+        "amount": 25000,
+        "country": "australia",
+        "service": "pr",
+        "addOn": false
+    },
+    {
+        "itemName": "Standard Business Sponser (MARA)",
+        "itemDescription": "Standard Business Sponser (MARA)",
+        "itemId": "445172000009699075",
+        "amount": 110000,
+        "country": "australia",
+        "service": "work",
+        "addOn": false
+    },
+    {
+        "itemName": "APHRA Registration (MARA)",
+        "itemDescription": "APHRA Registration (MARA)",
+        "itemId": "445172000010472001",
+        "amount": 25000,
+        "country": "australia",
+        "service": "work",
+        "addOn": false
+    },
+    {
+        "itemName": "MATES SC403 (MARA)",
+        "itemDescription": "MATES SC403 (MARA)",
+        "itemId": "445172000011422001",
+        "amount": 35000,
+        "country": "australia",
+        "service": "work",
+        "addOn": false
+    }
+]

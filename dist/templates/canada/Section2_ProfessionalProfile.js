@@ -1,0 +1,62 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Section2_ProfessionalProfile = Section2_ProfessionalProfile;
+const react_1 = __importDefault(require("react"));
+const SectionHeader_1 = require("../shared/SectionHeader");
+function Section2_ProfessionalProfile({ data }) {
+    return (react_1.default.createElement("div", { className: "section professional-profile" },
+        react_1.default.createElement(SectionHeader_1.SectionHeader, { number: "2", title: "Your Professional Profile" }),
+        react_1.default.createElement("div", { className: "subsection" },
+            react_1.default.createElement("h3", null, "2.1 Core Skills & Occupation Mapping (to NOC)"),
+            react_1.default.createElement("p", null, "Your profile maps to two primary Canadian NOC codes:"),
+            data.nocCodes.map((noc, index) => (react_1.default.createElement("div", { key: index, className: "card", style: { marginBottom: '16pt' } },
+                react_1.default.createElement("h4", { style: { color: '#0066CC', marginTop: 0 } },
+                    noc.type,
+                    ": ",
+                    noc.code,
+                    " \u2013 ",
+                    noc.title),
+                react_1.default.createElement("p", null,
+                    react_1.default.createElement("strong", null, "Definition:"),
+                    " ",
+                    noc.definition),
+                noc.alignment.length > 0 && (react_1.default.createElement(react_1.default.Fragment, null,
+                    react_1.default.createElement("p", null,
+                        react_1.default.createElement("strong", null, "Your Alignment:")),
+                    react_1.default.createElement("ul", null, noc.alignment.map((item, idx) => (react_1.default.createElement("li", { key: idx }, item)))))),
+                noc.credentialMatch.length > 0 && (react_1.default.createElement(react_1.default.Fragment, null,
+                    react_1.default.createElement("p", null,
+                        react_1.default.createElement("strong", null, "Credential Match:")),
+                    react_1.default.createElement("ul", { className: "checkmark-list" }, noc.credentialMatch.map((item, idx) => (react_1.default.createElement("li", { key: idx }, item)))))))))),
+        react_1.default.createElement("div", { className: "subsection" },
+            react_1.default.createElement("h3", null, "2.2 Years of Experience & Seniority Level"),
+            react_1.default.createElement("table", null,
+                react_1.default.createElement("tbody", null,
+                    react_1.default.createElement("tr", null,
+                        react_1.default.createElement("td", null,
+                            react_1.default.createElement("strong", null, "Total Years")),
+                        react_1.default.createElement("td", null, data.experienceMetrics.totalYears)),
+                    react_1.default.createElement("tr", null,
+                        react_1.default.createElement("td", null,
+                            react_1.default.createElement("strong", null, "Current Role")),
+                        react_1.default.createElement("td", null, data.experienceMetrics.currentRole)),
+                    react_1.default.createElement("tr", null,
+                        react_1.default.createElement("td", null,
+                            react_1.default.createElement("strong", null, "Seniority Level")),
+                        react_1.default.createElement("td", null, data.experienceMetrics.seniorityLevel)),
+                    react_1.default.createElement("tr", null,
+                        react_1.default.createElement("td", null,
+                            react_1.default.createElement("strong", null, "Age")),
+                        react_1.default.createElement("td", null, data.experienceMetrics.age)),
+                    react_1.default.createElement("tr", null,
+                        react_1.default.createElement("td", null,
+                            react_1.default.createElement("strong", null, "Age Advantage (CRS)")),
+                        react_1.default.createElement("td", null, data.experienceMetrics.ageAdvantage)))),
+            react_1.default.createElement("div", { className: "card", style: { marginTop: '12pt' } },
+                react_1.default.createElement("p", null,
+                    react_1.default.createElement("strong", null, "CRS Scoring Advantage:")),
+                react_1.default.createElement("p", null, data.experienceMetrics.crsAdvantage)))));
+}

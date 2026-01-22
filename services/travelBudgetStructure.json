@@ -1,0 +1,34 @@
+{
+    "totalAmount": 250000,
+    "note": "This budget outlines the total estimated costs for your travel, taking into account all necessary expenses.",
+    "breakDownByTravelers": {
+        "adult": { "totalAmount": 250000, "numberOfPeople": 1 },
+        "children": { "totalAmount": 0, "numberOfPeople": 0 },
+        "infant": { "totalAmount": 0, "numberOfPeople": 0 },
+        "note": "This breakdown shows the allocation of costs per traveler type."
+    },
+    "breakDownData": {
+        "flight": {
+            "name": "Flight",
+            "total": 30000,
+            "breakDownByTravelers": {
+                "adult": { "totalAmount": 30000, "numberOfPeople": 1 },
+                "children": { "totalAmount": 0, "numberOfPeople": 0 },
+                "infant": { "totalAmount": 0, "numberOfPeople": 0 }
+            },
+            "note": "This shows the total cost for flight expenses."
+        },
+        "accommodation": {
+            "name": "Accommodation",
+            "total": 30000,
+            "breakDownByTravelers": {
+                "adult": { "totalAmount": 30000, "numberOfPeople": 1 },
+                "children": { "totalAmount": 0, "numberOfPeople": 0 },
+                "infant": { "totalAmount": 0, "numberOfPeople": 0 }
+            },
+            "note": "This indicates the total accommodation costs for the trip.",
+            "hotelCostPerNight": 3000,
+            "numberOfNights": 10
+        }
+    }
+}
