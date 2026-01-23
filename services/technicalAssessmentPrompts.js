@@ -1,4 +1,4 @@
-export const masterContextPrompt = (profile) => {
+const masterContextPrompt = (profile) => {
   const masterPrompt = `
 You are an Australian immigration expert. The following profile is for an offshore candidate. Based on this profile: ${JSON.stringify(profile)}, analyze skilled migration eligibility for Australia, focusing on "currentDesignation" and "anzsco".
 
@@ -34,7 +34,7 @@ Do not include the client profile. No extra text, only JSON. Use only official l
   return masterPrompt;
 }
 
-export const profileSummaryPrompt = `
+const profileSummaryPrompt = `
 Using the client profile details provided in the system context, produce ONLY a markdown table with exactly two columns: Field and Value(in that order).
 
 Always list these fields in the following order:
@@ -67,10 +67,10 @@ If any of these extra fields have a value, include them in the order shown(after
 Leave the Value cell blank for any missing, null, or empty values.Return only the markdown table, no commentary or explanations.
 `;
 
-export const profileSummarySnapshotsPrompt = `Based on the JSON profile, produce up to 4 concise bullet points as a 'Profile Snapshot' for Australia PR technical assessment. Each point must be fact-focused (max 25 words) and use a dash (-) at the start. Cover, as relevant: education, work experience, English proficiency, skill assessment status/authority, partner status/English, Australian study/work experience. For education, if the field of study is available in the profile, show it as 'Bachelor Degree in [field]' (or appropriate degree level). If the field of study is not available or blank, show only the degree level (e.g., 'Bachelor Degree', 'Master Degree', 'PhD') without mentioning 'relevant field' or any placeholder text. Do NOT mention anything about medical notes or "spouse eligible for assessment" in any point, even if present in the input. Omit fields that are blank in the input. Return only the markdown bullet list—no commentary, intro, summary, or formatting characters. No asterisks, no special styles. If generating a markdown table, never exceed 11 rows (including the header row).`;
+const profileSummarySnapshotsPrompt = `Based on the JSON profile, produce up to 4 concise bullet points as a 'Profile Snapshot' for Australia PR technical assessment. Each point must be fact-focused (max 25 words) and use a dash (-) at the start. Cover, as relevant: education, work experience, English proficiency, skill assessment status/authority, partner status/English, Australian study/work experience. For education, if the field of study is available in the profile, show it as 'Bachelor Degree in [field]' (or appropriate degree level). If the field of study is not available or blank, show only the degree level (e.g., 'Bachelor Degree', 'Master Degree', 'PhD') without mentioning 'relevant field' or any placeholder text. Do NOT mention anything about medical notes or "spouse eligible for assessment" in any point, even if present in the input. Omit fields that are blank in the input. Return only the markdown bullet list—no commentary, intro, summary, or formatting characters. No asterisks, no special styles. If generating a markdown table, never exceed 11 rows (including the header row).`;
 
 
-export function prPathwayTablePrompt(eligibilityTableData) {
+function prPathwayTablePrompt(eligibilityTableData) {
   return `
 You are an Australian PR technical assessment assistant.
 
@@ -100,7 +100,7 @@ Return only the markdown table with a single correct header row. No commentary, 
 }
 
 
-export const prEligbilityPointsTablePrompt = `You are an Australian migration consultant. Based ONLY on the candidate profile provided in this chat context, estimate their PR points according to the official Australia SkillSelect points test for subclasses 189, 190, and 491.
+const prEligbilityPointsTablePrompt = `You are an Australian migration consultant. Based ONLY on the candidate profile provided in this chat context, estimate their PR points according to the official Australia SkillSelect points test for subclasses 189, 190, and 491.
 
 STRICT TABLE RULES:
 - Output ONE markdown table only.
@@ -190,7 +190,7 @@ OUTPUT FORMAT RULES:
 `;
 
 
-export function crossStateNominationTablePromptMaster() {
+function crossStateNominationTablePromptMaster() {
   return `
 Using your master prompt and up-to-date expert knowledge of Australian migration, generate a markdown table (no commentary, no headings before/after) summarizing for each Australian State and Territory:
   - State name
@@ -212,7 +212,7 @@ Requirements:
 `;
 }
 
-export const prLabourMarketOutlookByRegionPrompt = `
+const prLabourMarketOutlookByRegionPrompt = `
 Generate a markdown table showing the Australian labour market outlook for 2025 for THIS candidate's roles by state/territory.
 
 Format as:
@@ -228,7 +228,7 @@ Format as:
 - Do NOT add commentary, ANY headings, code fences, or explanation—output just the markdown table.
 `;
 
-export const prSalaryBenchmarkPrompt = `
+const prSalaryBenchmarkPrompt = `
 Generate a markdown table of IT / software engineering salary benchmarks for major regions/states in Australia for 2025.
 Output only the markdown table, with NO commentary, heading, or code fences.
 
@@ -240,7 +240,7 @@ Rows must include exactly 7 total: New South Wales, Victoria, Queensland, South 
 - Use 2025 sources (or the latest available if not).
 `;
 
-export const stepByStepPlanAndSlaPrompt = `
+const stepByStepPlanAndSlaPrompt = `
 Generate ONLY a markdown table for the Australia PR (Skilled migration) process, where NO cell value exceeds 30 characters. Customize the steps, skill assessing authority, prerequisites, and timelines for the candidate's skillAssessingAuthority from the profile context.
 
 Columns (all <30 chars): | Step | Action | Owner | Docs | ETA |
@@ -270,7 +270,7 @@ Do NOT include headings, commentary, introductions, or code fences—return ONLY
 `;
 
 
-export const riskRegistrationAndMitigationPrompt = `
+const riskRegistrationAndMitigationPrompt = `
 Create a markdown table listing 3–5 key risks for the Australia PR process, with columns: Risk | Likelihood | Impact | Mitigation.
 
 - Each risk must be practical and relevant for skilled PR applicants and the given profile skillAssessingAuthority.
@@ -279,6 +279,28 @@ Create a markdown table listing 3–5 key risks for the Australia PR process, wi
 - Do NOT include introductions, commentary, or code fences—output the markdown table ONLY.
 `;
 
-export const prOutcomeForecastPrompt = `
+const prOutcomeForecastPrompt = `
 List 4 concise markdown bullet points forecasting likely assessment outcomes for this Australia PR case. The final point must be a clear, pragmatic Recommendation based on the prior points(not repeating them verbatim).Do NOT use exclamation marks, no commentary or headings, and do not introduce or explain—output only the bullet points.
 `;
+
+// Aliases for backward compatibility
+const crossStateNominationTablePrompt = crossStateNominationTablePromptMaster;
+const prOutcomeForecast = prOutcomeForecastPrompt;
+const crossStateNominationTablePromptWithLatestInfo = crossStateNominationTablePromptMaster;
+
+module.exports = {
+  masterContextPrompt,
+  profileSummaryPrompt,
+  profileSummarySnapshotsPrompt,
+  prPathwayTablePrompt,
+  prEligbilityPointsTablePrompt,
+  crossStateNominationTablePrompt,
+  crossStateNominationTablePromptMaster,
+  crossStateNominationTablePromptWithLatestInfo,
+  prLabourMarketOutlookByRegionPrompt,
+  prSalaryBenchmarkPrompt,
+  stepByStepPlanAndSlaPrompt,
+  riskRegistrationAndMitigationPrompt,
+  prOutcomeForecast,
+  prOutcomeForecastPrompt,
+};

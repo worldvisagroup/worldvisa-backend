@@ -141,10 +141,11 @@ const PORT = process.env.PORT || 3000;
 let dbConnected = false;
 
 // Start server even if DB connection fails initially
-// This allows the app to start and health checks to report status
-server.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-  logger.info('Server started', { port: PORT, dbConnected: false });
+// Bind to 0.0.0.0 so reverse proxies (Dokploy/Traefik, etc.) can reach the app in containers
+// Heroku and other platforms work the same; no impact on existing deployments
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server is running on http://0.0.0.0:${PORT}`);
+  logger.info('Server started', { port: PORT, host: '0.0.0.0', dbConnected: false });
 });
 
 // Attempt MongoDB connection with retry logic
@@ -193,6 +194,8 @@ const io = new Server(server, {
   cors: {
     origin: [
       'https://dms.worldvisagroup.com',
+      'https://admin.worldvisa-api.cloud',
+      'https://backend.worldvisa-api.cloud',
       'http://localhost:3000',
       'http://localhost:3002'
     ],
@@ -234,6 +237,8 @@ app.use(cors({
   origin: [
     'https://worldvisagroup.com',
     'https://dms.worldvisagroup.com',
+    'https://admin.worldvisa-api.cloud',
+    'https://backend.worldvisa-api.cloud',
     'http://localhost:3000',
     'http://localhost:3001',
     'http://localhost:3002'
@@ -252,8 +257,9 @@ app.options('*', (req, res) => {
   res.status(200).end();
 });
 
-// Logging middleware
+// Logging middleware (skip /health to avoid log noise from probes)
 app.use((req, res, next) => {
+  if (req.path === '/health') return next();
   console.log(`API Call: ${req.method} ${req.originalUrl}`);
   console.log('content-type:', req.headers['content-type']);
   console.log('origin:', req.headers['origin']);
@@ -263,6 +269,17 @@ app.use((req, res, next) => {
 
 app.get("/", async (req, res) => {
   res.send("API is working!");
+});
+
+// Liveness/readiness for Dokploy, load balancers, k8s. Always 200 when process is up.
+// Includes database status for ops visibility; app runs without DB so we never fail health.
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    uptime: Math.floor(process.uptime()),
+    database: dbConnected ? 'connected' : 'disconnected',
+  });
 });
 
 app.get("/ipinfo", async (req, res) => {

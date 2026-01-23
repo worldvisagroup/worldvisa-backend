@@ -1,7 +1,7 @@
-import axios from "axios";
-import { getAccessToken, refreshAccessToken } from "./zohoAuth.js";
+const axios = require("axios");
+const { getAccessToken, refreshAccessToken } = require("./zohoAuth");
 
-export async function zohoRequest(endpoint, method = "GET", data = null) {
+async function zohoRequest(endpoint, method = "GET", data = null) {
   let token = await getAccessToken();
   if (!token) throw new Error("No access token available");
 
@@ -29,4 +29,7 @@ export async function zohoRequest(endpoint, method = "GET", data = null) {
   }
 }
 
+module.exports = {
+  zohoRequest,
+};
 

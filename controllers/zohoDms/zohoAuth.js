@@ -1,6 +1,6 @@
-import axios from "axios";
-import dotenv from "dotenv";
-import ZohoToken from "../../models/zohoToken.js";
+const axios = require("axios");
+const dotenv = require("dotenv");
+const ZohoToken = require("../../models/zohoToken");
 
 dotenv.config();
 
@@ -31,7 +31,7 @@ async function getTokensFromDB() {
   }
 }
 
-export async function exchangeCodeForTokens(code) {
+async function exchangeCodeForTokens(code) {
   const response = await axios.post(
     `https://accounts.zoho.${process.env.ZOHO_DC}/oauth/v2/token`,
     new URLSearchParams({
@@ -50,7 +50,7 @@ export async function exchangeCodeForTokens(code) {
   return response.data;
 }
 
-export async function refreshAccessToken() {
+async function refreshAccessToken() {
   const { refreshToken } = await getTokensFromDB();
   if (!refreshToken) throw new Error("No refresh token stored yet");
 
@@ -71,13 +71,13 @@ export async function refreshAccessToken() {
   return tokens.accessToken;
 }
 
-export async function getAccessToken() {
+async function getAccessToken() {
   const { accessToken } = await getTokensFromDB();
   return accessToken;
 }
 
 // This function is now redundant as exchangeCodeForTokens handles saving.
-export async function storeTokens(tokens) {
+async function storeTokens(tokens) {
   const existingTokens = await getTokensFromDB();
   const newTokens = {
     accessToken: tokens.access_token,
@@ -85,3 +85,10 @@ export async function storeTokens(tokens) {
   };
   await saveTokensToDB(newTokens);
 }
+
+module.exports = {
+  exchangeCodeForTokens,
+  refreshAccessToken,
+  getAccessToken,
+  storeTokens,
+};

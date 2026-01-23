@@ -1,0 +1,41 @@
+# Dependencies and build artifacts (rebuilt in image)
+node_modules/
+dist/
+
+# Git and IDE
+.git/
+.gitignore
+.cursor/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Env files (inject at runtime via Dokploy/Heroku)
+.env
+.env.*
+!.env.example
+
+# Logs and runtime
+logs/
+*.log
+npm-debug.log*
+.pids
+*.pid
+coverage/
+.nyc_output/
+
+# OS and misc
+.DS_Store
+Thumbs.db
+*.tgz
+.npm
+.node_repl_history
+
+# Docs and tests (not needed at runtime)
+docs/
+*.md
+!README.md
+__tests__/
+*.test.js
+*.spec.js
