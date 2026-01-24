@@ -362,12 +362,12 @@ exports.getComments = async (req, res) => {
   try {
     const { docId } = req.params;
 
-    const document = await dmsZohoDocument.findById(docId).lean();
+    const document = await dmsZohoDocument.findById(docId).select('comments').lean();
     if (!document) {
       return res.status(404).json({ success: false, message: 'Document not found.' });
     }
 
-    res.status(200).json({ success: true, data: document.comments });
+    res.status(200).json({ success: true, data: document.comments ?? [] });
   } catch (error) {
     console.error('Error retrieving comments from document:', error);
     res.status(500).json({ success: false, message: 'Failed to retrieve comments.' });
@@ -379,13 +379,14 @@ exports.addComment = async (req, res) => {
     const { docId } = req.params;
     const { comment, added_by } = req.body;
 
-    const document = await dmsZohoDocument.findById(docId);
+    const document = await dmsZohoDocument.findOneAndUpdate(
+      { _id: docId },
+      { $push: { comments: { comment, added_by: added_by || 'Unknown' } } },
+      { new: true }
+    );
     if (!document) {
       return res.status(404).json({ success: false, message: 'Document not found.' });
     }
-
-    document.comments.push({ comment, added_by: added_by || 'Unknown' });
-    await document.save();
 
     if (document?.record_id) {
       const clientData = await DmsZohoClient.findOne({ lead_id: document.record_id });
@@ -418,21 +419,14 @@ exports.editComment = async (req, res) => {
     const { docId } = req.params;
     const { commentId, comment: newComment, edited_by } = req.body;
 
-    const document = await dmsZohoDocument.findById(docId);
+    const document = await dmsZohoDocument.findOneAndUpdate(
+      { _id: docId, 'comments._id': commentId },
+      { $set: { 'comments.$.comment': newComment, 'comments.$.edited_by': edited_by || 'Unknown', 'comments.$.edited_at': new Date() } },
+      { new: true }
+    );
     if (!document) {
-      return res.status(404).json({ success: false, message: 'Document not found.' });
-    }
-
-    const comment = document.comments.id(commentId);
-    if (!comment) {
       return res.status(404).json({ success: false, message: 'Comment not found.' });
     }
-
-    comment.comment = newComment;
-    comment.edited_by = edited_by || 'Unknown';
-    comment.edited_at = new Date();
-
-    await document.save();
 
     res.status(200).json({ success: true, data: document });
   } catch (error) {
@@ -446,18 +440,14 @@ exports.deleteComment = async (req, res) => {
     const { docId } = req.params;
     const { commentId } = req.body;
 
-    const document = await dmsZohoDocument.findById(docId);
-    if (!document) {
-      return res.status(404).json({ success: false, message: 'Document not found.' });
-    }
-
-    const commentIndex = document.comments.findIndex(comment => comment._id.toString() === commentId);
-    if (commentIndex === -1) {
+    const result = await dmsZohoDocument.findOneAndUpdate(
+      { _id: docId, 'comments._id': commentId },
+      { $pull: { comments: { _id: commentId } } },
+      { new: false }
+    );
+    if (!result) {
       return res.status(404).json({ success: false, message: 'Comment not found.' });
     }
-
-    document.comments.splice(commentIndex, 1);
-    await document.save();
 
     res.status(200).json({ success: true, message: 'Comment deleted successfully.' });
   } catch (error) {
