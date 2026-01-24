@@ -5,130 +5,102 @@ const { REQ_MODULE_VISA_APPLICATION, MODULE_VISA_APPLICATION, REQ_MODULE_SPOUSE_
 // Function to get filtered Visa Applications for a user
 async function getFilteredVisaApplications(username, role, page = 1, limit = 10, startDate, endDate, giveMine, recentActivity, handledBy) {
   const offset = (page - 1) * limit;
-  let baseQuery = '';
-  let countQuery = '';
-
-  baseQuery = `select Name, id, Application_Handled_By, Created_Time, Email, Phone, Quality_Check_From, DMS_Application_Status, Package_Finalize, Checklist_Requested, Deadline_For_Lodgment, Record_Type, Recent_Activity, Application_Stage, Application_State, Service_Finalized, Qualified_Country from Visa_Applications`;
-  // Query to get the total count of records using COUNT function with GROUP BY
-  countQuery = `select COUNT(id) as total from Visa_Applications`;
-
-  // users: if username !== 'admin' add Application_Handled_By or don't add any thing
+  
+  // Build query conditions
+  const conditions = [];
+  let hasWhereClause = false;
+  
+  // Role-based filtering - add WHERE clause
   if (role === "admin" || (giveMine && giveMine === 'true')) {
-    baseQuery += ` where Application_Handled_By like '${username}'`;
-    countQuery += ` where Application_Handled_By like '${username}'`;
-
-    if (startDate && endDate) {
-      const startStr = `${startDate}T00:00:00+00:00`;
-      const endStr = `${endDate}T23:59:59+00:00`;
-      baseQuery += ` and (Created_Time >= '${startStr}' and Created_Time <= '${endStr}')`
-      countQuery += ` and (Created_Time >= '${startStr}' and Created_Time <= '${endStr}')`
-    } else if (startDate) {
-      // Case 2: Only start date is provided (records on that specific day)
-      const startStr = `${startDate}T00:00:00+00:00`;
-
-      baseQuery += ` and (Created_Time >= '${startStr}')`;
-      countQuery += ` and (Created_Time >= '${startStr}')`;
-    } else if (endDate) {
-      // Case 3: Only end date is provided (records up to that day)
-      const endStr = `${endDate}T23:59:59+00:00`;
-      baseQuery += ` and Created_Time <= '${endStr}'`;
-      countQuery += ` and Created_Time <= '${endStr}'`;
+    conditions.push(`Application_Handled_By like '${username}'`);
+    hasWhereClause = true;
+  }
+  
+  // Date filtering
+  if (startDate && endDate) {
+    const startStr = `${startDate}T00:00:00+00:00`;
+    const endStr = `${endDate}T23:59:59+00:00`;
+    const dateCondition = `(Created_Time >= '${startStr}' and Created_Time <= '${endStr}')`;
+    
+    if (hasWhereClause) {
+      conditions.push(dateCondition);
+    } else {
+      conditions.push(dateCondition);
+      hasWhereClause = true;
     }
-
-  } else {
-    // admins
-    if (startDate && endDate) {
-      const startStr = `${startDate}T00:00:00+00:00`;
-      const endStr = `${endDate}T23:59:59+00:00`;
-
-      baseQuery += ` where (Created_Time >= '${startStr}' and Created_Time <= '${endStr}')`
-      countQuery += ` where (Created_Time >= '${startStr}' and Created_Time <= '${endStr}')`
-    } else if (startDate) {
-      // Case 2: Only start date is provided (records on that specific day)
-      const startStr = `${startDate}T00:00:00+00:00`;
-
-      baseQuery += ` where (Created_Time >= '${startStr}')`;
-      countQuery += ` where (Created_Time >= '${startStr}')`;
-    } else if (endDate) {
-      // Case 3: Only end date is provided (records up to that day)
-      const endStr = `${endDate}T23:59:59+00:00`;
-      baseQuery += ` where Created_Time <= '${endStr}'`;
-      countQuery += ` where Created_Time <= '${endStr}'`;
+  } else if (startDate) {
+    const startStr = `${startDate}T00:00:00+00:00`;
+    const dateCondition = `Created_Time >= '${startStr}'`;
+    
+    if (hasWhereClause) {
+      conditions.push(dateCondition);
+    } else {
+      conditions.push(dateCondition);
+      hasWhereClause = true;
     }
-    else {
-      baseQuery += ` where id is not null`
-      countQuery += ` where id is not null`
+  } else if (endDate) {
+    const endStr = `${endDate}T23:59:59+00:00`;
+    const dateCondition = `Created_Time <= '${endStr}'`;
+    
+    if (hasWhereClause) {
+      conditions.push(dateCondition);
+    } else {
+      conditions.push(dateCondition);
+      hasWhereClause = true;
     }
   }
-
-  // Filters by Application_State, Qualified_Country, Application_Stage and Service_Finalized
-  const filterByActiveApplications = ` and ((((Application_State = 'Active')`;
-  const filterByCountryFinalised = ` and (Qualified_Country = 'Australia'))`;
-  const filterByApplicationApprovedStage = ` and (Application_Stage in ('Stage 1 Documentation: Approved', 'Stage 1 Documentation: Rejected', 'Stage 1 Milestone Completed', 'Stage 1 Documentation Reviewed', 'Skill Assessment Stage')))`;
-
-  let filterByServiceFinalised = '';
-  let filterByApplicationHandledBy = '';
-
+  
+  // If no WHERE clause yet, add default
+  if (!hasWhereClause) {
+    conditions.push(`id is not null`);
+  }
+  
+  // Build WHERE clause
+  const whereClause = ` where ${conditions.join(' and ')}`;
+  
+  // Core filters with correct parentheses matching your working code
+  let coreFilters = ` and ((((Application_State = 'Active')`;
+  coreFilters += ` and (Qualified_Country = 'Australia'))`;
+  
+  // Service Finalized and Application Handled By logic
   if ((role === "admin" || role === "master_admin") && handledBy) {
-    filterByServiceFinalised = ` and ((Service_Finalized = 'Permanent Residency')`
-
+    coreFilters += ` and ((Service_Finalized = 'Permanent Residency')`;
+    
     const handledByList = handledBy.split(',').map(h => h.trim()).join("', '");
-
-    filterByApplicationHandledBy = ` and (Application_Handled_By in ('${handledByList}'))))`
+    coreFilters += ` and (Application_Handled_By in ('${handledByList}'))))`;
   } else {
-    filterByServiceFinalised = ` and (Service_Finalized = 'Permanent Residency'))`
+    coreFilters += ` and (Service_Finalized = 'Permanent Residency'))`;
   }
-
-  // Active Applications
-  countQuery += filterByActiveApplications;
-  baseQuery += filterByActiveApplications;
-
-  // Qualified Country
-  countQuery += filterByCountryFinalised;
-  baseQuery += filterByCountryFinalised;
-
-  // Service Finalised
-  countQuery += filterByServiceFinalised;
-  baseQuery += filterByServiceFinalised;
-
-  if ((role === "admin" || role === "master_admin") && handledBy) {
-    // Application Handled By
-    countQuery += filterByApplicationHandledBy;
-    baseQuery += filterByApplicationHandledBy;
-  }
-
-  // Application Approved Stage
-  countQuery += filterByApplicationApprovedStage;
-  baseQuery += filterByApplicationApprovedStage;
-
-
+  
+  // Application Stage filter
+  coreFilters += ` and (Application_Stage in ('Stage 1 Documentation: Approved', 'Stage 1 Documentation: Rejected', 'Stage 1 Milestone Completed', 'Stage 1 Documentation Reviewed', 'Skill Assessment Stage')))`;
+  
+  // Count query
+  let countQuery = `select COUNT(id) as total from Visa_Applications${whereClause}${coreFilters}`;
+  
   if (role === "admin") {
     countQuery += ` group by Application_Handled_By`;
   }
-
-  const countCoqlQuery = {
-    "select_query": countQuery
-  };
-
-  const countResponse = await zohoRequest("coql", "POST", countCoqlQuery);
-
+  
+  // Base select query
+  const baseQuery = `select Name, id, Application_Handled_By, Created_Time, Email, Phone, Quality_Check_From, DMS_Application_Status, Package_Finalize, Checklist_Requested, Deadline_For_Lodgment, Record_Type, Recent_Activity, Application_Stage, Application_State, Service_Finalized, Qualified_Country from Visa_Applications${whereClause}${coreFilters}`;
+  
+  // Sort and pagination
+  const orderBy = (recentActivity === 'true') ? 'Recent_Activity' : 'Created_Time';
+  const finalQuery = `${baseQuery} order by ${orderBy} desc limit ${limit} offset ${offset}`;
+  
+  // Execute both queries in parallel
+  const [countResponse, zohoResponse] = await Promise.all([
+    zohoRequest("coql", "POST", { select_query: countQuery }),
+    zohoRequest("coql", "POST", { select_query: finalQuery })
+  ]);
+  
   const totalRecords = countResponse?.data?.[0]?.total || 0;
-
-  // Sort by Recent_Activity if recentActivity is 'true', otherwise by Created_Time
-  if (recentActivity && recentActivity === 'true') {
-    baseQuery += ` order by Recent_Activity desc limit ${limit} offset ${offset}`;
-  } else {
-    baseQuery += ` order by Created_Time desc limit ${limit} offset ${offset}`;
-  }
-
-  const coqlQuery = {
-    "select_query": baseQuery
+  
+  return { 
+    data: zohoResponse?.data || [], 
+    info: { count: totalRecords } 
   };
-
-  // The zohoRequest returns the full response body, which includes 'data' and 'info' keys for COQL queries.
-  const zohoResponse = await zohoRequest("coql", "POST", coqlQuery);
-  // Ensure we always return a predictable structure, even if Zoho returns nothing.
-  return { data: zohoResponse?.data || [], info: { count: totalRecords } };
 }
 
 const getApplicationsWithAttachments = async (req, res) => {
@@ -137,7 +109,17 @@ const getApplicationsWithAttachments = async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 10;
     const { startDate, endDate, giveMine, recentActivity, handledBy } = req.query;
 
-    const { data: filteredApplications, info } = await getFilteredVisaApplications(req.user.username, req.user.role, page, limit, startDate, endDate, giveMine, recentActivity, handledBy);
+    const { data: filteredApplications, info } = await getFilteredVisaApplications(
+      req.user.username, 
+      req.user.role, 
+      page, 
+      limit, 
+      startDate, 
+      endDate, 
+      giveMine, 
+      recentActivity, 
+      handledBy
+    );
 
     if (!filteredApplications || filteredApplications.length === 0) {
       return res.json({
@@ -151,24 +133,32 @@ const getApplicationsWithAttachments = async (req, res) => {
       });
     }
 
-    const applicationsWithAttachments = [];
-    const batchSize = 10; // This batching is for the internal MongoDB queries, it's fine to keep.
-
-    for (let i = 0; i < filteredApplications.length; i += batchSize) {
-      const batch = filteredApplications.slice(i, i + batchSize);
-
-      const batchPromises = batch.map(async (app) => {
-        // Fetch documents from dmsZohoDocument for each application
-        const documentsCount = await dmsZohoDocument.countDocuments({ record_id: app.id });
-        return {
-          ...app,
-          AttachmentCount: documentsCount, // Add the document count to the application object
-        };
-      });
-
-      const batchResults = await Promise.all(batchPromises);
-      applicationsWithAttachments.push(...batchResults);
-    }
+    const recordIds = filteredApplications.map(app => app.id);
+    
+    const attachmentCounts = await dmsZohoDocument.aggregate([
+      {
+        $match: {
+          record_id: { $in: recordIds }
+        }
+      },
+      {
+        $group: {
+          _id: '$record_id',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    // Create a lookup map for O(1) access
+    const countMap = new Map(
+      attachmentCounts.map(item => [item._id, item.count])
+    );
+    
+    // Attach counts to applications
+    const applicationsWithAttachments = filteredApplications.map(app => ({
+      ...app,
+      AttachmentCount: countMap.get(app.id) || 0
+    }));
 
     res.json({
       data: applicationsWithAttachments,
@@ -180,8 +170,11 @@ const getApplicationsWithAttachments = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error(err.response?.data || err.message);
-    res.status(500).send("Failed to fetch visa applications");
+    console.error('Error fetching visa applications:', err.response?.data || err.message);
+    res.status(500).json({ 
+      error: "Failed to fetch visa applications",
+      message: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 
@@ -263,91 +256,61 @@ const getVisaApplication = async (req, res) => {
 
 async function getFilteredSpouseApplications(username, role, page = 1, limit = 10, startDate, endDate, giveMine, recentActivity) {
   const offset = (page - 1) * limit;
-  let baseQuery = '';
-  let countQuery = '';
-
-  baseQuery = `select Name, id, Application_Handled_By, Created_Time, Email, Phone, Quality_Check_From, DMS_Application_Status, Package_Finalize, Checklist_Requested, Deadline_For_Lodgment, Record_Type, Recent_Activity, Application_Stage, Suggested_Anzsco, Assessing_Authority, Service_Finalized, Main_Applicant from Spouse_Skill_Assessment`;
-  // Query to get the total count of records using COUNT function with GROUP BY
-  countQuery = `select COUNT(id) as total from Spouse_Skill_Assessment`;
-
-  // users: if username !== 'admin' add Application_Handled_By or don't add any thing
-  if (role === "admin" || giveMine && giveMine === 'true') {
-    baseQuery += ` where Application_Handled_By like '${username}'`;
-    countQuery += ` where Application_Handled_By like '${username}'`;
-
-    if (startDate && endDate) {
-      const startStr = `${startDate}T00:00:00+00:00`;
-      const endStr = `${endDate}T23:59:59+00:00`;
-      baseQuery += ` and (Created_Time >= '${startStr}' and Created_Time <= '${endStr}')`
-      countQuery += ` and (Created_Time >= '${startStr}' and Created_Time <= '${endStr}')`
-    } else if (startDate) {
-      // Case 2: Only start date is provided (records on that specific day)
-      const startStr = `${startDate}T00:00:00+00:00`;
-
-      baseQuery += ` and (Created_Time >= '${startStr}')`;
-      countQuery += ` and (Created_Time >= '${startStr}')`;
-    } else if (endDate) {
-      // Case 3: Only end date is provided (records up to that day)
-      const endStr = `${endDate}T23:59:59+00:00`;
-      baseQuery += ` and Created_Time <= '${endStr}'`;
-      countQuery += ` and Created_Time <= '${endStr}'`;
-    }
-
-  } else {
-    // admins
-    if (startDate && endDate) {
-      const startStr = `${startDate}T00:00:00+00:00`;
-      const endStr = `${endDate}T23:59:59+00:00`;
-
-      baseQuery += ` where (Created_Time >= '${startStr}' and Created_Time <= '${endStr}')`
-      countQuery += ` where (Created_Time >= '${startStr}' and Created_Time <= '${endStr}')`
-    } else if (startDate) {
-      // Case 2: Only start date is provided (records on that specific day)
-      const startStr = `${startDate}T00:00:00+00:00`;
-
-      baseQuery += ` where (Created_Time >= '${startStr}')`;
-      countQuery += ` where (Created_Time >= '${startStr}')`;
-    } else if (endDate) {
-      // Case 3: Only end date is provided (records up to that day)
-      const endStr = `${endDate}T23:59:59+00:00`;
-      baseQuery += ` where Created_Time <= '${endStr}'`;
-      countQuery += ` where Created_Time <= '${endStr}'`;
-    }
-    else {
-      baseQuery += ` where id is not null`
-      countQuery += ` where id is not null`
-    }
+  
+  const conditions = [];
+  let hasWhereClause = false;
+  
+  // Role-based filtering - add WHERE clause
+  if (role === "admin" || (giveMine && giveMine === 'true')) {
+    conditions.push(`Application_Handled_By like '${username}'`);
+    hasWhereClause = true;
   }
-
-
+  
+  if (startDate && endDate) {
+    const startStr = `${startDate}T00:00:00+00:00`;
+    const endStr = `${endDate}T23:59:59+00:00`;
+    conditions.push(`(Created_Time >= '${startStr}' and Created_Time <= '${endStr}')`);
+    if (!hasWhereClause) hasWhereClause = true;
+  } else if (startDate) {
+    const startStr = `${startDate}T00:00:00+00:00`;
+    conditions.push(`Created_Time >= '${startStr}'`);
+    if (!hasWhereClause) hasWhereClause = true;
+  } else if (endDate) {
+    const endStr = `${endDate}T23:59:59+00:00`;
+    conditions.push(`Created_Time <= '${endStr}'`);
+    if (!hasWhereClause) hasWhereClause = true;
+  }
+  
+  if (!hasWhereClause) {
+    conditions.push(`id is not null`);
+  }
+  
+  // Build WHERE clause
+  const whereClause = ` where ${conditions.join(' and ')}`;
+  
+  // Count query
+  let countQuery = `select COUNT(id) as total from Spouse_Skill_Assessment${whereClause}`;
+  
   if (role === "admin") {
     countQuery += ` group by Application_Handled_By`;
   }
-
-  const countCoqlQuery = {
-    "select_query": countQuery
-  };
-
-  const countResponse = await zohoRequest("coql", "POST", countCoqlQuery);
-
+  
+  const baseQuery = `select Name, id, Application_Handled_By, Created_Time, Email, Phone, Quality_Check_From, DMS_Application_Status, Package_Finalize, Checklist_Requested, Deadline_For_Lodgment, Record_Type, Recent_Activity, Application_Stage, Suggested_Anzsco, Assessing_Authority, Service_Finalized, Main_Applicant from Spouse_Skill_Assessment${whereClause}`;
+  
+  const orderBy = (recentActivity === 'true') ? 'Recent_Activity' : 'Created_Time';
+  const finalQuery = `${baseQuery} order by ${orderBy} desc limit ${limit} offset ${offset}`;
+  
+  const [countResponse, zohoResponse] = await Promise.all([
+    zohoRequest("coql", "POST", { select_query: countQuery }),
+    zohoRequest("coql", "POST", { select_query: finalQuery })
+  ]);
+  
   const totalRecords = countResponse?.data?.[0]?.total || 0;
-
-  // Determine order by field: if recentActivity is 'true', order by Recent_Activity, else by Created_Time
-  let orderByField = "Created_Time";
-  if (recentActivity && recentActivity === 'true') {
-    orderByField = "Recent_Activity";
-  }
-
-  baseQuery += ` order by ${orderByField} desc limit ${limit} offset ${offset}`;
-
-  const coqlQuery = {
-    "select_query": baseQuery
+  
+  return { 
+    data: zohoResponse?.data || [], 
+    info: { count: totalRecords } 
   };
-
-  // The zohoRequest returns the full response body, which includes 'data' and 'info' keys for COQL queries.
-  const zohoResponse = await zohoRequest("coql", "POST", coqlQuery);
-  // Ensure we always return a predictable structure, even if Zoho returns nothing.
-  return { data: zohoResponse?.data || [], info: { count: totalRecords } };
 }
 
 const getSpouseApplicationsWithAttachments = async (req, res) => {
@@ -356,7 +319,17 @@ const getSpouseApplicationsWithAttachments = async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 10;
     const { startDate, endDate, giveMine, recentActivity } = req.query;
 
-    const { data: filteredApplications, info } = await getFilteredSpouseApplications(req.user.username, req.user.role, page, limit, startDate, endDate, giveMine, recentActivity);
+    // Fetch applications from Zoho
+    const { data: filteredApplications, info } = await getFilteredSpouseApplications(
+      req.user.username, 
+      req.user.role, 
+      page, 
+      limit, 
+      startDate, 
+      endDate, 
+      giveMine, 
+      recentActivity
+    );
 
     if (!filteredApplications || filteredApplications.length === 0) {
       return res.json({
@@ -370,24 +343,32 @@ const getSpouseApplicationsWithAttachments = async (req, res) => {
       });
     }
 
-    const applicationsWithAttachments = [];
-    const batchSize = 10; // This batching is for the internal MongoDB queries, it's fine to keep.
-
-    for (let i = 0; i < filteredApplications.length; i += batchSize) {
-      const batch = filteredApplications.slice(i, i + batchSize);
-
-      const batchPromises = batch.map(async (app) => {
-        // Fetch documents from dmsZohoDocument for each application
-        const documentsCount = await dmsZohoDocument.countDocuments({ record_id: app.id });
-        return {
-          ...app,
-          AttachmentCount: documentsCount, // Add the document count to the application object
-        };
-      });
-
-      const batchResults = await Promise.all(batchPromises);
-      applicationsWithAttachments.push(...batchResults);
-    }
+    const recordIds = filteredApplications.map(app => app.id);
+    
+    const attachmentCounts = await dmsZohoDocument.aggregate([
+      {
+        $match: {
+          record_id: { $in: recordIds }
+        }
+      },
+      {
+        $group: {
+          _id: '$record_id',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    // Create a Map for O(1) lookups
+    const countMap = new Map(
+      attachmentCounts.map(item => [item._id, item.count])
+    );
+    
+    // Merge attachment counts with applications
+    const applicationsWithAttachments = filteredApplications.map(app => ({
+      ...app,
+      AttachmentCount: countMap.get(app.id) || 0
+    }));
 
     res.json({
       data: applicationsWithAttachments,
@@ -398,9 +379,13 @@ const getSpouseApplicationsWithAttachments = async (req, res) => {
         limit,
       },
     });
+    
   } catch (err) {
-    console.error(err.response?.data || err.message);
-    res.status(500).send("Failed to fetch visa applications");
+    console.error('Error fetching spouse applications:', err.response?.data || err.message);
+    res.status(500).json({ 
+      error: "Failed to fetch spouse applications",
+      message: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 
