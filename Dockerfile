@@ -5,9 +5,14 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Build deps for sharp (node-gyp) when prebuild download fails (e.g. ECONNRESET in CI)
+RUN apk add --no-cache python3 build-base
+
 # Install production deps only
 COPY package*.json ./
 RUN npm ci --omit=dev
+
+RUN apk del python3 build-base
 
 # Copy app and build templates (required for PDF generation)
 COPY . .
