@@ -14,7 +14,18 @@ const APPLICATION_STAGES = [
   'Stage 1 Documentation: Rejected',
   'Stage 1 Milestone Completed',
   'Stage 1 Documentation Reviewed',
-  'Skill Assessment Stage'
+  'Skill Assessment Stage',
+  'Language Test',
+  'Lodge Application 1',
+  'Lodge Application 2',
+  'Lodge Application 3',
+  'Lodge Application 4',
+  'INIVITATION TO APPLY',
+  'Invitation to Apply',
+  'Invitation to Apply 2',
+  'VA Application Lodge',
+  'Stage 3 Documentation: Approved',
+  'Stage 3 Visa Application'
 ];
 
 // Pagination limits

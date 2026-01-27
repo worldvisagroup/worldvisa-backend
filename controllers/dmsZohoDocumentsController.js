@@ -975,7 +975,7 @@ exports.searchZohoApplications = async (req, res) => {
     // Filters by Application_State, Qualified_Country, Application_Stage and Service_Finalized
     const filterByActiveApplications = ` and((((Application_State = 'Active')`;
     const filterByCountryFinalised = ` and(Qualified_Country = 'Australia'))`;
-    const filterByApplicationApprovedStage = `and(Application_Stage in ('Stage 1 Documentation: Approved', 'Stage 1 Documentation: Rejected', 'Stage 1 Milestone Completed', 'Stage 1 Documentation Reviewed', 'Skill Assessment Stage')))`;
+    const filterByApplicationApprovedStage = `and(Application_Stage in ('Stage 1 Documentation: Approved', 'Stage 1 Documentation: Rejected', 'Stage 1 Milestone Completed', 'Stage 1 Documentation Reviewed', 'Skill Assessment Stage', 'Language Test', 'Lodge Application 1', 'Lodge Application 2', 'Lodge Application 3', 'Lodge Application 4','INIVITATION TO APPLY', 'Invitation to Apply', 'Invitation to Apply 2', 'VA Application Lodge', 'Stage 3 Documentation: Approved', 'Stage 3 Visa Application')))`;
     const filterByServiceFinalised = ` and(Service_Finalized = 'Permanent Residency'))`
 
     // Active Applications
