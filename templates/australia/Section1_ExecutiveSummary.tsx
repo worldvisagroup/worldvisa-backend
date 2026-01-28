@@ -11,28 +11,10 @@ export function Section1_ExecutiveSummary({ data }: Props) {
     <div className="section executive-summary page">
       <SectionHeader number="1" title="Executive Summary" />
 
-      {/* Purpose */}
-      <div className="subsection">
-        <h3>1.1 Purpose of This Report</h3>
-        <p>{data.purpose}</p>
-      </div>
-
-      {/* Why Australia Section */}
-      {data.whyAustralia && data.whyAustralia.length > 0 && (
-        <div className="subsection">
-          <h3>1.2 Why Australia?</h3>
-          <ul className="checkmark-list">
-            {data.whyAustralia.map((reason, index) => (
-              <li key={index}>{reason}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
       {/* Key Highlights */}
       {data.keyHighlights && data.keyHighlights.length > 0 && (
         <div className="subsection">
-          <h3>1.3 Key Highlights</h3>
+          <h3>1.1 Key Highlights</h3>
           <div style={{
             background: '#EBF5FF',
             padding: '16pt',
@@ -53,7 +35,7 @@ export function Section1_ExecutiveSummary({ data }: Props) {
       {/* Profile Strengths */}
       {data.profileStrengths && data.profileStrengths.length > 0 && (
         <div className="subsection">
-          <h3>1.4 Your Profile Strengths</h3>
+          <h3>1.2 Your Profile Strengths</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12pt' }}>
             {data.profileStrengths.map((strength, index) => (
               <div
@@ -80,7 +62,7 @@ export function Section1_ExecutiveSummary({ data }: Props) {
       {/* Market Trends */}
       {data.marketTrends && (
         <div className="subsection">
-          <h3 style={{ marginBottom: '10pt' }}>1.5 Australian Tech Market Trends</h3>
+          <h3 style={{ marginBottom: '10pt' }}>1.3 Australian Tech Market Trends</h3>
           <div style={{
             background: '#FFFBEB',
             border: '1pt solid #FCD34D',
@@ -93,6 +75,24 @@ export function Section1_ExecutiveSummary({ data }: Props) {
           </div>
         </div>
       )}
+
+      {/* Why Australia Section */}
+      {data.whyAustralia && data.whyAustralia.length > 0 && (
+        <div className="subsection">
+          <h3>1.4 Why Australia?</h3>
+          <ul className="checkmark-list">
+            {data.whyAustralia.map((reason, index) => (
+              <li key={index}>{reason}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Purpose */}
+      <div className="subsection">
+        <h3>1.5 Purpose of This Report</h3>
+        <p>{data.purpose}</p>
+      </div>
 
       {/* Top Visa Pathways */}
       <div className="subsection">

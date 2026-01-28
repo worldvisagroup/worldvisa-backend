@@ -92,7 +92,7 @@ export function Section3_VisaPathways({ data }: Props) {
                     fontSize: '9pt',
                     fontWeight: '600'
                   }}>
-                    Subclass {pathway.subclass}
+                    {pathway.subclass}
                   </span>
                   <span style={{
                     background: '#D1FAE5',
