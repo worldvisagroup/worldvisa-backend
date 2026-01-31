@@ -60,6 +60,7 @@ const mcubeApiKeyMiddleware = helperFunctions.mcubeApiKeyMiddleware;
 
 const mongoose = require("mongoose");
 const fetchToken = helperFunctions.fetchToken;
+const { getRedisStatus } = require("./services/redis");
 
 process.on('uncaughtException', (error) => {
   logger.error('Uncaught Exception - Application will exit', {
@@ -279,6 +280,7 @@ app.get("/health", (req, res) => {
     timestamp: new Date().toISOString(),
     uptime: Math.floor(process.uptime()),
     database: dbConnected ? 'connected' : 'disconnected',
+    redis: getRedisStatus(),
   });
 });
 

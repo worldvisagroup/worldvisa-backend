@@ -68,9 +68,7 @@ function Section3_VisaPathways({ data }) {
                                     borderRadius: '12pt',
                                     fontSize: '9pt',
                                     fontWeight: '600'
-                                } },
-                                "Subclass ",
-                                pathway.subclass),
+                                } }, pathway.subclass),
                             react_1.default.createElement("span", { style: {
                                     background: '#D1FAE5',
                                     color: '#065F46',

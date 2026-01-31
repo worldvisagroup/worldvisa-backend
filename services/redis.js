@@ -1,14 +1,25 @@
-// services/redis.js - Fixed for Heroku
+// services/redis.js - Fixed for Heroku, Dokploy, Docker
 const IoRedis = require("ioredis");
 require("dotenv").config();
 
 let redis;
 let redisConnected = false;
+let redisDisabled = false;
+
+const hasRedisConfig = () =>
+  process.env.REDIS_URL || process.env.REDIS_HOST;
+
+// In production: skip Redis init entirely when not configured (avoid 127.0.0.1 retries)
+const shouldSkipRedis = () =>
+  process.env.NODE_ENV === "production" && !hasRedisConfig();
 
 // Initialize Redis connection
 try {
-  if (process.env.REDIS_URL) {
-    console.log('🔗 Using REDIS_URL to connect to Redis');
+  if (shouldSkipRedis()) {
+    redisDisabled = true;
+    console.log("⏭️ Redis disabled in production (REDIS_URL/REDIS_HOST not set)");
+  } else if (process.env.REDIS_URL) {
+    console.log("🔗 Using REDIS_URL to connect to Redis");
     const redisOptions = {
       retryDelayOnFailover: 1000,
       maxRetriesPerRequest: 3,
@@ -23,7 +34,7 @@ try {
         return delay;
       },
       reconnectOnError: (err) => {
-        return err.message.includes('READONLY');
+        return err.message.includes("READONLY");
       },
       enableOfflineQueue: true,
       tls: {
@@ -31,11 +42,30 @@ try {
       },
     };
     redis = new IoRedis(process.env.REDIS_URL, redisOptions);
+    redis.on("connect", () => {
+      console.log("✅ Redis connected successfully");
+      redisConnected = true;
+    });
+    redis.on("ready", () => {
+      console.log("✅ Redis is ready to accept commands");
+      redisConnected = true;
+    });
+    redis.on("error", (err) => {
+      console.warn("❌ Redis connection error:", err.message);
+      redisConnected = false;
+    });
+    redis.on("close", () => {
+      console.log("🔌 Redis connection closed");
+      redisConnected = false;
+    });
+    redis.on("reconnecting", () => {
+      console.log("🔄 Redis reconnecting...");
+    });
   } else {
-    // Fallback to individual variables (local development)
-    console.log('🏠 Using individual Redis variables for local development');
+    // Local dev or explicit REDIS_HOST (e.g. Dokploy)
+    console.log("🏠 Using individual Redis variables");
     const redisConfig = {
-      host: process.env.REDIS_HOST || '127.0.0.1',
+      host: process.env.REDIS_HOST || "127.0.0.1",
       port: process.env.REDIS_PORT || 6379,
       password: process.env.REDIS_PASSWORD || undefined,
       retryDelayOnFailover: 100,
@@ -45,34 +75,28 @@ try {
       commandTimeout: 5000,
     };
     redis = new IoRedis(redisConfig);
+    redis.on("connect", () => {
+      console.log("✅ Redis connected successfully");
+      redisConnected = true;
+    });
+    redis.on("ready", () => {
+      console.log("✅ Redis is ready to accept commands");
+      redisConnected = true;
+    });
+    redis.on("error", (err) => {
+      console.warn("❌ Redis connection error:", err.message);
+      redisConnected = false;
+    });
+    redis.on("close", () => {
+      console.log("🔌 Redis connection closed");
+      redisConnected = false;
+    });
+    redis.on("reconnecting", () => {
+      console.log("🔄 Redis reconnecting...");
+    });
   }
-
-  redis.on('connect', () => {
-    console.log('✅ Redis connected successfully');
-    redisConnected = true;
-  });
-
-  redis.on('ready', () => {
-    console.log('✅ Redis is ready to accept commands');
-    redisConnected = true;
-  });
-
-  redis.on('error', (err) => {
-    console.warn('❌ Redis connection error:', err.message);
-    redisConnected = false;
-  });
-
-  redis.on('close', () => {
-    console.log('🔌 Redis connection closed');
-    redisConnected = false;
-  });
-
-  redis.on('reconnecting', () => {
-    console.log('🔄 Redis reconnecting...');
-  });
-
 } catch (error) {
-  console.warn('❌ Failed to initialize Redis:', error.message);
+  console.warn("❌ Failed to initialize Redis:", error.message);
   redisConnected = false;
 }
 
@@ -128,9 +152,23 @@ function isRedisConnected() {
   return redisConnected;
 }
 
+function isRedisDisabled() {
+  return redisDisabled;
+}
+
+/**
+ * Redis status for health endpoint: "connected" | "disconnected" | "disabled"
+ */
+function getRedisStatus() {
+  if (redisDisabled) return "disabled";
+  return redisConnected ? "connected" : "disconnected";
+}
+
 module.exports = {
   fetchCachedSummary,
   cacheSummary,
   isRedisConnected,
-  flushRedis
+  isRedisDisabled,
+  getRedisStatus,
+  flushRedis,
 };
