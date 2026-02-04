@@ -1,11 +1,16 @@
 const Blog = require("../models/blog");
 const BlogAndNewsBackup = require("../models/blogAndNewsBackup");
 
+const DEFAULT_PAGE_SIZE = 10;
+const MAX_PAGE_SIZE = 5000;
+const MAX_SKIP = 50000;
+
 const getAllBlogs = async (req, res) => {
   try {
 
     const queryParams = req.query.filter;
     const slicedBlogs = req.query.give;
+    const limitParam = req.query.limit;
     const headers = JSON.stringify(req.headers);
     const drafts = JSON.parse(headers).drafts;
 
@@ -25,11 +30,21 @@ const getAllBlogs = async (req, res) => {
         isPublished: drafts == "true" ? false : true,
       };
 
+    const rawSkip = (slicedBlogs === undefined || slicedBlogs === "undefined")
+      ? 0
+      : Math.max(0, Math.floor(Number(slicedBlogs)) || 0);
+    const skip = Math.min(rawSkip, MAX_SKIP);
+
+    const rawLimit = (limitParam !== undefined && limitParam !== "")
+      ? Math.min(MAX_PAGE_SIZE, Math.max(1, Math.floor(Number(limitParam)) || DEFAULT_PAGE_SIZE))
+      : DEFAULT_PAGE_SIZE;
+    const limit = Number.isNaN(rawLimit) ? DEFAULT_PAGE_SIZE : rawLimit;
+
     Blog.find()
       .find(filter)
       .sort(sort)
-      .skip(slicedBlogs === "undefined" ? undefined : slicedBlogs)
-      .limit(slicedBlogs === "undefined" ? 0 : 10)
+      .skip(skip)
+      .limit(limit)
       .then((result) => {
         const parsedBlogs = result.map((blog) => {
           const parsedObj = {
