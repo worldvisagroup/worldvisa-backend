@@ -1317,12 +1317,21 @@ exports.getAllRequestedToReview = async (req, res) => {
       },
       { $sort: { 'requested_reviews.requested_at': -1 } },
       {
+        $lookup: {
+          from: 'dmszohoclients',
+          localField: 'record_id',
+          foreignField: 'lead_id',
+          as: 'client_info'
+        }
+      },
+      {
         $facet: {
           data: [
             {
               $project: {
                 _id: 1,
                 record_id: 1,
+                client_name: { $arrayElemAt: ['$client_info.name', 0] },
                 workdrive_file_id: 1,
                 workdrive_parent_id: 1,
                 file_name: 1,
@@ -1397,12 +1406,21 @@ exports.getAllRequestedFromReview = async (req, res) => {
       },
       { $sort: { 'requested_reviews.requested_at': -1 } },
       {
+        $lookup: {
+          from: 'dmszohoclients',
+          localField: 'record_id',
+          foreignField: 'lead_id',
+          as: 'client_info'
+        }
+      },
+      {
         $facet: {
           data: [
             {
               $project: {
                 _id: 1,
                 record_id: 1,
+                client_name: { $arrayElemAt: ['$client_info.name', 0] },
                 workdrive_file_id: 1,
                 workdrive_parent_id: 1,
                 file_name: 1,
@@ -1478,12 +1496,21 @@ exports.getAllRequestedReview = async (req, res) => {
       },
       { $sort: { 'requested_reviews.requested_at': -1 } },
       {
+        $lookup: {
+          from: 'dmszohoclients',
+          localField: 'record_id',
+          foreignField: 'lead_id',
+          as: 'client_info'
+        }
+      },
+      {
         $facet: {
           data: [
             {
               $project: {
                 _id: 1,
                 record_id: 1,
+                client_name: { $arrayElemAt: ['$client_info.name', 0] },
                 workdrive_file_id: 1,
                 workdrive_parent_id: 1,
                 file_name: 1,
