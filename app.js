@@ -238,6 +238,7 @@ app.use(cors({
   origin: [
     'https://worldvisagroup.com',
     'https://dms.worldvisagroup.com',
+    'https://new.worldvisagroup.com',
     'https://admin.worldvisa-api.cloud',
     'https://backend.worldvisa-api.cloud',
     'http://localhost:3000',
