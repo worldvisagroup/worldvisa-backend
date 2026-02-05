@@ -1315,6 +1315,7 @@ exports.getAllRequestedToReview = async (req, res) => {
           ...(status && { 'requested_reviews.status': status })
         }
       },
+      { $sort: { 'requested_reviews.requested_at': -1 } },
       {
         $facet: {
           data: [
@@ -1384,7 +1385,6 @@ exports.getAllRequestedFromReview = async (req, res) => {
     const { page = 1, limit = 10, requested_to, status } = req.query;
     const skip = (page - 1) * limit;
 
-    // Use aggregation pipeline with $facet to get both data and count in single query
     const result = await dmsZohoDocument.aggregate([
       { $match: { 'requested_reviews.requested_by': username } },
       { $unwind: '$requested_reviews' },
@@ -1395,6 +1395,7 @@ exports.getAllRequestedFromReview = async (req, res) => {
           ...(status && { 'requested_reviews.status': status })
         }
       },
+      { $sort: { 'requested_reviews.requested_at': -1 } },
       {
         $facet: {
           data: [
@@ -1463,10 +1464,8 @@ exports.getAllRequestedReview = async (req, res) => {
     const { page = 1, limit = 10, requested_by, requested_to, status } = req.query;
     const skip = (page - 1) * limit;
 
-    // Build match conditions for filtering
     const matchConditions = { 'requested_reviews.0': { $exists: true } };
 
-    // Use aggregation pipeline with $facet to get both data and count in single query
     const result = await dmsZohoDocument.aggregate([
       { $match: matchConditions },
       { $unwind: '$requested_reviews' },
@@ -1477,6 +1476,7 @@ exports.getAllRequestedReview = async (req, res) => {
           ...(status && { 'requested_reviews.status': status })
         }
       },
+      { $sort: { 'requested_reviews.requested_at': -1 } },
       {
         $facet: {
           data: [
