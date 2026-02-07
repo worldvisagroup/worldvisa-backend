@@ -164,6 +164,8 @@ export interface TopEmployersData {
 // ============================================================================
 
 export interface Citysalary {
+  midLevelRoleName: string;
+  seniorLevelRoleName: string;
   cityName: string;
   midLevelRange: string;
   seniorLevelRange: string;
@@ -173,13 +175,14 @@ export interface Citysalary {
   nicheOpportunity?: string;
   yourAdvantage?: string;
   techHub?: string;
-  taxRate?: string;
-  takeHomeSalary?: string;
+  taxRate: string;
+  takeHomeSalary: string;
   housingCost?: string;
   qualityOfLife?: string;
 }
 
 export interface SalaryVariationData {
+  roleName: string;
   cities: Citysalary[];
 }
 

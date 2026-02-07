@@ -9,7 +9,7 @@ const SectionHeader_1 = require("./shared/SectionHeader");
 function Section5_TopEmployers({ data }) {
     return (react_1.default.createElement("div", { className: "section top-employers page" },
         react_1.default.createElement(SectionHeader_1.SectionHeader, { number: "5", title: "Top 20 Target Employers (by Sector, Australia)" }),
-        react_1.default.createElement("p", { style: { fontSize: '11pt', color: '#6B7280', marginBottom: '24pt', lineHeight: '1.6' } }, "Based on your profile as a Full Stack Developer, these companies represent the best opportunities for your skills and experience. They are organized by tier based on fit with your background."),
+        react_1.default.createElement("p", { style: { fontSize: '11pt', color: '#6B7280', marginBottom: '24pt', lineHeight: '1.6' } }, "Based on your professional background, these companies represent the best opportunities for your skills and experience. They are organized by tier based on fit with your profile."),
         data.tiers.map((tier, tierIndex) => (react_1.default.createElement("div", { key: tierIndex, className: "company-tier" },
             react_1.default.createElement("div", { className: "company-tier-header" },
                 react_1.default.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: '10pt' } },

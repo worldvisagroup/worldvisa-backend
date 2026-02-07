@@ -570,11 +570,22 @@ exports.pdfStyles = `
   }
   
   /* ========================================
+     SECTION 6: SALARY VARIATION
+     ======================================== */
+  .salary-variation-intro {
+    font-size: 11pt;
+    color: #475569;
+    margin-bottom: 20pt;
+    line-height: 1.6;
+  }
+
+  /* ========================================
      CITY CARDS & SALARY VISUALIZATION
      ======================================== */
   .city-card {
-    background: #F9FAFB;
-    border: 1pt solid #E5E7EB;
+    background: #FFFFFF;
+    border: 1pt solid #E2E8F0;
+    border-left: 3pt solid #0066CC;
     border-radius: 6pt;
     padding: 14pt;
     margin-bottom: 14pt;
@@ -582,32 +593,49 @@ exports.pdfStyles = `
   }
   
   .city-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
     margin-bottom: 12pt;
     padding-bottom: 8pt;
-    border-bottom: 1pt solid #E5E7EB;
+    border-bottom: 1pt solid #E2E8F0;
+  }
+  
+  .city-card-header-content {
+    flex: 1;
   }
   
   .city-name {
     font-size: 14pt;
     font-weight: 600;
-    color: #1F2937;
+    color: #1E293B;
   }
   
-  .city-icon {
-    font-size: 20pt;
+  .city-card-subtitle {
+    font-size: 9pt;
+    color: #64748B;
+    margin-top: 4pt;
+    margin-bottom: 0;
+  }
+  
+  .city-card-salary-block {
+    margin-bottom: 16pt;
+    padding: 10pt 12pt;
+    background: rgba(0, 102, 204, 0.04);
+    border-radius: 4pt;
   }
   
   .salary-range {
     margin: 8pt 0;
   }
   
+  .salary-range-row {
+    display: flex;
+    align-items: center;
+    gap: 10pt;
+  }
+  
   .salary-label {
     font-size: 10pt;
     font-weight: 600;
-    color: #4B5563;
+    color: #475569;
     display: block;
     margin-bottom: 4pt;
   }
@@ -618,9 +646,19 @@ exports.pdfStyles = `
     color: #0066CC;
   }
   
+  .salary-premium-badge {
+    background: #F1F5F9;
+    color: #0066CC;
+    border: 1pt solid #CBD5E1;
+    padding: 2pt 8pt;
+    border-radius: 10pt;
+    font-size: 8pt;
+    font-weight: 600;
+  }
+  
   .salary-bar {
     height: 8pt;
-    background: #E5E7EB;
+    background: #E2E8F0;
     border-radius: 4pt;
     margin: 6pt 0;
     overflow: hidden;
@@ -628,14 +666,14 @@ exports.pdfStyles = `
   
   .salary-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #0066CC 0%, #3B82F6 100%);
+    background: #0066CC;
     border-radius: 4pt;
   }
   
   .city-details {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 8pt;
+    gap: 8pt 16pt;
     margin-top: 12pt;
   }
   
@@ -644,13 +682,37 @@ exports.pdfStyles = `
   }
   
   .city-detail-label {
-    color: #6B7280;
+    color: #64748B;
     margin-bottom: 2pt;
+    text-transform: lowercase;
+  }
+  
+  .city-detail-label::first-letter {
+    text-transform: uppercase;
   }
   
   .city-detail-value {
     font-weight: 600;
-    color: #1F2937;
+    color: #1E293B;
+  }
+  
+  .city-detail-value-accent {
+    color: #0066CC;
+  }
+  
+  .city-notes {
+    margin-top: 12pt;
+    padding: 10pt 12pt;
+    background: rgba(0, 102, 204, 0.06);
+    border-left: 3pt solid #0066CC;
+    border-radius: 0 4pt 4pt 0;
+  }
+  
+  .city-notes-text {
+    font-size: 9pt;
+    color: #334155;
+    margin-bottom: 0;
+    line-height: 1.5;
   }
 
   /* ========================================

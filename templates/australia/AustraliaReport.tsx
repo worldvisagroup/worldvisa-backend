@@ -27,46 +27,32 @@ export function AustraliaReport({ data }: AustraliaReportProps) {
         <style dangerouslySetInnerHTML={{ __html: pdfStyles }} />
       </head>
       <body>
-        {/* Cover Page */}
         <CoverPage data={data.coverPage} meta={data.meta} />
 
-        {/* Table of Contents */}
         <TableOfContents />
 
-        {/* Page Break after TOC */}
         <div className="page-break" />
 
-        {/* Main Content Sections - Flow naturally */}
-        <div className="content-wrapper">
-          {/* Section 1: Executive Summary */}
+        <div className="content-wrapper"> 
           <Section1_ExecutiveSummary data={data.executiveSummary} />
 
-          {/* Section 2: Professional Profile */}
           <Section2_ProfessionalProfile data={data.professionalProfile} />
 
-          {/* Section 3: Visa Pathways */}
           <Section3_VisaPathways data={data.visaPathways} />
 
-          {/* Section 4: Skill Demand */}
           <Section4_SkillDemand data={data.skillDemand} />
 
-          {/* Section 5: Top Employers */}
           <Section5_TopEmployers data={data.topEmployers} />
 
-          {/* Section 6: Salary Variation */}
           <Section6_SalaryVariation data={data.salaryVariation} />
 
-          {/* Section 7: Timeline */}
           <Section7_Timeline />
 
-          {/* Section 8: Regulatory Advisor */}
           <Section8_RegulatoryAdvisor />
         </div>
 
-        {/* Page Break before Thank You */}
         <div className="page-break" />
 
-        {/* Thank You Page */}
         <ThankYouPage />
       </body>
     </html>

@@ -8,11 +8,11 @@ const react_1 = __importDefault(require("react"));
 const SectionHeader_1 = require("./shared/SectionHeader");
 const STATIC_REGULATORY_ADVISOR_DATA = {
     sectionTitle: "Why Use a Regulated Advisor (MARA)",
-    maraNumber: "MARA 1234567",
+    maraNumber: "MARA 1800119",
     agentCredentials: [
         "Graduate Diploma in Australian Migration Law",
         "Member of Migration Institute of Australia (MIA)",
-        "15+ years experience in skilled migration"
+        "21+ years experience in skilled migration"
     ],
     successRate: "98% application approval rate",
     yearsOfExperience: "15+ years",
@@ -62,7 +62,7 @@ const STATIC_REGULATORY_ADVISOR_DATA = {
         services: [
             "Reviews your eligibility for visa pathways",
             "Advises which visa (189 vs 190 vs 491) best suits your profile",
-            "Guides ACS skills assessment (prepares documents, project reports)",
+            "Guides skills assessment (prepares documents, project reports)",
             "Prepares Expression of Interest (EOI) for SkillSelect",
             "Coordinates state sponsorship applications (if needed)",
             "Prepares comprehensive visa application documents",
