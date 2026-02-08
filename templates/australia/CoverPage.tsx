@@ -39,7 +39,7 @@ export function CoverPage({ data, meta }: CoverPageProps) {
           textAlign: 'left'
         }}>
           <p style={{
-            fontSize: '10pt',
+            fontSize: '12pt',
             color: '#6B7280',
             marginBottom: '6pt',
             fontWeight: '600'
@@ -64,7 +64,7 @@ export function CoverPage({ data, meta }: CoverPageProps) {
           textAlign: 'left'
         }}>
           <p style={{
-            fontSize: '10pt',
+            fontSize: '12pt',
             color: '#6B7280',
             marginBottom: '6pt',
             fontWeight: '600'
@@ -94,7 +94,7 @@ export function CoverPage({ data, meta }: CoverPageProps) {
         color: '#0066CC',
         padding: '8pt 16pt',
         borderRadius: '20pt',
-        fontSize: '10pt',
+        fontSize: '12pt',
         fontWeight: '600'
       }}>
         Version {meta.reportVersion || '1.0'}
@@ -108,7 +108,7 @@ export function CoverPage({ data, meta }: CoverPageProps) {
         right: '0',
         textAlign: 'center',
         color: '#9CA3AF',
-        fontSize: '10pt'
+        fontSize: '12pt'
       }}>
         <div style={{
           width: '100pt',

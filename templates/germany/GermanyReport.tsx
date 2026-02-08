@@ -26,48 +26,18 @@ export function GermanyReport({ data }: Props) {
         <style dangerouslySetInnerHTML={{ __html: pdfStyles }} />
       </head>
       <body>
-        {/* Cover Page */}
         <CoverPage data={data.coverPage} meta={data.meta} />
-
-        {/* Table of Contents */}
         <TableOfContents />
-        <div className="page-break" />
-
-        {/* Section 1: Executive Summary */}
         <Section1_ExecutiveSummary data={data.executiveSummary} />
-        <div className="page-break" />
-
-        {/* Section 2: Professional Profile */}
         <Section2_ProfessionalProfile data={data.professionalProfile} />
-        <div className="page-break" />
-
-        {/* Section 3: Visa Categories */}
         <Section3_VisaCategories data={data.visaCategories} />
-
-        {/* Section 4: Skill Demand */}
         <Section4_SkillDemand data={data.skillDemand} />
-        <div className="page-break" />
-
-        {/* Section 5: Job Opportunities */}
         <Section5_JobOpportunities data={data.jobOpportunities} />
-        <div className="page-break" />
-
-        {/* Section 6: Compensation */}
         <Section6_Compensation data={data.compensation} />
-        <div className="page-break" />
-
-        {/* Section 7: About WorldVisa */}
         <Section7_AboutWorldVisa />
-        <div className="page-break" />
-
-        {/* Section 8: WorldVisa Timeline */}
         <Section8_WorldVisaTimeline />
-        <div className="page-break" />
-
-        {/* Thank You Page */}
         <ThankYouPage />
       </body>
     </html>
   );
 }
-

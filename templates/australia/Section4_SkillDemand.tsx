@@ -1,103 +1,72 @@
 import React from 'react';
 import type { SkillDemandData } from '../types/report-types';
 import { SectionHeader } from './shared/SectionHeader';
-import { Table } from './shared/Table';
 
 interface Props {
   data: SkillDemandData;
 }
 
 export function Section4_SkillDemand({ data }: Props) {
-  const getDemandClass = (level: string): string => {
-    if (level.toLowerCase().includes('very high')) return 'demand-very-high';
-    if (level.toLowerCase().includes('high')) return 'demand-high';
-    return 'demand-medium';
+  const getDemandColor = (level: string): string => {
+    const lower = level.toLowerCase();
+    if (lower.includes('very high')) return '#059669';
+    if (lower.includes('high')) return '#2563EB';
+    return '#9CA3AF';
+  };
+
+  const getDemandBg = (level: string): string => {
+    const lower = level.toLowerCase();
+    if (lower.includes('very high')) return '#ECFDF5';
+    if (lower.includes('high')) return '#EFF6FF';
+    return '#F8F9FB';
   };
 
   return (
     <div className="section page">
-      <SectionHeader number="4" title="Global Skill Demand Mapping – Where Your Skills Are in Demand" />
+      <SectionHeader number="4" title="Global Skill Demand Mapping - Where Your Skills Are in Demand" />
 
-      <div className="subsection">
-        <h3>4.1 Mapping Your Core Skills to Global Occupation Codes</h3>
-        <div style={{
-          background: '#EBF5FF',
-          border: '1pt solid #BFDBFE',
-          borderRadius: '6pt',
-          padding: '12pt',
-          marginBottom: '16pt'
-        }}>
-          <p style={{ marginBottom: '0', fontSize: '11pt' }}>
-            <strong style={{ color: '#0066CC' }}>Your Primary Occupation Code:</strong>{' '}
-            <span style={{ color: '#1F2937' }}>{data.primaryOccupationCode}</span>
-          </p>
-        </div>
-
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10pt' }}>
+      {/* Skill Mapping Table */}
+      <div style={{ marginBottom: '12pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+          4.1 Core Skills to Occupation Codes
+        </h3>
+        <p style={{ fontSize: '12pt', color: '#4B5563', margin: '0 0 6pt 0' }}>
+          <strong style={{ color: '#2563EB' }}>Primary Occupation Code:</strong> {data.primaryOccupationCode}
+        </p>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt' }}>
           <thead>
             <tr>
-              <th style={{
-                background: 'linear-gradient(135deg, #EBF5FF 0%, #DBEAFE 100%)',
-                padding: '12pt',
-                textAlign: 'left',
-                fontWeight: '600',
-                color: '#1F2937',
-                border: '1pt solid #E5E7EB',
-                width: '30%'
-              }}>
+              <th style={{ background: '#F8F9FB', padding: '6pt 8pt', textAlign: 'left', fontWeight: 600, color: '#111827', border: '1pt solid #E5E7EB', width: '30%' }}>
                 Your Skill
               </th>
-              <th style={{
-                background: 'linear-gradient(135deg, #EBF5FF 0%, #DBEAFE 100%)',
-                padding: '12pt',
-                textAlign: 'left',
-                fontWeight: '600',
-                color: '#1F2937',
-                border: '1pt solid #E5E7EB',
-                width: '40%'
-              }}>
+              <th style={{ background: '#F8F9FB', padding: '6pt 8pt', textAlign: 'left', fontWeight: 600, color: '#111827', border: '1pt solid #E5E7EB', width: '40%' }}>
                 ANZSCO Category
               </th>
-              <th style={{
-                background: 'linear-gradient(135deg, #EBF5FF 0%, #DBEAFE 100%)',
-                padding: '12pt',
-                textAlign: 'left',
-                fontWeight: '600',
-                color: '#1F2937',
-                border: '1pt solid #E5E7EB',
-                width: '30%'
-              }}>
-                Demand Level (Australia)
+              <th style={{ background: '#F8F9FB', padding: '6pt 8pt', textAlign: 'left', fontWeight: 600, color: '#111827', border: '1pt solid #E5E7EB', width: '30%' }}>
+                Demand Level
               </th>
             </tr>
           </thead>
           <tbody>
             {data.skillMappingTable.map((row, index) => (
               <tr key={index}>
-                <td style={{
-                  padding: '10pt 12pt',
-                  border: '1pt solid #E5E7EB',
-                  background: index % 2 === 0 ? '#F9FAFB' : '#FFFFFF',
-                  verticalAlign: 'top'
-                }}>
-                  <strong style={{ color: '#1F2937' }}>{row.skill}</strong>
+                <td style={{ padding: '5pt 8pt', border: '1pt solid #E5E7EB', color: '#111827', fontWeight: 600, verticalAlign: 'top', background: index % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
+                  {row.skill}
                 </td>
-                <td style={{
-                  padding: '10pt 12pt',
-                  border: '1pt solid #E5E7EB',
-                  background: index % 2 === 0 ? '#F9FAFB' : '#FFFFFF',
-                  verticalAlign: 'top',
-                  color: '#4B5563'
-                }}>
+                <td style={{ padding: '5pt 8pt', border: '1pt solid #E5E7EB', color: '#4B5563', verticalAlign: 'top', background: index % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
                   {row.anzscoCategory}
                 </td>
-                <td style={{
-                  padding: '10pt 12pt',
-                  border: '1pt solid #E5E7EB',
-                  background: index % 2 === 0 ? '#F9FAFB' : '#FFFFFF',
-                  verticalAlign: 'top'
-                }}>
-                  <span className={`demand-indicator ${getDemandClass(row.demandLevel)}`}>
+                <td style={{ padding: '5pt 8pt', border: '1pt solid #E5E7EB', verticalAlign: 'top', background: index % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
+                  <span style={{
+                    display: 'inline-block',
+                    padding: '2pt 8pt',
+                    fontSize: '10pt',
+                    fontWeight: 600,
+                    color: getDemandColor(row.demandLevel),
+                    background: getDemandBg(row.demandLevel),
+                    border: `1pt solid ${getDemandColor(row.demandLevel)}`,
+                    borderRadius: '2pt'
+                  }}>
                     {row.demandLevel}
                   </span>
                 </td>
@@ -107,105 +76,72 @@ export function Section4_SkillDemand({ data }: Props) {
         </table>
       </div>
 
-      <div className="subsection">
-        <h3>4.2 Australia&apos;s Skilled Occupation Lists & Your Placement</h3>
-
-        <div style={{
-          background: '#D1FAE5',
-          border: '1pt solid #10B981',
-          borderRadius: '8pt',
-          padding: '14pt',
-          marginBottom: '20pt'
-        }}>
-          <p style={{ marginBottom: '0', fontSize: '11pt', lineHeight: '1.6' }}>
-            <strong style={{ color: '#065F46' }}>✓ Good News:</strong>{' '}
-            <span style={{ color: '#047857' }}>Your occupation is on multiple Australian skilled migration lists, ensuring consistent visa processing opportunities.</span>
-          </p>
-        </div>
-
+      {/* Occupation Lists */}
+      <div style={{ marginBottom: '12pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+          4.2 Skilled Occupation Lists &amp; Your Placement
+        </h3>
         {data.occupationLists.map((list, index) => (
           <div
             key={index}
             style={{
-              background: '#F9FAFB',
-              border: '1pt solid #E5E7EB',
-              borderLeft: '4pt solid #0066CC',
-              borderRadius: '6pt',
-              padding: '14pt',
-              marginBottom: '14pt'
+              borderLeft: '3pt solid #1B2A4A',
+              padding: '6pt 10pt',
+              marginBottom: '6pt',
+              background: '#F8F9FB'
             }}
           >
-            <p style={{ fontSize: '12pt', fontWeight: '600', color: '#1F2937', marginBottom: '10pt' }}>
+            <p style={{ fontSize: '12pt', fontWeight: 600, color: '#111827', margin: '0 0 4pt 0' }}>
               {list.listName}
             </p>
-            <ul style={{
-              fontSize: '10pt',
-              color: '#4B5563',
-              marginLeft: '20pt',
-              marginBottom: '0'
-            }}>
+            <ul style={{ fontSize: '12pt', color: '#4B5563', margin: 0, paddingLeft: '14pt' }}>
               {list.occupations.map((occ, occIndex) => (
-                <li key={occIndex} style={{ marginBottom: '6pt' }}>
+                <li key={occIndex} style={{ marginBottom: '2pt', lineHeight: '1.4' }}>
                   <strong>{occ}</strong>
                 </li>
               ))}
             </ul>
           </div>
         ))}
+      </div>
 
-        <h4 style={{ fontSize: '12pt', marginTop: '20pt', marginBottom: '12pt' }}>
-          State-Specific Priority Occupation Lists
-        </h4>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(1, 1fr)', gap: '10pt' }}>
-          {data.statePriorityLists.map((state, stateIndex) => (
-            <div
-              key={stateIndex}
-              style={{
-                background: '#FFFFFF',
-                border: '1pt solid #E5E7EB',
-                borderRadius: '6pt',
-                padding: '12pt',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10pt'
-              }}
-            >
-              <span style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '24pt',
-                height: '24pt',
-                background: '#10B981',
-                color: '#FFFFFF',
-                borderRadius: '50%',
-                fontSize: '12pt',
-                fontWeight: '700',
-                flexShrink: 0
-              }}>
-                ✓
-              </span>
-              <div style={{ flex: 1 }}>
-                <strong style={{ fontSize: '11pt', color: '#1F2937' }}>{state.state}:</strong>{' '}
-                <span style={{ fontSize: '10pt', color: '#4B5563' }}>{state.status}</span>
-              </div>
-            </div>
-          ))}
-        </div>
+      {/* State Priority Lists */}
+      <div style={{ marginBottom: '12pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+          4.3 State-Specific Priority Occupation Lists
+        </h3>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt' }}>
+          <thead>
+            <tr>
+              <th style={{ background: '#F8F9FB', padding: '5pt 8pt', textAlign: 'left', fontWeight: 600, color: '#111827', border: '1pt solid #E5E7EB', width: '30%' }}>
+                State
+              </th>
+              <th style={{ background: '#F8F9FB', padding: '5pt 8pt', textAlign: 'left', fontWeight: 600, color: '#111827', border: '1pt solid #E5E7EB' }}>
+                Status
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.statePriorityLists.map((state, stateIndex) => (
+              <tr key={stateIndex}>
+                <td style={{ padding: '5pt 8pt', border: '1pt solid #E5E7EB', color: '#111827', fontWeight: 600, background: stateIndex % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
+                  {state.state}
+                </td>
+                <td style={{ padding: '5pt 8pt', border: '1pt solid #E5E7EB', color: '#4B5563', background: stateIndex % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
+                  {state.status}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-        <div style={{
-          marginTop: '16pt',
-          background: '#FFFBEB',
-          border: '1pt solid #FCD34D',
-          borderRadius: '6pt',
-          padding: '12pt'
-        }}>
-          <p style={{ marginBottom: '0', fontSize: '10pt', color: '#78350F' }}>
-            <strong>Availability:</strong> {data.availabilityNote}
-          </p>
-        </div>
+      {/* Availability Note */}
+      <div style={{ borderLeft: '3pt solid #1B2A4A', padding: '6pt 10pt', background: '#F8F9FB' }}>
+        <p style={{ margin: 0, fontSize: '12pt', color: '#4B5563', lineHeight: '1.5' }}>
+          <strong style={{ color: '#111827' }}>Availability:</strong> {data.availabilityNote}
+        </p>
       </div>
     </div>
   );
 }
-

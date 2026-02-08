@@ -23,34 +23,13 @@ const STATIC_REGULATORY_ADVISOR_DATA: RegulatoryAdvisorData = {
   whyRegulatedAgentsMatter: {
     heading: "Why Regulated Agents Matter",
     reasons: [
-      {
-        title: "Legal Authority",
-        description: "Only MARA-registered agents can legally represent you in Australian visa applications"
-      },
-      {
-        title: "Accountability",
-        description: "MARA enforces code of conduct; complaints go to MARA (recourse if poor service)"
-      },
-      {
-        title: "Professional Standards",
-        description: "Agents must have insurance, professional indemnity, ongoing training"
-      },
-      {
-        title: "Error Prevention",
-        description: "Professional agents catch errors that could lead to visa rejection"
-      },
-      {
-        title: "Knowledge",
-        description: "Agents stay current on policy changes, processing times, state requirements"
-      },
-      {
-        title: "Communication",
-        description: "Agents handle all immigration correspondence; you don't have to decode official jargon"
-      },
-      {
-        title: "Peace of Mind",
-        description: "Professional guidance reduces risk and stress"
-      }
+      { title: "Legal Authority", description: "Only MARA-registered agents can legally represent you in Australian visa applications" },
+      { title: "Accountability", description: "MARA enforces code of conduct; complaints go to MARA (recourse if poor service)" },
+      { title: "Professional Standards", description: "Agents must have insurance, professional indemnity, ongoing training" },
+      { title: "Error Prevention", description: "Professional agents catch errors that could lead to visa rejection" },
+      { title: "Knowledge", description: "Agents stay current on policy changes, processing times, state requirements" },
+      { title: "Communication", description: "Agents handle all immigration correspondence; you don't have to decode official jargon" },
+      { title: "Peace of Mind", description: "Professional guidance reduces risk and stress" }
     ]
   },
   whatMaraAgentDoes: {
@@ -74,147 +53,80 @@ const STATIC_REGULATORY_ADVISOR_DATA: RegulatoryAdvisorData = {
 export function Section8_RegulatoryAdvisor() {
   const data = STATIC_REGULATORY_ADVISOR_DATA;
 
-  // Unified Professional Colors
-  const colors = {
-    primary: '#111827',
-    secondary: '#4B5563',
-    accent: '#059669',
-    bgLight: '#F3F4F6',
-    border: '#E5E7EB',
-    cardBg: '#FFFFFF'
-  };
-
   return (
-    <div className="section regulatory-advisor page">
+    <div className="section page">
       <SectionHeader number="8" title={data.sectionTitle} />
 
-      {/* Hero Credentials Card */}
-      <div style={{
-        background: `linear-gradient(to bottom right, ${colors.bgLight}, #F9FAFB)`,
-        border: `1px solid ${colors.border}`,
-        borderRadius: '12pt',
-        padding: '24pt',
-        marginBottom: '32pt',
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '24pt',
-        alignItems: 'center'
-      }}>
-        {/* Left: Key Stats */}
-        <div>
-          <h4 style={{ fontSize: '14pt', fontWeight: '700', color: colors.primary, marginBottom: '20pt' }}>
-            Authorized & Regulated
-          </h4>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16pt' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12pt' }}>
-              <div style={{
-                width: '32pt', height: '32pt', borderRadius: '50%', background: '#DEF7EC',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: colors.accent, fontWeight: 'bold'
-              }}>✓</div>
-              <div>
-                <div style={{ fontSize: '9pt', color: colors.secondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>MARA Number</div>
-                <div style={{ fontSize: '14pt', fontWeight: '700', color: colors.primary }}>{data.maraNumber}</div>
-              </div>
+      {/* Credentials Summary */}
+      <div style={{ borderLeft: '3pt solid #1B2A4A', padding: '8pt 10pt', marginBottom: '12pt', background: '#F8F9FB' }}>
+        <div style={{ display: 'flex', gap: '16pt', alignItems: 'center', flexWrap: 'wrap' }}>
+          {data.maraNumber && (
+            <div>
+              <div style={{ fontSize: '10pt', color: '#9CA3AF', textTransform: 'uppercase' }}>MARA Number</div>
+              <div style={{ fontSize: '12pt', fontWeight: 700, color: '#111827' }}>{data.maraNumber}</div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12pt' }}>
-              <div style={{
-                width: '32pt', height: '32pt', borderRadius: '50%', background: '#DEF7EC',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: colors.accent, fontWeight: 'bold'
-              }}>%</div>
-              <div>
-                <div style={{ fontSize: '9pt', color: colors.secondary, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Success Rate</div>
-                <div style={{ fontSize: '14pt', fontWeight: '700', color: colors.primary }}>{data.successRate?.split(' ')[0]}</div>
-              </div>
+          )}
+          {data.successRate && (
+            <div>
+              <div style={{ fontSize: '10pt', color: '#9CA3AF', textTransform: 'uppercase' }}>Success Rate</div>
+              <div style={{ fontSize: '12pt', fontWeight: 700, color: '#059669' }}>{data.successRate}</div>
             </div>
-          </div>
+          )}
         </div>
+        {data.agentCredentials && data.agentCredentials.length > 0 && (
+          <div style={{ marginTop: '6pt', paddingTop: '6pt', borderTop: '0.5pt solid #E5E7EB' }}>
+            <div style={{ fontSize: '10pt', fontWeight: 600, color: '#111827', marginBottom: '3pt' }}>Professional Credentials:</div>
+            {data.agentCredentials.map((cred, idx) => (
+              <div key={idx} style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '1pt' }}>
+                <span dangerouslySetInnerHTML={{ __html: '&#10003;' }} style={{ color: '#059669', marginRight: '4pt' }} /> {cred}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
-        {/* Right: Credentials List */}
-        <div style={{ background: colors.cardBg, padding: '16pt', borderRadius: '8pt', border: `1px solid ${colors.border}` }}>
-          <p style={{ fontSize: '10pt', fontWeight: '600', color: colors.primary, marginBottom: '12pt' }}>
-            Professional Credentials
-          </p>
-          <ul style={{ padding: 0, margin: 0, listStyle: 'none' }}>
-            {data.agentCredentials?.map((cred, idx) => (
-              <li key={idx} style={{
-                marginBottom: '8pt',
-                fontSize: '9.5pt',
-                color: colors.secondary,
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '8pt'
-              }}>
-                <span style={{ color: colors.accent, marginTop: '1pt' }}>•</span>
-                {cred}
+      {/* What is MARA */}
+      <div style={{ marginBottom: '12pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+          {data.whatIsMara.heading}
+        </h3>
+        <ul style={{ margin: 0, paddingLeft: '14pt' }}>
+          {data.whatIsMara.items.map((item, idx) => (
+            <li key={idx} style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '3pt', lineHeight: '1.4' }}>
+              {item}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Why Regulated Agents Matter */}
+      <div style={{ marginBottom: '12pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+          {data.whyRegulatedAgentsMatter.heading}
+        </h3>
+        {data.whyRegulatedAgentsMatter.reasons.map((reason, index) => (
+          <div key={index} style={{ marginBottom: '4pt', fontSize: '12pt', lineHeight: '1.4' }}>
+            <strong style={{ color: '#111827' }}>{reason.title}:</strong>{' '}
+            <span style={{ color: '#4B5563' }}>{reason.description}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* What a MARA Agent Does */}
+      <div style={{ marginBottom: '16pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+          {data.whatMaraAgentDoes.heading}
+        </h3>
+        <div style={{ borderLeft: '3pt solid #1B2A4A', padding: '6pt 10pt', background: '#F8F9FB' }}>
+          <ul style={{ margin: 0, paddingLeft: '14pt', columns: 2, columnGap: '16pt' }}>
+            {data.whatMaraAgentDoes.services.map((service, idx) => (
+              <li key={idx} style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '3pt', lineHeight: '1.4' }}>
+                {service}
               </li>
             ))}
           </ul>
         </div>
       </div>
-
-      {/* Grid: Purpose & Value */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '32pt' }}>
-
-        {/* Why Regulated Agents Matter */}
-        <div>
-          <h3 style={{ fontSize: '16pt', fontWeight: '700', color: colors.primary, marginBottom: '16pt', borderBottom: `2px solid ${colors.border}`, paddingBottom: '8pt' }}>
-            {data.whyRegulatedAgentsMatter.heading}
-          </h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12pt' }}>
-            {data.whyRegulatedAgentsMatter.reasons.map((reason, index) => (
-              <div key={index} style={{
-                background: colors.cardBg,
-                border: `1px solid ${colors.border}`,
-                borderRadius: '8pt',
-                padding: '16pt',
-                display: 'flex',
-                gap: '12pt'
-              }}>
-                <div style={{
-                  marginTop: '2pt',
-                  color: '#2563EB',
-                  fontWeight: 'bold',
-                  fontSize: '12pt'
-                }}>•</div>
-                <div>
-                  <div style={{ fontSize: '11pt', fontWeight: '600', color: colors.primary, marginBottom: '4pt' }}>{reason.title}</div>
-                  <div style={{ fontSize: '9.5pt', lineHeight: '1.5', color: colors.secondary }}>{reason.description}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* What MARA Does */}
-        <div>
-          <div style={{
-            background: '#F8FAFC',
-            borderLeft: `4px solid #2563EB`,
-            borderRadius: '4pt',
-            padding: '24pt'
-          }}>
-            <h3 style={{ fontSize: '14pt', fontWeight: '700', color: colors.primary, marginBottom: '16pt', marginTop: 0 }}>
-              {data.whatMaraAgentDoes.heading}
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'x 24pt' }}>
-              <ul style={{ margin: 0, paddingLeft: '16pt', color: colors.secondary, fontSize: '10pt', lineHeight: '1.8' }}>
-                {data.whatMaraAgentDoes.services.slice(0, Math.ceil(data.whatMaraAgentDoes.services.length / 2)).map((item, i) => (
-                  <li key={i}>{item}</li>
-                ))}
-              </ul>
-              <ul style={{ margin: 0, paddingLeft: '16pt', color: colors.secondary, fontSize: '10pt', lineHeight: '1.8' }}>
-                {data.whatMaraAgentDoes.services.slice(Math.ceil(data.whatMaraAgentDoes.services.length / 2)).map((item, i) => (
-                  <li key={i}>{item}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-
-      </div>
     </div>
   );
 }
-

@@ -1,20 +1,18 @@
 import React from 'react';
-import { Table } from './Table';
 
 interface TOCSection {
   section: string;
   title: string;
   page: string;
-  country?: string; // NEW: identify which country
+  country?: string;
 }
 
 interface TableOfContentsProps {
-  sections?: TOCSection[]; // Optional: pass sections dynamically
-  countries?: string[]; // NEW: for multi-country reports
+  sections?: TOCSection[];
+  countries?: string[];
 }
 
 export function TableOfContents({ sections, countries }: TableOfContentsProps) {
-  // Default Australia sections if not provided (for backwards compatibility)
   const defaultSections: TOCSection[] = [
     { section: '1', title: 'Executive Summary', page: '3' },
     { section: '2', title: 'Professional Profile Assessment', page: '5' },
@@ -28,99 +26,63 @@ export function TableOfContents({ sections, countries }: TableOfContentsProps) {
 
   const tocData = sections || defaultSections;
 
-  const columns = [
-    { header: 'Section', key: 'section', align: 'center' as const },
-    { header: 'Content', key: 'title', align: 'left' as const },
-    { header: 'Page', key: 'page', align: 'center' as const },
-  ];
+  const t = {
+    dark: '#111827',
+    text: '#4B5563',
+    muted: '#9CA3AF',
+    red: '#1B2A4A',
+    border: '#E5E7EB',
+    bg: '#FAFAFA',
+  };
 
-  // If multi-country, group by country
   if (countries && countries.length > 1) {
     return (
-      <div>
-        {/* Header section */}
-        <div style={{ marginBottom: '22pt' }}>
-          <h2 style={{
-            fontSize: '32pt',
-            fontWeight: '700',
-            color: '#0066CC',
-            marginBottom: '8pt',
-            marginTop: '0'
-          }}>
-            Table of Contents
-          </h2>
+      <div style={{ padding: '10mm 12mm' }}>
+        <div style={{ marginBottom: '16pt' }}>
+          <p style={{ fontSize: '9pt', color: t.red, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '4pt' }}>Contents</p>
+          <h2 style={{ fontSize: '24pt', fontWeight: 700, color: t.dark, margin: 0 }}>Table of Contents</h2>
+          <div style={{ width: '40pt', height: '2px', background: t.red, marginTop: '8pt' }} />
         </div>
 
-        {/* Group sections by country */}
-        {countries.map((country) => (
-          <div key={country}>
-            <h3 style={{
-              color: '#D52636',
-              fontSize: '18pt',
-              fontWeight: '700',
-              marginBottom: '4pt',
-              marginTop: '0'
-            }}>
+        {countries.map((country, ci) => (
+          <div key={country} style={{ marginBottom: ci < countries.length - 1 ? '14pt' : '0' }}>
+            <h3 style={{ fontSize: '13pt', fontWeight: 700, color: t.dark, marginBottom: '6pt', marginTop: '0', paddingBottom: '4pt', borderBottom: `1px solid ${t.border}` }}>
               {country}
             </h3>
-            <Table
-              columns={columns}
-              data={tocData.filter(s => s.country === country).map(s => ({
-                section: s.section,
-                title: s.title,
-                page: s.page,
-              }))}
-            />
+            {tocData.filter(s => s.country === country).map((item, idx) => (
+              <div key={idx} style={{ display: 'flex', alignItems: 'center', padding: '5pt 0', borderBottom: `0.5pt dotted ${t.border}` }}>
+                <span style={{ width: '24pt', fontSize: '10pt', fontWeight: 700, color: t.red }}>{item.section}</span>
+                <span style={{ flex: 1, fontSize: '13pt', color: t.text }}>{item.title}</span>
+                <span style={{ fontSize: '10pt', fontWeight: 600, color: t.muted, marginLeft: '8pt' }}>{item.page}</span>
+              </div>
+            ))}
           </div>
         ))}
       </div>
     );
   }
 
-  // Single country - normal rendering
   return (
-    <div style={{ padding: '8mm 10mm' }}>
-      {/* Header section */}
-      <div style={{ marginBottom: '32pt' }}>
-        <h2 style={{
-          fontSize: '32pt',
-          fontWeight: '700',
-          color: '#0066CC',
-          marginBottom: '8pt',
-          marginTop: '0'
-        }}>
-          Table of Contents
-        </h2>
+    <div style={{ padding: '10mm 12mm' }}>
+      <div style={{ marginBottom: '20pt' }}>
+        <p style={{ fontSize: '9pt', color: t.red, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '4pt' }}>Contents</p>
+        <h2 style={{ fontSize: '24pt', fontWeight: 700, color: t.dark, margin: 0 }}>Table of Contents</h2>
+        <div style={{ width: '40pt', height: '2px', background: t.red, marginTop: '8pt' }} />
       </div>
 
-      {/* Table */}
-      <div style={{ fontSize: '13pt' }}>
-        <Table columns={columns} data={tocData.map(s => ({
-          section: s.section,
-          title: s.title,
-          page: s.page,
-        }))} />
-      </div>
+      {tocData.map((item, idx) => (
+        <div key={idx} style={{ display: 'flex', alignItems: 'center', padding: '7pt 0', borderBottom: `0.5pt dotted ${t.border}` }}>
+          <span style={{ width: '28pt', fontSize: '10pt', fontWeight: 700, color: t.red }}>{item.section}</span>
+          <span style={{ flex: 1, fontSize: '13pt', color: t.dark, fontWeight: 500 }}>{item.title}</span>
+          <span style={{ fontSize: '10pt', fontWeight: 600, color: t.muted, marginLeft: '8pt' }}>{item.page}</span>
+        </div>
+      ))}
 
-      {/* Footer note */}
-      <div style={{
-        marginTop: '32pt',
-        padding: '16pt',
-        background: '#EBF5FF',
-        borderRadius: '8pt',
-        border: '1pt solid #BFDBFE'
-      }}>
-        <p style={{
-          fontSize: '11pt',
-          color: '#4B5563',
-          marginBottom: '0',
-          lineHeight: '1.6'
-        }}>
-          💡 <strong>Tip:</strong> This report is tailored specifically to your profile and the {countries?.[0] || 'immigration'} system.
-          Bookmark key sections for easy reference during your application journey.
+      <div style={{ marginTop: '20pt', padding: '10pt 12pt', background: t.bg, borderRadius: '4pt', borderLeft: `3pt solid ${t.red}` }}>
+        <p style={{ fontSize: '10pt', color: t.text, marginBottom: '0', lineHeight: '1.5' }}>
+          <strong>Note:</strong> This report is tailored specifically to your profile. Bookmark key sections for easy reference during your application journey.
         </p>
       </div>
     </div>
   );
 }
-

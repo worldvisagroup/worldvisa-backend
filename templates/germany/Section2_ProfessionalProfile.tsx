@@ -1,7 +1,6 @@
 import React from 'react';
 import type { GermanyProfessionalProfileData } from '../types/report-types';
 import { SectionHeader } from '../shared/SectionHeader';
-import { Table } from '../shared/Table';
 
 interface Props {
   data: GermanyProfessionalProfileData;
@@ -9,81 +8,134 @@ interface Props {
 
 export function Section2_ProfessionalProfile({ data }: Props) {
   return (
-    <div className="section professional-profile">
+    <div className="section page">
       <SectionHeader number="2" title="Your Professional Profile" />
 
-      <div className="subsection" style={{ marginTop: '8pt' }}>
-        <h3>2.1 Core Skills & Occupation Mapping (to German Classifications)</h3>
-        <p>Your profile maps to <strong>two primary German occupation categories:</strong></p>
-        
-        <p><strong>Primary: {data.coreSkills.primaryRole.title}</strong></p>
-        <ul style={{ marginLeft: '20pt', marginBottom: '12pt' }}>
-          {data.coreSkills.primaryRole.responsibilities.map((resp, index) => (
-            <li key={index} style={{ marginBottom: '4pt' }}>{resp}</li>
-          ))}
-        </ul>
+      {/* 2.1 Core Skills */}
+      <div style={{ marginBottom: '12pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '4pt' }}>
+          2.1 Core Skills &amp; Occupation Mapping (to German Classifications)
+        </h3>
+        <p style={{ fontSize: '12pt', color: '#4B5563', marginTop: 0, marginBottom: '6pt' }}>
+          Your profile maps to <strong style={{ color: '#111827' }}>two primary German occupation categories:</strong>
+        </p>
 
-        <p><strong>Secondary: {data.coreSkills.secondaryRole.title}</strong></p>
-        <ul style={{ marginLeft: '20pt', marginBottom: '12pt' }}>
-          {data.coreSkills.secondaryRole.responsibilities.map((resp, index) => (
-            <li key={index} style={{ marginBottom: '4pt' }}>{resp}</li>
-          ))}
-        </ul>
+        {/* Primary Role */}
+        <div style={{ borderLeft: '3pt solid #1B2A4A', paddingLeft: '10pt', marginBottom: '8pt', backgroundColor: '#F8F9FB', padding: '8pt 10pt 8pt 12pt' }}>
+          <p style={{ fontSize: '12pt', fontWeight: 600, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+            Primary: {data.coreSkills.primaryRole.title}
+          </p>
+          <ul style={{ margin: 0, paddingLeft: '14pt' }}>
+            {data.coreSkills.primaryRole.responsibilities.map((resp, index) => (
+              <li key={index} style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '2pt' }}>{resp}</li>
+            ))}
+          </ul>
+        </div>
 
-        <p><strong>Verdict:</strong> {data.coreSkills.verdict}</p>
+        {/* Secondary Role */}
+        <div style={{ borderLeft: '3pt solid #2563EB', paddingLeft: '10pt', marginBottom: '8pt', backgroundColor: '#F8F9FB', padding: '8pt 10pt 8pt 12pt' }}>
+          <p style={{ fontSize: '12pt', fontWeight: 600, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+            Secondary: {data.coreSkills.secondaryRole.title}
+          </p>
+          <ul style={{ margin: 0, paddingLeft: '14pt' }}>
+            {data.coreSkills.secondaryRole.responsibilities.map((resp, index) => (
+              <li key={index} style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '2pt' }}>{resp}</li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Verdict */}
+        <div style={{ borderLeft: '3pt solid #059669', backgroundColor: '#F0FDF4', padding: '6pt 10pt', marginBottom: '6pt' }}>
+          <p style={{ fontSize: '12pt', color: '#111827', margin: 0 }}>
+            <strong>Verdict:</strong> <span style={{ color: '#4B5563' }}>{data.coreSkills.verdict}</span>
+          </p>
+        </div>
       </div>
 
-      <div className="subsection" style={{ marginTop: '8pt' }}>
-        <h3>2.2 Years of Experience & Seniority Level</h3>
-        <Table
-          columns={[
-            { header: 'Metric', key: 'metric' },
-            { header: 'Your Profile', key: 'yourProfile' },
-          ]}
-          data={data.experience.map(exp => ({
-            metric: exp.metric,
-            yourProfile: exp.yourProfile,
-          }))}
-        />
+      {/* 2.2 Experience */}
+      <div style={{ marginBottom: '12pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '4pt' }}>
+          2.2 Years of Experience &amp; Seniority Level
+        </h3>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt' }}>
+          <thead>
+            <tr style={{ backgroundColor: '#F8F9FB' }}>
+              <th style={{ padding: '6pt 8pt', textAlign: 'left', fontWeight: 600, color: '#374151', borderBottom: '1.5pt solid #D1D5DB', fontSize: '12pt' }}>Metric</th>
+              <th style={{ padding: '6pt 8pt', textAlign: 'left', fontWeight: 600, color: '#374151', borderBottom: '1.5pt solid #D1D5DB', fontSize: '12pt' }}>Your Profile</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.experience.map((exp, index) => (
+              <tr key={index} style={{ backgroundColor: index % 2 === 0 ? '#FFFFFF' : '#FAFAFA' }}>
+                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#374151', fontWeight: 600 }}>{exp.metric}</td>
+                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#4B5563' }}>{exp.yourProfile}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      <div className="subsection" style={{ marginTop: '8pt' }}>
-        <h3>2.3 Language Proficiency & Education Level</h3>
-        
-        <p><strong>English Language Proficiency</strong></p>
-        <Table
-          columns={[
-            { header: 'Requirement', key: 'requirement' },
-            { header: 'Status', key: 'status' },
-            { header: 'Action Needed', key: 'actionNeeded' },
-          ]}
-          data={data.languageAndEducation.englishProficiency.map(lang => ({
-            requirement: lang.requirement,
-            status: lang.status,
-            actionNeeded: lang.actionNeeded,
-          }))}
-        />
+      {/* 2.3 Language & Education */}
+      <div style={{ marginBottom: '8pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '4pt' }}>
+          2.3 Language Proficiency &amp; Education Level
+        </h3>
 
-        <p style={{ marginTop: '12pt' }}><strong>German Language Proficiency</strong></p>
-        <p>{data.languageAndEducation.germanNote}</p>
+        {/* English Proficiency */}
+        <p style={{ fontSize: '12pt', fontWeight: 600, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+          English Language Proficiency
+        </p>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt', marginBottom: '8pt' }}>
+          <thead>
+            <tr style={{ backgroundColor: '#F8F9FB' }}>
+              <th style={{ padding: '6pt 8pt', textAlign: 'left', fontWeight: 600, color: '#374151', borderBottom: '1.5pt solid #D1D5DB', fontSize: '12pt' }}>Requirement</th>
+              <th style={{ padding: '6pt 8pt', textAlign: 'left', fontWeight: 600, color: '#374151', borderBottom: '1.5pt solid #D1D5DB', fontSize: '12pt' }}>Status</th>
+              <th style={{ padding: '6pt 8pt', textAlign: 'left', fontWeight: 600, color: '#374151', borderBottom: '1.5pt solid #D1D5DB', fontSize: '12pt' }}>Action Needed</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.languageAndEducation.englishProficiency.map((lang, index) => (
+              <tr key={index} style={{ backgroundColor: index % 2 === 0 ? '#FFFFFF' : '#FAFAFA' }}>
+                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#374151' }}>{lang.requirement}</td>
+                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#374151' }}>{lang.status}</td>
+                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#4B5563' }}>{lang.actionNeeded}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-        <p style={{ marginTop: '12pt' }}><strong>Education Level</strong></p>
-        <Table
-          columns={[
-            { header: 'Qualification', key: 'qualification' },
-            { header: 'Details', key: 'details' },
-            { header: 'Germany Recognition', key: 'germanyRecognition' },
-            { header: 'Status', key: 'status' },
-          ]}
-          data={data.languageAndEducation.education.map(edu => ({
-            qualification: edu.qualification,
-            details: edu.details,
-            germanyRecognition: edu.germanyRecognition,
-            status: edu.status,
-          }))}
-        />
+        {/* German Note */}
+        <div style={{ borderLeft: '3pt solid #1B2A4A', backgroundColor: '#F8F9FB', padding: '6pt 10pt', marginBottom: '8pt' }}>
+          <p style={{ fontSize: '12pt', color: '#111827', margin: 0 }}>
+            <strong>German Language Note:</strong> <span style={{ color: '#4B5563' }}>{data.languageAndEducation.germanNote}</span>
+          </p>
+        </div>
+
+        {/* Education */}
+        <p style={{ fontSize: '12pt', fontWeight: 600, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+          Education Level
+        </p>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt' }}>
+          <thead>
+            <tr style={{ backgroundColor: '#F8F9FB' }}>
+              <th style={{ padding: '6pt 8pt', textAlign: 'left', fontWeight: 600, color: '#374151', borderBottom: '1.5pt solid #D1D5DB', fontSize: '12pt' }}>Qualification</th>
+              <th style={{ padding: '6pt 8pt', textAlign: 'left', fontWeight: 600, color: '#374151', borderBottom: '1.5pt solid #D1D5DB', fontSize: '12pt' }}>Details</th>
+              <th style={{ padding: '6pt 8pt', textAlign: 'left', fontWeight: 600, color: '#374151', borderBottom: '1.5pt solid #D1D5DB', fontSize: '12pt' }}>Germany Recognition</th>
+              <th style={{ padding: '6pt 8pt', textAlign: 'left', fontWeight: 600, color: '#374151', borderBottom: '1.5pt solid #D1D5DB', fontSize: '12pt' }}>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.languageAndEducation.education.map((edu, index) => (
+              <tr key={index} style={{ backgroundColor: index % 2 === 0 ? '#FFFFFF' : '#FAFAFA' }}>
+                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#374151', fontWeight: 600 }}>{edu.qualification}</td>
+                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#4B5563' }}>{edu.details}</td>
+                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#4B5563' }}>{edu.germanyRecognition}</td>
+                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#374151' }}>{edu.status}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
-

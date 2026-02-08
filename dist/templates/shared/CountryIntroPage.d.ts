@@ -8,5 +8,5 @@ interface CountryIntroPageProps {
         gradient: string;
     };
 }
-export declare function CountryIntroPage({ countryName, flagImagePath, usps, colors }: CountryIntroPageProps): React.JSX.Element;
+export declare function CountryIntroPage({ countryName, flagImagePath, usps, }: CountryIntroPageProps): React.JSX.Element;
 export {};

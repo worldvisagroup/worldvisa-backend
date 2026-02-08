@@ -31,27 +31,14 @@ export function AustraliaReport({ data }: AustraliaReportProps) {
 
         <TableOfContents />
 
-        <div className="page-break" />
-
-        <div className="content-wrapper"> 
-          <Section1_ExecutiveSummary data={data.executiveSummary} />
-
-          <Section2_ProfessionalProfile data={data.professionalProfile} />
-
-          <Section3_VisaPathways data={data.visaPathways} />
-
-          <Section4_SkillDemand data={data.skillDemand} />
-
-          <Section5_TopEmployers data={data.topEmployers} />
-
-          <Section6_SalaryVariation data={data.salaryVariation} />
-
-          <Section7_Timeline />
-
-          <Section8_RegulatoryAdvisor />
-        </div>
-
-        <div className="page-break" />
+        <Section1_ExecutiveSummary data={data.executiveSummary} />
+        <Section2_ProfessionalProfile data={data.professionalProfile} />
+        <Section3_VisaPathways data={data.visaPathways} />
+        <Section4_SkillDemand data={data.skillDemand} />
+        <Section5_TopEmployers data={data.topEmployers} />
+        <Section6_SalaryVariation data={data.salaryVariation} />
+        <Section7_Timeline />
+        <Section8_RegulatoryAdvisor />
 
         <ThankYouPage />
       </body>

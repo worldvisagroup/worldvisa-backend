@@ -13,4 +13,3 @@ export function SectionHeader({ number, title }: SectionHeaderProps) {
     </div>
   );
 }
-

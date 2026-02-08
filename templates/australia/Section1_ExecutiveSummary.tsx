@@ -8,23 +8,79 @@ interface Props {
 
 export function Section1_ExecutiveSummary({ data }: Props) {
   return (
-    <div className="section executive-summary page">
+    <div className="section page">
       <SectionHeader number="1" title="Executive Summary" />
+
+      <div style={{ marginBottom: '12pt' }}>
+        <p style={{ fontSize: '12pt', color: '#4B5563', lineHeight: '1.6', margin: 0 }}>
+          {data.purpose}
+        </p>
+      </div>
+
+      <div style={{ marginBottom: '12pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+          1.1 Top Visa Pathways
+        </h3>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt' }}>
+          <thead>
+            <tr>
+              <th style={{ background: '#F8F9FB', padding: '6pt 8pt', textAlign: 'left', fontWeight: 600, color: '#111827', border: '1pt solid #E5E7EB' }}>
+                Pathway
+              </th>
+              <th style={{ background: '#F8F9FB', padding: '6pt 8pt', textAlign: 'left', fontWeight: 600, color: '#111827', border: '1pt solid #E5E7EB', width: '80pt' }}>
+                Subclass
+              </th>
+              <th style={{ background: '#F8F9FB', padding: '6pt 8pt', textAlign: 'left', fontWeight: 600, color: '#111827', border: '1pt solid #E5E7EB' }}>
+                Description
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.topVisaPathways.map((pathway, index) => (
+              <tr key={index}>
+                <td style={{ padding: '6pt 8pt', border: '1pt solid #E5E7EB', color: '#111827', fontWeight: 600, verticalAlign: 'top', background: index % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
+                  {pathway.name}
+                </td>
+                <td style={{ padding: '6pt 8pt', border: '1pt solid #E5E7EB', color: '#2563EB', fontWeight: 600, verticalAlign: 'top', background: index % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
+                  {pathway.subclass}
+                </td>
+                <td style={{ padding: '6pt 8pt', border: '1pt solid #E5E7EB', color: '#4B5563', verticalAlign: 'top', lineHeight: '1.5', background: index % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
+                  {pathway.description}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Why Australia */}
+      {data.whyAustralia && data.whyAustralia.length > 0 && (
+        <div style={{ marginBottom: '12pt' }}>
+          <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+            1.2 Why Australia?
+          </h3>
+          <ul style={{ margin: 0, paddingLeft: '16pt', listStyle: 'none' }}>
+            {data.whyAustralia.map((reason, index) => (
+              <li key={index} style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '4pt', lineHeight: '1.5' }}>
+                <span dangerouslySetInnerHTML={{ __html: '&#10003;' }} style={{ color: '#059669', marginRight: '6pt', fontWeight: 700 }} />
+                {reason}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Key Highlights */}
       {data.keyHighlights && data.keyHighlights.length > 0 && (
-        <div className="subsection">
-          <h3>1.1 Key Highlights</h3>
-          <div style={{
-            background: '#EBF5FF',
-            padding: '16pt',
-            borderRadius: '8pt',
-            borderLeft: '4pt solid #0066CC'
-          }}>
-            <ul style={{ marginLeft: '20pt', marginBottom: '0' }}>
+        <div style={{ marginBottom: '12pt' }}>
+          <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+            1.3 Key Highlights
+          </h3>
+          <div style={{ borderLeft: '3pt solid #1B2A4A', paddingLeft: '10pt', background: '#F8F9FB', padding: '8pt 10pt' }}>
+            <ul style={{ margin: 0, paddingLeft: '14pt' }}>
               {data.keyHighlights.map((highlight, index) => (
-                <li key={index} style={{ marginBottom: '8pt', color: '#1F2937' }}>
-                  <strong>{highlight}</strong>
+                <li key={index} style={{ fontSize: '12pt', color: '#111827', marginBottom: '4pt', lineHeight: '1.5', fontWeight: 600 }}>
+                  {highlight}
                 </li>
               ))}
             </ul>
@@ -34,139 +90,34 @@ export function Section1_ExecutiveSummary({ data }: Props) {
 
       {/* Profile Strengths */}
       {data.profileStrengths && data.profileStrengths.length > 0 && (
-        <div className="subsection">
-          <h3>1.2 Your Profile Strengths</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12pt' }}>
+        <div style={{ marginBottom: '12pt' }}>
+          <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+            1.4 Profile Strengths
+          </h3>
+          <ul style={{ margin: 0, paddingLeft: '16pt', listStyle: 'none' }}>
             {data.profileStrengths.map((strength, index) => (
-              <div
-                key={index}
-                style={{
-                  background: '#F9FAFB',
-                  border: '1pt solid #E5E7EB',
-                  borderRadius: '6pt',
-                  padding: '16pt',
-                  display: 'flex',
-                  alignItems: 'flex-start'
-                }}
-              >
-                <span style={{ color: '#10B981', fontSize: '16pt', marginRight: '12pt', flexShrink: 0 }}>✓</span>
-                <span style={{ fontSize: '10pt', color: '#4B5563', lineHeight: '1.5' }}>
-                  {strength}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Market Trends */}
-      {data.marketTrends && (
-        <div className="subsection">
-          <h3 style={{ marginBottom: '10pt' }}>1.3 Australian Tech Market Trends</h3>
-          <div style={{
-            background: '#FFFBEB',
-            border: '1pt solid #FCD34D',
-            borderRadius: '8pt',
-            padding: '16pt',
-          }}>
-            <p style={{ marginBottom: '0', fontSize: '11pt', lineHeight: '1.6' }}>
-              📈 <strong>Market Insight:</strong> {data.marketTrends}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Why Australia Section */}
-      {data.whyAustralia && data.whyAustralia.length > 0 && (
-        <div className="subsection">
-          <h3>1.4 Why Australia?</h3>
-          <ul className="checkmark-list">
-            {data.whyAustralia.map((reason, index) => (
-              <li key={index}>{reason}</li>
+              <li key={index} style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '4pt', lineHeight: '1.5' }}>
+                <span dangerouslySetInnerHTML={{ __html: '&#10003;' }} style={{ color: '#059669', marginRight: '6pt', fontWeight: 700 }} />
+                {strength}
+              </li>
             ))}
           </ul>
         </div>
       )}
 
-      {/* Purpose */}
-      <div className="subsection">
-        <h3>1.5 Purpose of This Report</h3>
-        <p>{data.purpose}</p>
-      </div>
-
-      {/* Top Visa Pathways */}
-      <div className="subsection">
-        <h3>1.6 Top Visa Pathways for Australia (Without Job Offer)</h3>
-        <p style={{ marginBottom: '16pt', color: '#6B7280', fontSize: '10pt' }}>
-          These are the primary skilled migration pathways available to you based on your profile:
-        </p>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(1, 1fr)', gap: '16pt' }}>
-          {data.topVisaPathways.map((pathway, index) => (
-            <div
-              key={index}
-              style={{
-                background: 'linear-gradient(135deg, #F9FAFB 0%, #FFFFFF 100%)',
-                border: '1pt solid #E5E7EB',
-                borderLeft: '4pt solid #0066CC',
-                borderRadius: '6pt',
-                padding: '16pt',
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: '12pt',
-                pageBreakInside: 'avoid',
-                breakInside: 'avoid'
-              }}
-            >
-              {/* Number badge */}
-              <div style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '36pt',
-                height: '36pt',
-                background: '#0066CC',
-                color: '#FFFFFF',
-                borderRadius: '50%',
-                fontSize: '16pt',
-                fontWeight: '700',
-                flexShrink: 0
-              }}>
-                {index + 1}
-              </div>
-
-              {/* Content */}
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12pt' }}>
-                  <strong style={{ fontSize: '13pt', color: '#1F2937' }}>
-                    {pathway.name}
-                  </strong>
-                  <span style={{
-                    marginLeft: '12pt',
-                    background: '#DBEAFE',
-                    color: '#1E40AF',
-                    padding: '3pt 10pt',
-                    borderRadius: '12pt',
-                    fontSize: '9pt',
-                    fontWeight: '600'
-                  }}>
-                    Subclass {pathway.subclass}
-                  </span>
-                </div>
-                <p style={{
-                  marginBottom: '0',
-                  fontSize: '11pt',
-                  color: '#4B5563',
-                  lineHeight: '1.6'
-                }}>
-                  {pathway.description}
-                </p>
-              </div>
-            </div>
-          ))}
+      {/* Market Trends */}
+      {data.marketTrends && (
+        <div style={{ marginBottom: '12pt' }}>
+          <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+            1.5 Market Trends
+          </h3>
+          <div style={{ borderLeft: '3pt solid #1B2A4A', paddingLeft: '10pt', background: '#F8F9FB', padding: '8pt 10pt' }}>
+            <p style={{ margin: 0, fontSize: '12pt', color: '#4B5563', lineHeight: '1.6' }}>
+              <strong style={{ color: '#111827' }}>Market Insight:</strong> {data.marketTrends}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
-

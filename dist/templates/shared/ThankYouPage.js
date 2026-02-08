@@ -11,7 +11,7 @@ const STATIC_THANK_YOU_DATA = {
     aboutWorldVisa: "WorldVisa is your trusted partner for immigration services, providing expert guidance for skilled professionals seeking opportunities worldwide. With years of experience and a team of MARA-certified advisors, we've helped thousands of clients successfully navigate complex immigration processes.",
     successStats: {
         yearsOfExperience: "21+",
-        clientsServed: "50k+",
+        clientsServed: "150k+",
         successRate: "98%"
     },
     services: [
@@ -34,118 +34,65 @@ const STATIC_THANK_YOU_DATA = {
     },
     footer: {
         companyTagline: "WorldVisa - Your Global Immigration Partner",
-        copyright: "© 2026 WorldVisa. All rights reserved."
+        copyright: "\u00A9 2026 WorldVisa. All rights reserved."
     }
 };
 function ThankYouPage() {
-    // Use static data
     const data = STATIC_THANK_YOU_DATA;
     const contactInfo = data.contactInfo;
-    // Professional Color Palette
-    const colors = {
-        primary: '#111827', // Dark Gray/Black for main text
-        accent: '#0F766E', // Teal/Emerald for trust/success
-        brand: '#1D4ED8', // Professional Blue
-        textLight: '#6B7280',
-        bgLight: '#F3F4F6',
+    const t = {
+        dark: '#111827',
+        text: '#4B5563',
+        muted: '#9CA3AF',
+        accent: '#1B2A4A',
         border: '#E5E7EB',
-        red: '#D52636'
+        bg: '#FAFAFA',
+        green: '#059669',
     };
-    return (react_1.default.createElement("div", { className: "thank-you-page", style: { color: colors.primary, padding: '20mm 25mm' } },
-        react_1.default.createElement("div", { style: { textAlign: 'center', maxWidth: '600pt', margin: '0 auto 32pt auto' } },
-            react_1.default.createElement("h1", { style: {
-                    fontSize: '28pt',
-                    fontWeight: '700',
-                    marginBottom: '16pt',
-                    color: colors.primary,
-                    letterSpacing: '-0.5px'
-                } }, data.heading),
-            react_1.default.createElement("p", { style: {
-                    fontSize: '12pt',
-                    lineHeight: '1.6',
-                    color: colors.textLight,
-                    maxWidth: '500pt',
-                    margin: '0 auto'
-                } }, data.thankYouMessage)),
-        data.successStats && (react_1.default.createElement("div", { style: {
-                display: 'grid',
-                gridTemplateColumns: 'repeat(3, 1fr)',
-                gap: '12pt',
-                marginBottom: '32pt'
-            } }, [
+    return (react_1.default.createElement("div", { style: {
+            minHeight: '297mm',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            padding: '14mm 16mm',
+            color: t.dark
+        } },
+        react_1.default.createElement("div", { style: { textAlign: 'center', marginBottom: '20pt', marginTop: '10pt' } },
+            react_1.default.createElement("img", { src: "https://res.cloudinary.com/djvvz62dw/image/upload/v1765014046/worldvisa/logo_uavsjh.svg", alt: "WorldVisa", style: { height: '28pt', marginBottom: '16pt' } }),
+            react_1.default.createElement("h1", { style: { fontSize: '22pt', fontWeight: 700, color: t.dark, marginBottom: '8pt', lineHeight: '1.2' } }, data.heading),
+            react_1.default.createElement("p", { style: { fontSize: '12pt', lineHeight: '1.6', color: t.text, maxWidth: '420pt', margin: '0 auto' } }, data.thankYouMessage)),
+        data.successStats && (react_1.default.createElement("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8pt', marginBottom: '20pt' } }, [
             { label: 'Years of Experience', value: data.successStats.yearsOfExperience },
             { label: 'Clients Served', value: data.successStats.clientsServed },
             { label: 'Success Rate', value: data.successStats.successRate },
-        ].map((item, idx) => (react_1.default.createElement("div", { key: idx, style: {
-                background: '#FFFFFF',
-                border: `1px solid ${colors.border}`,
-                borderRadius: '8pt',
-                padding: '16pt',
-                textAlign: 'center',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
-            } },
-            react_1.default.createElement("div", { style: {
-                    fontSize: '24pt',
-                    fontWeight: '600',
-                    color: colors.red,
-                    marginBottom: '4pt'
-                } }, item.value),
-            react_1.default.createElement("div", { style: {
-                    fontSize: '9pt',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
-                    color: colors.textLight,
-                    fontWeight: '600'
-                } }, item.label)))))),
-        react_1.default.createElement("div", { style: { display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '24pt' } },
+        ].map((item, idx) => (react_1.default.createElement("div", { key: idx, style: { border: `0.5pt solid ${t.border}`, borderRadius: '4pt', padding: '12pt', textAlign: 'center' } },
+            react_1.default.createElement("div", { style: { fontSize: '20pt', fontWeight: 700, color: t.accent, marginBottom: '2pt' } }, item.value),
+            react_1.default.createElement("div", { style: { fontSize: '10pt', textTransform: 'uppercase', letterSpacing: '0.04em', color: t.muted, fontWeight: 600 } }, item.label)))))),
+        react_1.default.createElement("div", { style: { display: 'grid', gridTemplateColumns: '1.2fr 0.8fr', gap: '16pt', marginBottom: '16pt' } },
             react_1.default.createElement("div", null,
-                react_1.default.createElement("h3", { style: {
-                        fontSize: '16pt',
-                        fontWeight: '700',
-                        marginBottom: '12pt',
-                        borderBottom: `2px solid ${colors.bgLight}`,
-                        paddingBottom: '8pt'
-                    } }, "About WorldVisa"),
-                react_1.default.createElement("p", { style: { fontSize: '10.5pt', lineHeight: '1.7', color: '#374151', marginBottom: '24pt' } }, data.aboutWorldVisa),
-                react_1.default.createElement("h4", { style: { fontSize: '12pt', fontWeight: '700', marginBottom: '12pt' } }, "Our Services"),
-                react_1.default.createElement("div", { style: { display: 'grid', gridTemplateColumns: '1fr', gap: '8pt' } }, data.services.map((service, index) => (react_1.default.createElement("div", { key: index, style: { display: 'flex', alignItems: 'center', gap: '8pt' } },
-                    react_1.default.createElement("span", { style: { color: colors.accent, fontSize: '12pt', fontWeight: 'bold' } }, "\u2713"),
-                    react_1.default.createElement("span", { style: { fontSize: '10.5pt', color: '#374151' } }, service)))))),
-            react_1.default.createElement("div", null,
-                react_1.default.createElement("div", { style: {
-                        background: '#F8FAFC',
-                        border: `1px solid ${colors.border}`,
-                        borderRadius: '12pt',
-                        padding: '20pt',
-                        height: '100%'
-                    } },
-                    react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: '700', marginBottom: '16pt', color: colors.primary } }, "Contact Us"),
-                    react_1.default.createElement("div", { style: { display: 'flex', flexDirection: 'column', gap: '12pt' } },
-                        contactInfo?.email && (react_1.default.createElement("div", null,
-                            react_1.default.createElement("div", { style: { fontSize: '9pt', color: colors.textLight, marginBottom: '2pt' } }, "Email"),
-                            react_1.default.createElement("div", { style: { fontSize: '11pt', fontWeight: '500' } }, contactInfo.email))),
-                        contactInfo?.phone && (react_1.default.createElement("div", null,
-                            react_1.default.createElement("div", { style: { fontSize: '9pt', color: colors.textLight, marginBottom: '2pt' } }, "Phone"),
-                            react_1.default.createElement("div", { style: { fontSize: '11pt', fontWeight: '500' } }, contactInfo.phone))),
-                        contactInfo?.website && (react_1.default.createElement("div", null,
-                            react_1.default.createElement("div", { style: { fontSize: '9pt', color: colors.textLight, marginBottom: '2pt' } }, "Website"),
-                            react_1.default.createElement("div", { style: { fontSize: '11pt', fontWeight: '500' } }, contactInfo.website))),
-                        contactInfo?.office && (react_1.default.createElement("div", null,
-                            react_1.default.createElement("div", { style: { fontSize: '9pt', color: colors.textLight, marginBottom: '2pt' } }, "Office"),
-                            react_1.default.createElement("div", { style: { fontSize: '10pt', fontWeight: '500', lineHeight: '1.5' } }, contactInfo.office)))),
-                    react_1.default.createElement("div", { style: { marginTop: '24pt', textAlign: 'center' } },
-                        react_1.default.createElement("p", { style: { fontSize: '9pt', color: colors.textLight } },
-                            "Follow us: ",
-                            react_1.default.createElement("strong", null, data.socialMedia.join('  •  '))))))),
-        react_1.default.createElement("div", { style: {
-                borderTop: `1px solid ${colors.border}`,
-                paddingTop: '16pt',
-                textAlign: 'center',
-                paddingBottom: '16pt',
-                marginTop: '1pt'
-            } },
-            react_1.default.createElement("p", { style: { fontSize: '8pt', color: colors.textLight } },
+                react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: t.dark, marginBottom: '6pt', marginTop: 0, paddingBottom: '4pt', borderBottom: `1px solid ${t.border}` } }, "About WorldVisa"),
+                react_1.default.createElement("p", { style: { fontSize: '12pt', lineHeight: '1.6', color: t.text, marginBottom: '12pt' } }, data.aboutWorldVisa),
+                react_1.default.createElement("h4", { style: { fontSize: '12pt', fontWeight: 700, color: t.dark, marginBottom: '6pt', marginTop: 0 } }, "Our Services"),
+                data.services.map((service, index) => (react_1.default.createElement("div", { key: index, style: { display: 'flex', alignItems: 'center', gap: '6pt', marginBottom: '4pt' } },
+                    react_1.default.createElement("span", { style: { color: t.green, fontSize: '12pt', fontWeight: 700 } }, "\u2713"),
+                    react_1.default.createElement("span", { style: { fontSize: '12pt', color: t.text } }, service))))),
+            react_1.default.createElement("div", { style: { background: t.bg, border: `0.5pt solid ${t.border}`, borderRadius: '6pt', padding: '14pt' } },
+                react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: t.dark, marginBottom: '10pt', marginTop: 0 } }, "Contact Us"),
+                contactInfo?.email && (react_1.default.createElement("div", { style: { marginBottom: '8pt' } },
+                    react_1.default.createElement("div", { style: { fontSize: '10pt', color: t.muted, marginBottom: '1pt', textTransform: 'uppercase' } }, "Email"),
+                    react_1.default.createElement("div", { style: { fontSize: '12pt', fontWeight: 500, color: t.dark } }, contactInfo.email))),
+                contactInfo?.phone && (react_1.default.createElement("div", { style: { marginBottom: '8pt' } },
+                    react_1.default.createElement("div", { style: { fontSize: '10pt', color: t.muted, marginBottom: '1pt', textTransform: 'uppercase' } }, "Phone"),
+                    react_1.default.createElement("div", { style: { fontSize: '12pt', fontWeight: 500, color: t.dark } }, contactInfo.phone))),
+                contactInfo?.website && (react_1.default.createElement("div", { style: { marginBottom: '8pt' } },
+                    react_1.default.createElement("div", { style: { fontSize: '10pt', color: t.muted, marginBottom: '1pt', textTransform: 'uppercase' } }, "Website"),
+                    react_1.default.createElement("div", { style: { fontSize: '12pt', fontWeight: 500, color: t.dark } }, contactInfo.website))),
+                contactInfo?.office && (react_1.default.createElement("div", { style: { marginBottom: '8pt' } },
+                    react_1.default.createElement("div", { style: { fontSize: '10pt', color: t.muted, marginBottom: '1pt', textTransform: 'uppercase' } }, "Office"),
+                    react_1.default.createElement("div", { style: { fontSize: '12pt', fontWeight: 500, color: t.dark, lineHeight: '1.4' } }, contactInfo.office))))),
+        react_1.default.createElement("div", { style: { borderTop: `0.5pt solid ${t.border}`, paddingTop: '10pt', textAlign: 'center' } },
+            react_1.default.createElement("p", { style: { fontSize: '10pt', color: t.muted, margin: 0 } },
                 data.footer.companyTagline,
-                " . ",
+                " | ",
                 data.footer.copyright))));
 }

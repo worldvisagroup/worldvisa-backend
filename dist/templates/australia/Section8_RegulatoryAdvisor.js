@@ -27,34 +27,13 @@ const STATIC_REGULATORY_ADVISOR_DATA = {
     whyRegulatedAgentsMatter: {
         heading: "Why Regulated Agents Matter",
         reasons: [
-            {
-                title: "Legal Authority",
-                description: "Only MARA-registered agents can legally represent you in Australian visa applications"
-            },
-            {
-                title: "Accountability",
-                description: "MARA enforces code of conduct; complaints go to MARA (recourse if poor service)"
-            },
-            {
-                title: "Professional Standards",
-                description: "Agents must have insurance, professional indemnity, ongoing training"
-            },
-            {
-                title: "Error Prevention",
-                description: "Professional agents catch errors that could lead to visa rejection"
-            },
-            {
-                title: "Knowledge",
-                description: "Agents stay current on policy changes, processing times, state requirements"
-            },
-            {
-                title: "Communication",
-                description: "Agents handle all immigration correspondence; you don't have to decode official jargon"
-            },
-            {
-                title: "Peace of Mind",
-                description: "Professional guidance reduces risk and stress"
-            }
+            { title: "Legal Authority", description: "Only MARA-registered agents can legally represent you in Australian visa applications" },
+            { title: "Accountability", description: "MARA enforces code of conduct; complaints go to MARA (recourse if poor service)" },
+            { title: "Professional Standards", description: "Agents must have insurance, professional indemnity, ongoing training" },
+            { title: "Error Prevention", description: "Professional agents catch errors that could lead to visa rejection" },
+            { title: "Knowledge", description: "Agents stay current on policy changes, processing times, state requirements" },
+            { title: "Communication", description: "Agents handle all immigration correspondence; you don't have to decode official jargon" },
+            { title: "Peace of Mind", description: "Professional guidance reduces risk and stress" }
         ]
     },
     whatMaraAgentDoes: {
@@ -76,90 +55,35 @@ const STATIC_REGULATORY_ADVISOR_DATA = {
 };
 function Section8_RegulatoryAdvisor() {
     const data = STATIC_REGULATORY_ADVISOR_DATA;
-    // Unified Professional Colors
-    const colors = {
-        primary: '#111827',
-        secondary: '#4B5563',
-        accent: '#059669',
-        bgLight: '#F3F4F6',
-        border: '#E5E7EB',
-        cardBg: '#FFFFFF'
-    };
-    return (react_1.default.createElement("div", { className: "section regulatory-advisor page" },
+    return (react_1.default.createElement("div", { className: "section page" },
         react_1.default.createElement(SectionHeader_1.SectionHeader, { number: "8", title: data.sectionTitle }),
-        react_1.default.createElement("div", { style: {
-                background: `linear-gradient(to bottom right, ${colors.bgLight}, #F9FAFB)`,
-                border: `1px solid ${colors.border}`,
-                borderRadius: '12pt',
-                padding: '24pt',
-                marginBottom: '32pt',
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gap: '24pt',
-                alignItems: 'center'
-            } },
-            react_1.default.createElement("div", null,
-                react_1.default.createElement("h4", { style: { fontSize: '14pt', fontWeight: '700', color: colors.primary, marginBottom: '20pt' } }, "Authorized & Regulated"),
-                react_1.default.createElement("div", { style: { display: 'flex', flexDirection: 'column', gap: '16pt' } },
-                    react_1.default.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: '12pt' } },
-                        react_1.default.createElement("div", { style: {
-                                width: '32pt', height: '32pt', borderRadius: '50%', background: '#DEF7EC',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                color: colors.accent, fontWeight: 'bold'
-                            } }, "\u2713"),
-                        react_1.default.createElement("div", null,
-                            react_1.default.createElement("div", { style: { fontSize: '9pt', color: colors.secondary, textTransform: 'uppercase', letterSpacing: '0.05em' } }, "MARA Number"),
-                            react_1.default.createElement("div", { style: { fontSize: '14pt', fontWeight: '700', color: colors.primary } }, data.maraNumber))),
-                    react_1.default.createElement("div", { style: { display: 'flex', alignItems: 'center', gap: '12pt' } },
-                        react_1.default.createElement("div", { style: {
-                                width: '32pt', height: '32pt', borderRadius: '50%', background: '#DEF7EC',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                color: colors.accent, fontWeight: 'bold'
-                            } }, "%"),
-                        react_1.default.createElement("div", null,
-                            react_1.default.createElement("div", { style: { fontSize: '9pt', color: colors.secondary, textTransform: 'uppercase', letterSpacing: '0.05em' } }, "Success Rate"),
-                            react_1.default.createElement("div", { style: { fontSize: '14pt', fontWeight: '700', color: colors.primary } }, data.successRate?.split(' ')[0]))))),
-            react_1.default.createElement("div", { style: { background: colors.cardBg, padding: '16pt', borderRadius: '8pt', border: `1px solid ${colors.border}` } },
-                react_1.default.createElement("p", { style: { fontSize: '10pt', fontWeight: '600', color: colors.primary, marginBottom: '12pt' } }, "Professional Credentials"),
-                react_1.default.createElement("ul", { style: { padding: 0, margin: 0, listStyle: 'none' } }, data.agentCredentials?.map((cred, idx) => (react_1.default.createElement("li", { key: idx, style: {
-                        marginBottom: '8pt',
-                        fontSize: '9.5pt',
-                        color: colors.secondary,
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: '8pt'
-                    } },
-                    react_1.default.createElement("span", { style: { color: colors.accent, marginTop: '1pt' } }, "\u2022"),
+        react_1.default.createElement("div", { style: { borderLeft: '3pt solid #1B2A4A', padding: '8pt 10pt', marginBottom: '12pt', background: '#F8F9FB' } },
+            react_1.default.createElement("div", { style: { display: 'flex', gap: '16pt', alignItems: 'center', flexWrap: 'wrap' } },
+                data.maraNumber && (react_1.default.createElement("div", null,
+                    react_1.default.createElement("div", { style: { fontSize: '10pt', color: '#9CA3AF', textTransform: 'uppercase' } }, "MARA Number"),
+                    react_1.default.createElement("div", { style: { fontSize: '12pt', fontWeight: 700, color: '#111827' } }, data.maraNumber))),
+                data.successRate && (react_1.default.createElement("div", null,
+                    react_1.default.createElement("div", { style: { fontSize: '10pt', color: '#9CA3AF', textTransform: 'uppercase' } }, "Success Rate"),
+                    react_1.default.createElement("div", { style: { fontSize: '12pt', fontWeight: 700, color: '#059669' } }, data.successRate)))),
+            data.agentCredentials && data.agentCredentials.length > 0 && (react_1.default.createElement("div", { style: { marginTop: '6pt', paddingTop: '6pt', borderTop: '0.5pt solid #E5E7EB' } },
+                react_1.default.createElement("div", { style: { fontSize: '10pt', fontWeight: 600, color: '#111827', marginBottom: '3pt' } }, "Professional Credentials:"),
+                data.agentCredentials.map((cred, idx) => (react_1.default.createElement("div", { key: idx, style: { fontSize: '12pt', color: '#4B5563', marginBottom: '1pt' } },
+                    react_1.default.createElement("span", { dangerouslySetInnerHTML: { __html: '&#10003;' }, style: { color: '#059669', marginRight: '4pt' } }),
+                    " ",
                     cred)))))),
-        react_1.default.createElement("div", { style: { display: 'grid', gridTemplateColumns: '1fr', gap: '32pt' } },
-            react_1.default.createElement("div", null,
-                react_1.default.createElement("h3", { style: { fontSize: '16pt', fontWeight: '700', color: colors.primary, marginBottom: '16pt', borderBottom: `2px solid ${colors.border}`, paddingBottom: '8pt' } }, data.whyRegulatedAgentsMatter.heading),
-                react_1.default.createElement("div", { style: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12pt' } }, data.whyRegulatedAgentsMatter.reasons.map((reason, index) => (react_1.default.createElement("div", { key: index, style: {
-                        background: colors.cardBg,
-                        border: `1px solid ${colors.border}`,
-                        borderRadius: '8pt',
-                        padding: '16pt',
-                        display: 'flex',
-                        gap: '12pt'
-                    } },
-                    react_1.default.createElement("div", { style: {
-                            marginTop: '2pt',
-                            color: '#2563EB',
-                            fontWeight: 'bold',
-                            fontSize: '12pt'
-                        } }, "\u2022"),
-                    react_1.default.createElement("div", null,
-                        react_1.default.createElement("div", { style: { fontSize: '11pt', fontWeight: '600', color: colors.primary, marginBottom: '4pt' } }, reason.title),
-                        react_1.default.createElement("div", { style: { fontSize: '9.5pt', lineHeight: '1.5', color: colors.secondary } }, reason.description))))))),
-            react_1.default.createElement("div", null,
-                react_1.default.createElement("div", { style: {
-                        background: '#F8FAFC',
-                        borderLeft: `4px solid #2563EB`,
-                        borderRadius: '4pt',
-                        padding: '24pt'
-                    } },
-                    react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: '700', color: colors.primary, marginBottom: '16pt', marginTop: 0 } }, data.whatMaraAgentDoes.heading),
-                    react_1.default.createElement("div", { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'x 24pt' } },
-                        react_1.default.createElement("ul", { style: { margin: 0, paddingLeft: '16pt', color: colors.secondary, fontSize: '10pt', lineHeight: '1.8' } }, data.whatMaraAgentDoes.services.slice(0, Math.ceil(data.whatMaraAgentDoes.services.length / 2)).map((item, i) => (react_1.default.createElement("li", { key: i }, item)))),
-                        react_1.default.createElement("ul", { style: { margin: 0, paddingLeft: '16pt', color: colors.secondary, fontSize: '10pt', lineHeight: '1.8' } }, data.whatMaraAgentDoes.services.slice(Math.ceil(data.whatMaraAgentDoes.services.length / 2)).map((item, i) => (react_1.default.createElement("li", { key: i }, item))))))))));
+        react_1.default.createElement("div", { style: { marginBottom: '12pt' } },
+            react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, data.whatIsMara.heading),
+            react_1.default.createElement("ul", { style: { margin: 0, paddingLeft: '14pt' } }, data.whatIsMara.items.map((item, idx) => (react_1.default.createElement("li", { key: idx, style: { fontSize: '12pt', color: '#4B5563', marginBottom: '3pt', lineHeight: '1.4' } }, item))))),
+        react_1.default.createElement("div", { style: { marginBottom: '12pt' } },
+            react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, data.whyRegulatedAgentsMatter.heading),
+            data.whyRegulatedAgentsMatter.reasons.map((reason, index) => (react_1.default.createElement("div", { key: index, style: { marginBottom: '4pt', fontSize: '12pt', lineHeight: '1.4' } },
+                react_1.default.createElement("strong", { style: { color: '#111827' } },
+                    reason.title,
+                    ":"),
+                ' ',
+                react_1.default.createElement("span", { style: { color: '#4B5563' } }, reason.description))))),
+        react_1.default.createElement("div", { style: { marginBottom: '16pt' } },
+            react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, data.whatMaraAgentDoes.heading),
+            react_1.default.createElement("div", { style: { borderLeft: '3pt solid #1B2A4A', padding: '6pt 10pt', background: '#F8F9FB' } },
+                react_1.default.createElement("ul", { style: { margin: 0, paddingLeft: '14pt', columns: 2, columnGap: '16pt' } }, data.whatMaraAgentDoes.services.map((service, idx) => (react_1.default.createElement("li", { key: idx, style: { fontSize: '12pt', color: '#4B5563', marginBottom: '3pt', lineHeight: '1.4' } }, service))))))));
 }

@@ -11,55 +11,55 @@ export const pdfStyles = `
 
   html, body {
     width: 210mm;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
-    font-size: 11pt;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif;
+    font-size: 14pt;
     line-height: 1.6;
     color: #1F2937;
     background: #FFFFFF;
   }
 
   /* ========================================
-     TYPOGRAPHY
+     TYPOGRAPHY - Tight, professional spacing
      ======================================== */
   h1 {
-    font-size: 24pt;
+    font-size: 20pt;
     font-weight: 700;
     line-height: 1.2;
-    color: #0066CC;
+    color: #111827;
     margin-top: 0;
-    margin-bottom: 24pt;
+    margin-bottom: 10pt;
   }
 
   h2 {
     font-size: 18pt;
     font-weight: 600;
-    line-height: 1.3;
+    line-height: 1.25;
     color: #1F2937;
-    margin-top: 20pt;
-    margin-bottom: 16pt;
-  }
-
-  h3 {
-    font-size: 14pt;
-    font-weight: 600;
-    line-height: 1.3;
-    color: #374151;
-    margin-top: 16pt;
-    margin-bottom: 12pt;
-  }
-
-  h4 {
-    font-size: 12pt;
-    font-weight: 600;
-    line-height: 1.3;
-    color: #4B5563;
-    margin-top: 12pt;
+    margin-top: 14pt;
     margin-bottom: 8pt;
   }
 
+  h3 {
+    font-size: 16pt;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #374151;
+    margin-top: 10pt;
+    margin-bottom: 6pt;
+  }
+
+  h4 {
+    font-size: 14pt;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #4B5563;
+    margin-top: 8pt;
+    margin-bottom: 4pt;
+  }
+
   p {
-    margin-bottom: 12pt;
-    text-align: justify;
+    margin-bottom: 6pt;
+    text-align: left;
     orphans: 3;
     widows: 3;
   }
@@ -91,40 +91,15 @@ export const pdfStyles = `
     margin-bottom: 40pt;
   }
 
-  .cover-title {
-    font-size: 32pt;
-    font-weight: 700;
-    color: #0066CC;
-    margin-bottom: 16pt;
-    line-height: 1.2;
-  }
-
-  .cover-subtitle {
-    font-size: 20pt;
-    font-weight: 400;
-    color: #4B5563;
-    margin-bottom: 40pt;
-  }
-
-  .cover-meta {
-    font-size: 12pt;
-    color: #6B7280;
-    margin-top: 60pt;
-  }
-
-  .cover-meta p {
-    margin-bottom: 6pt;
-  }
-
   /* ========================================
-     PAGE LAYOUT
+     PAGE LAYOUT - Compact padding
      ======================================== */
   .content-wrapper {
-    padding: 6mm 6mm;
+    padding: 0mm 6mm;
   }
 
   .page {
-    padding: 6mm 6mm;
+    padding: 8mm 6mm;
   }
 
   .page-break {
@@ -136,170 +111,205 @@ export const pdfStyles = `
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding-bottom: 12pt;
-    margin-bottom: 20pt;
-    border-bottom: 1pt solid #E5E7EB;
+    padding-bottom: 8pt;
+    margin-bottom: 14pt;
+    border-bottom: 0.5pt solid #E5E7EB;
   }
 
   .page-header-logo {
-    max-height: 30pt;
+    max-height: 24pt;
   }
 
   .page-header-title {
-    font-size: 10pt;
-    color: #6B7280;
+    font-size: 9pt;
+    color: #9CA3AF;
+    font-weight: 500;
   }
 
   .page-footer {
     position: fixed;
-    bottom: 20mm;
-    left: 25mm;
-    right: 25mm;
+    bottom: 15mm;
+    left: 15mm;
+    right: 15mm;
     text-align: center;
-    font-size: 9pt;
+    font-size: 8pt;
     color: #9CA3AF;
-    padding-top: 12pt;
-    border-top: 1pt solid #E5E7EB;
+    padding-top: 8pt;
+    border-top: 0.5pt solid #E5E7EB;
   }
 
   /* ========================================
-     SECTIONS
+     SECTIONS - Tight, no wasted space
      ======================================== */
   .section {
-    margin-bottom: 24pt;
+    margin-bottom: 8pt;
   }
 
   .section-header {
-    margin-top: 24pt;
-    margin-bottom: 20pt;
-    padding-bottom: 10pt;
-    border-bottom: 2pt solid #0066CC;
+    margin-top: 0;
+    margin-bottom: 12pt;
+    padding-bottom: 6pt;
+    border-bottom: 2pt solid #1B2A4A;
+    display: flex;
+    align-items: center;
+    gap: 10pt;
   }
 
   .section-number {
-    display: inline-block;
-    background: #0066CC;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #1B2A4A;
     color: #FFFFFF;
-    font-size: 14pt;
+    font-size: 11pt;
     font-weight: 700;
-    padding: 6pt 14pt;
+    width: 28pt;
+    height: 28pt;
     border-radius: 4pt;
-    margin-right: 10pt;
+    flex-shrink: 0;
   }
 
   .section-title {
-    display: inline-block;
-    font-size: 20pt;
-    font-weight: 600;
-    color: #1F2937;
+    font-size: 16pt;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.2;
   }
 
   .subsection {
     margin-top: 0;
-    margin-bottom: 20pt;
+    margin-bottom: 10pt;
   }
-  
+
   /* ========================================
-     CARD COMPONENTS
+     CARD COMPONENTS - Minimal, clean
      ======================================== */
   .card {
-    background: #F9FAFB;
-    border: 1pt solid #E5E7EB;
-    border-radius: 6pt;
-    padding: 16pt;
-    margin-bottom: 12pt;
+    background: #FAFAFA;
+    border: 0.5pt solid #E5E7EB;
+    border-radius: 4pt;
+    padding: 10pt 12pt;
+    margin-bottom: 8pt;
   }
-  
+
   .card-header {
-    margin-bottom: 12pt;
-    padding-bottom: 8pt;
-    border-bottom: 1pt solid #E5E7EB;
+    margin-bottom: 6pt;
+    padding-bottom: 4pt;
+    border-bottom: 0.5pt solid #E5E7EB;
   }
-  
+
   .card-title {
-    font-size: 13pt;
+    font-size: 11pt;
     font-weight: 600;
     color: #1F2937;
   }
-  
+
   .card-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 12pt;
-    margin: 16pt 0;
+    gap: 8pt;
+    margin: 8pt 0;
   }
-  
+
   .card-grid-3 {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 12pt;
-    margin: 16pt 0;
+    gap: 8pt;
+    margin: 8pt 0;
   }
-  
+
   /* ========================================
      BADGES & INDICATORS
      ======================================== */
   .badge {
     display: inline-block;
-    padding: 3pt 8pt;
-    border-radius: 12pt;
-    font-size: 9pt;
+    padding: 2pt 7pt;
+    border-radius: 3pt;
+    font-size: 8pt;
     font-weight: 600;
-    margin-right: 6pt;
+    margin-right: 4pt;
   }
-  
+
   .badge-primary {
-    background: #DBEAFE;
+    background: #EFF6FF;
     color: #1E40AF;
   }
-  
+
   .badge-success {
-    background: #D1FAE5;
+    background: #ECFDF5;
     color: #065F46;
   }
-  
+
   .badge-warning {
-    background: #FEF3C7;
+    background: #FFFBEB;
     color: #92400E;
   }
-  
+
   .badge-info {
-    background: #E0E7FF;
+    background: #EEF2FF;
     color: #3730A3;
   }
-  
+
+  .badge-red {
+    background: #FEF2F2;
+    color: #991B1B;
+  }
+
   .demand-indicator {
     display: inline-block;
-    padding: 2pt 10pt;
-    border-radius: 4pt;
-    font-size: 9pt;
+    padding: 1pt 8pt;
+    border-radius: 3pt;
+    font-size: 8pt;
     font-weight: 600;
   }
-  
+
   .demand-very-high {
+    background: #059669;
+    color: #FFFFFF;
+  }
+
+  .demand-high {
     background: #10B981;
     color: #FFFFFF;
   }
-  
-  .demand-high {
-    background: #34D399;
-    color: #FFFFFF;
-  }
-  
+
   .demand-medium {
-    background: #FBBF24;
+    background: #F59E0B;
     color: #FFFFFF;
   }
 
   /* ========================================
-     TABLES
+     TABLES - Compact, professional
      ======================================== */
   table {
     width: 100%;
     border-collapse: collapse;
-    margin: 16pt 0;
-    font-size: 10pt;
+    margin: 6pt 0;
+    font-size: 9pt;
     page-break-inside: auto;
+  }
+
+  thead {
+    background: #F8F9FA;
+  }
+
+  thead th {
+    padding: 7pt 8pt;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    border-bottom: 1.5pt solid #D1D5DB;
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  tbody td {
+    padding: 6pt 8pt;
+    border-bottom: 0.5pt solid #E5E7EB;
+    vertical-align: top;
+    line-height: 1.4;
+    color: #374151;
   }
 
   tbody tr {
@@ -307,57 +317,25 @@ export const pdfStyles = `
     page-break-after: auto;
   }
 
-  thead {
-    background: linear-gradient(135deg, #EBF5FF 0%, #DBEAFE 100%);
-  }
-
-  thead th {
-    padding: 10pt 12pt;
-    text-align: left;
-    font-weight: 600;
-    color: #1F2937;
-    border: 1pt solid #E5E7EB;
-    font-size: 11pt;
-  }
-
-  tbody td {
-    padding: 10pt 12pt;
-    border: 1pt solid #E5E7EB;
-    vertical-align: top;
-    line-height: 1.5;
-  }
-
-  /* Ensure consistent table spacing */
-  table {
-    margin: 16pt 0;
-  }
-
-  tbody tr {
-    page-break-inside: avoid;
-  }
-
   tbody tr:nth-child(even) {
-    background: #F9FAFB;
+    background: #FAFAFA;
   }
 
   tbody tr:nth-child(odd) {
     background: #FFFFFF;
   }
-  
-  tbody tr:hover {
-    background: #EBF5FF;
-  }
 
   /* ========================================
-     LISTS
+     LISTS - Tight spacing
      ======================================== */
   ul, ol {
-    margin-left: 20pt;
-    margin-bottom: 12pt;
+    margin-left: 14pt;
+    margin-bottom: 6pt;
   }
 
   li {
-    margin-bottom: 6pt;
+    margin-bottom: 3pt;
+    line-height: 1.4;
   }
 
   ul.checkmark-list {
@@ -366,37 +344,36 @@ export const pdfStyles = `
   }
 
   ul.checkmark-list li {
-    margin-bottom: 8pt;
+    margin-bottom: 4pt;
   }
 
   ul.checkmark-list li:before {
-    content: "✓ ";
-    color: #10B981;
+    content: "\\2713  ";
+    color: #059669;
     font-weight: 700;
-    margin-right: 6pt;
+    margin-right: 4pt;
   }
 
   /* ========================================
      TABLE OF CONTENTS
      ======================================== */
   .toc {
-    margin: 40pt 0;
+    margin: 20pt 0;
   }
 
   .toc-title {
-    font-size: 24pt;
+    font-size: 22pt;
     font-weight: 700;
-    color: #0066CC;
-    margin-bottom: 24pt;
-    text-align: center;
+    color: #111827;
+    margin-bottom: 16pt;
   }
 
   .toc-item {
     display: flex;
     justify-content: space-between;
-    padding: 8pt 0;
-    border-bottom: 1pt dotted #D1D5DB;
-    font-size: 11pt;
+    padding: 6pt 0;
+    border-bottom: 0.5pt dotted #D1D5DB;
+    font-size: 10pt;
   }
 
   .toc-item-title {
@@ -414,29 +391,30 @@ export const pdfStyles = `
      VISA PATHWAY CARDS
      ======================================== */
   .visa-pathway {
-    background: #F9FAFB;
-    border: 1pt solid #E5E7EB;
-    border-left: 4pt solid #0066CC;
-    padding: 16pt;
-    margin-bottom: 16pt;
-    border-radius: 4pt;
+    background: #FFFFFF;
+    border: 0.5pt solid #E5E7EB;
+    border-left: 3pt solid #1B2A4A;
+    padding: 10pt 12pt;
+    margin-bottom: 8pt;
+    border-radius: 2pt;
   }
 
   .visa-pathway-title {
-    font-size: 14pt;
+    font-size: 12pt;
     font-weight: 600;
-    color: #0066CC;
-    margin-bottom: 8pt;
+    color: #111827;
+    margin-bottom: 4pt;
   }
 
   .visa-pathway-subclass {
-    font-size: 12pt;
+    font-size: 9pt;
     color: #6B7280;
-    margin-bottom: 12pt;
+    margin-bottom: 6pt;
   }
 
   .visa-requirement {
-    margin-bottom: 6pt;
+    margin-bottom: 3pt;
+    font-size: 9pt;
   }
 
   .visa-requirement-label {
@@ -452,44 +430,41 @@ export const pdfStyles = `
      TIMELINE
      ======================================== */
   .timeline {
-    margin: 20pt 0;
+    margin: 8pt 0;
   }
 
   .timeline-phase {
     position: relative;
-    padding-left: 30pt;
-    margin-bottom: 20pt;
-    border-left: 3pt solid #0066CC;
+    padding-left: 24pt;
+    margin-bottom: 10pt;
+    border-left: 2pt solid #1B2A4A;
     page-break-inside: avoid;
-    background: #F9FAFB;
-    padding: 16pt 16pt 16pt 30pt;
-    border-radius: 4pt;
+    padding: 8pt 10pt 8pt 24pt;
   }
 
   .timeline-phase:before {
     content: "";
     position: absolute;
-    left: -8pt;
-    top: 16pt;
-    width: 14pt;
-    height: 14pt;
-    background: #0066CC;
+    left: -6pt;
+    top: 10pt;
+    width: 10pt;
+    height: 10pt;
+    background: #1B2A4A;
     border-radius: 50%;
-    border: 3pt solid #FFFFFF;
+    border: 2pt solid #FFFFFF;
   }
 
   .timeline-phase-name {
-    font-size: 13pt;
+    font-size: 11pt;
     font-weight: 600;
     color: #1F2937;
-    margin-bottom: 6pt;
+    margin-bottom: 3pt;
   }
 
   .timeline-phase-duration {
-    font-size: 10pt;
+    font-size: 9pt;
     color: #6B7280;
-    margin-bottom: 10pt;
-    font-style: italic;
+    margin-bottom: 4pt;
   }
 
   .timeline-steps {
@@ -498,17 +473,18 @@ export const pdfStyles = `
   }
 
   .timeline-steps li {
-    padding-left: 16pt;
-    margin-bottom: 6pt;
+    padding-left: 12pt;
+    margin-bottom: 2pt;
     position: relative;
-    font-size: 10pt;
+    font-size: 12pt;
+    color: #4B5563;
   }
 
   .timeline-steps li:before {
-    content: "→";
+    content: "\\2192";
     position: absolute;
     left: 0;
-    color: #0066CC;
+    color: #1B2A4A;
     font-weight: 700;
   }
 
@@ -516,29 +492,29 @@ export const pdfStyles = `
      COMPANY LIST & CARDS
      ======================================== */
   .company-tier {
-    margin-bottom: 24pt;
+    margin-bottom: 12pt;
     page-break-inside: avoid;
   }
 
   .company-tier-header {
-    background: linear-gradient(135deg, #EBF5FF 0%, #DBEAFE 100%);
-    padding: 10pt 14pt;
-    margin-bottom: 14pt;
-    border-left: 4pt solid #0066CC;
-    border-radius: 4pt;
+    background: #F8F9FA;
+    padding: 6pt 10pt;
+    margin-bottom: 6pt;
+    border-left: 3pt solid #1B2A4A;
+    border-radius: 2pt;
   }
 
   .company-tier-title {
-    font-size: 14pt;
+    font-size: 11pt;
     font-weight: 600;
-    color: #0066CC;
-    margin-bottom: 4pt;
+    color: #111827;
+    margin-bottom: 2pt;
   }
 
   .company-tier-description {
-    font-size: 10pt;
+    font-size: 9pt;
     color: #6B7280;
-    margin-top: 4pt;
+    margin-top: 2pt;
   }
 
   .company-list {
@@ -546,125 +522,178 @@ export const pdfStyles = `
     margin-left: 0;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 12pt;
+    gap: 6pt;
   }
 
   .company-item {
-    padding: 10pt 12pt;
-    background: #F9FAFB;
-    border: 1pt solid #E5E7EB;
-    border-left: 3pt solid #0066CC;
-    border-radius: 4pt;
+    padding: 6pt 8pt;
+    background: #FFFFFF;
+    border: 0.5pt solid #E5E7EB;
+    border-radius: 3pt;
     page-break-inside: avoid;
   }
 
   .company-name {
     font-weight: 600;
     color: #1F2937;
-    font-size: 11pt;
+    font-size: 9.5pt;
     display: block;
-    margin-bottom: 4pt;
+    margin-bottom: 2pt;
   }
 
   .company-location {
-    font-size: 9pt;
+    font-size: 8pt;
     color: #6B7280;
-    background: #E5E7EB;
-    padding: 2pt 6pt;
-    border-radius: 8pt;
+    background: #F3F4F6;
+    padding: 1pt 5pt;
+    border-radius: 2pt;
     display: inline-block;
-    margin-bottom: 6pt;
+    margin-bottom: 3pt;
   }
 
   .company-description {
-    font-size: 10pt;
+    font-size: 8.5pt;
     color: #4B5563;
-    margin-top: 4pt;
-    line-height: 1.4;
+    margin-top: 2pt;
+    line-height: 1.3;
   }
-  
+
   /* ========================================
-     CITY CARDS & SALARY VISUALIZATION
+     SALARY VARIATION
      ======================================== */
+  .salary-variation-intro {
+    font-size: 10pt;
+    color: #475569;
+    margin-bottom: 10pt;
+    line-height: 1.5;
+  }
+
   .city-card {
-    background: #F9FAFB;
-    border: 1pt solid #E5E7EB;
-    border-radius: 6pt;
-    padding: 16pt;
-    margin-bottom: 12pt;
+    background: #FFFFFF;
+    border: 0.5pt solid #E5E7EB;
+    border-left: 3pt solid #1B2A4A;
+    border-radius: 3pt;
+    padding: 10pt 12pt;
+    margin-bottom: 8pt;
     page-break-inside: avoid;
   }
-  
+
   .city-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12pt;
-    padding-bottom: 8pt;
-    border-bottom: 1pt solid #E5E7EB;
+    margin-bottom: 6pt;
+    padding-bottom: 4pt;
+    border-bottom: 0.5pt solid #E5E7EB;
   }
-  
+
+  .city-card-header-content {
+    flex: 1;
+  }
+
   .city-name {
-    font-size: 14pt;
-    font-weight: 600;
-    color: #1F2937;
-  }
-  
-  .city-icon {
-    font-size: 20pt;
-  }
-  
-  .salary-range {
-    margin: 8pt 0;
-  }
-  
-  .salary-label {
-    font-size: 10pt;
-    font-weight: 600;
-    color: #4B5563;
-    display: block;
-    margin-bottom: 4pt;
-  }
-  
-  .salary-value {
     font-size: 12pt;
-    font-weight: 700;
-    color: #0066CC;
+    font-weight: 600;
+    color: #111827;
   }
-  
+
+  .city-card-subtitle {
+    font-size: 8pt;
+    color: #6B7280;
+    margin-top: 2pt;
+    margin-bottom: 0;
+  }
+
+  .city-card-salary-block {
+    margin-bottom: 8pt;
+    padding: 6pt 8pt;
+    background: #FAFAFA;
+    border-radius: 3pt;
+  }
+
+  .salary-range {
+    margin: 4pt 0;
+  }
+
+  .salary-range-row {
+    display: flex;
+    align-items: center;
+    gap: 8pt;
+  }
+
+  .salary-label {
+    font-size: 9pt;
+    font-weight: 600;
+    color: #475569;
+    display: block;
+    margin-bottom: 2pt;
+  }
+
+  .salary-value {
+    font-size: 10pt;
+    font-weight: 700;
+    color: #1B2A4A;
+  }
+
+  .salary-premium-badge {
+    background: #EFF6FF;
+    color: #1E40AF;
+    border: 0.5pt solid #BFDBFE;
+    padding: 1pt 6pt;
+    border-radius: 2pt;
+    font-size: 7.5pt;
+    font-weight: 600;
+  }
+
   .salary-bar {
-    height: 8pt;
+    height: 6pt;
     background: #E5E7EB;
-    border-radius: 4pt;
-    margin: 6pt 0;
+    border-radius: 3pt;
+    margin: 3pt 0;
     overflow: hidden;
   }
-  
+
   .salary-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #0066CC 0%, #3B82F6 100%);
-    border-radius: 4pt;
+    background: #1B2A4A;
+    border-radius: 3pt;
   }
-  
+
   .city-details {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 12pt;
-    margin-top: 12pt;
+    gap: 4pt 12pt;
+    margin-top: 6pt;
   }
-  
+
   .city-detail-item {
-    font-size: 9pt;
+    font-size: 8.5pt;
   }
-  
+
   .city-detail-label {
     color: #6B7280;
-    margin-bottom: 2pt;
+    margin-bottom: 1pt;
   }
-  
+
   .city-detail-value {
     font-weight: 600;
     color: #1F2937;
+  }
+
+  .city-detail-value-accent {
+    color: #1B2A4A;
+  }
+
+  .city-notes {
+    margin-top: 6pt;
+    padding: 6pt 8pt;
+    background: #F0F4F8;
+    border-left: 2pt solid #1B2A4A;
+    border-radius: 0 3pt 3pt 0;
+  }
+
+  .city-notes-text {
+    font-size: 8.5pt;
+    color: #374151;
+    margin-bottom: 0;
+    line-height: 1.4;
   }
 
   /* ========================================
@@ -679,207 +708,177 @@ export const pdfStyles = `
     justify-content: center;
   }
 
+  .thank-you-logo-container {
+    text-align: center;
+    margin-bottom: 24pt;
+    width: 100%;
+  }
+
+  .thank-you-logo {
+    max-width: 200pt;
+    max-height: 80pt;
+    height: auto;
+    width: auto;
+    object-fit: contain;
+  }
+
+  .about-worldvisa-logo {
+    max-width: 20pt;
+    max-height: 20pt;
+    height: auto;
+    width: auto;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+
   .thank-you-hero {
-    background: linear-gradient(135deg, #EBF5FF 0%, #DBEAFE 100%);
-    padding: 32pt;
-    border-radius: 12pt;
-    margin-bottom: 32pt;
+    padding: 20pt;
+    margin-bottom: 16pt;
   }
 
   .thank-you-heading {
-    font-size: 28pt;
+    font-size: 22pt;
     font-weight: 700;
-    color: #0066CC;
-    margin-bottom: 16pt;
+    color: #111827;
+    margin-bottom: 10pt;
     line-height: 1.2;
   }
 
   .thank-you-message {
-    font-size: 14pt;
-    color: #374151;
-    margin-bottom: 24pt;
-    line-height: 1.8;
+    font-size: 10pt;
+    color: #4B5563;
+    margin-bottom: 16pt;
+    line-height: 1.6;
   }
 
   .about-worldvisa {
     text-align: left;
-    margin: 24pt 0;
-    padding: 24pt;
+    margin: 12pt 0;
+    padding: 14pt;
     background: #FFFFFF;
-    border: 2pt solid #E5E7EB;
-    border-radius: 8pt;
+    border: 0.5pt solid #E5E7EB;
+    border-radius: 4pt;
   }
 
   .about-worldvisa h3 {
-    color: #0066CC;
+    color: #111827;
     margin-top: 0;
-    font-size: 16pt;
+    font-size: 13pt;
   }
 
   .contact-info {
-    margin: 24pt 0;
+    margin: 12pt 0;
     text-align: left;
-    background: #F9FAFB;
-    padding: 20pt;
-    border-radius: 8pt;
+    background: #FAFAFA;
+    padding: 14pt;
+    border-radius: 4pt;
   }
 
   .contact-item {
-    margin-bottom: 10pt;
-    font-size: 11pt;
+    margin-bottom: 6pt;
+    font-size: 10pt;
     display: flex;
     align-items: center;
   }
 
   .cta-button {
     display: inline-block;
-    background: linear-gradient(135deg, #0066CC 0%, #3B82F6 100%);
-    color: #FFFFFF;
-    padding: 14pt 40pt;
-    font-size: 14pt;
+    background: #1B2A4A;
+    color: #FFFFFF !important;
+    padding: 10pt 32pt;
+    font-size: 12pt;
     font-weight: 600;
     text-decoration: none;
-    border-radius: 8pt;
-    margin: 28pt 0;
-    box-shadow: 0 4pt 12pt rgba(0, 102, 204, 0.3);
+    border-radius: 4pt;
+    margin: 16pt 0;
+  }
+
+  .cta-button:visited {
+    color: #FFFFFF !important;
   }
 
   .footer-text {
-    margin-top: 40pt;
-    font-size: 10pt;
-    color: #6B7280;
+    margin-top: 20pt;
+    font-size: 8pt;
+    color: #9CA3AF;
   }
-  
+
   .trust-indicators {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 16pt;
-    margin: 24pt 0;
-  }
-  
-  .trust-item {
-    text-align: center;
-    padding: 16pt;
-    background: #F9FAFB;
-    border-radius: 6pt;
-  }
-  
-  .trust-number {
-    font-size: 24pt;
-    font-weight: 700;
-    color: #0066CC;
-    display: block;
-    margin-bottom: 4pt;
-  }
-  
-  .trust-label {
-    font-size: 10pt;
-    color: #6B7280;
+    gap: 8pt;
+    margin: 12pt 0;
   }
 
-  /* ========================================
-     TABLE STYLES (Standardized - Overrides earlier definition)
-     ======================================== */
-  /* Note: Table styles are defined earlier, this section ensures consistency */
+  .trust-item {
+    text-align: center;
+    padding: 10pt;
+    background: #FAFAFA;
+    border-radius: 4pt;
+  }
+
+  .trust-number {
+    font-size: 20pt;
+    font-weight: 700;
+    color: #1B2A4A;
+    display: block;
+    margin-bottom: 2pt;
+  }
+
+  .trust-label {
+    font-size: 8pt;
+    color: #6B7280;
+  }
 
   /* ========================================
      UTILITY CLASSES
      ======================================== */
-  .text-center {
-    text-align: center;
-  }
-
-  .text-right {
-    text-align: right;
-  }
-
-  .mb-small {
-    margin-bottom: 8pt;
-  }
-
-  .mb-medium {
-    margin-bottom: 16pt;
-  }
-
-  .mb-large {
-    margin-bottom: 24pt;
-  }
-
-  .color-primary {
-    color: #0066CC;
-  }
-
-  .color-success {
-    color: #10B981;
-  }
-
-  .color-gray {
-    color: #6B7280;
-  }
+  .text-center { text-align: center; }
+  .text-right { text-align: right; }
+  .mb-small { margin-bottom: 4pt; }
+  .mb-medium { margin-bottom: 8pt; }
+  .mb-large { margin-bottom: 16pt; }
+  .color-primary { color: #D52636; }
+  .color-success { color: #059669; }
+  .color-gray { color: #6B7280; }
 
   /* ========================================
      PAGE NUMBERING
      ======================================== */
   @page {
-    margin: 15mm 15mm 20mm 15mm;
-    
+    margin: 12mm 12mm 16mm 12mm;
+
     @bottom-center {
       content: "Page " counter(page);
-      font-size: 9pt;
-      color: #6B7280;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+      font-size: 8pt;
+      color: #9CA3AF;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Helvetica, Arial, sans-serif;
     }
   }
-  
-  /* Hide page number on cover page */
-  .cover-page {
-    page: cover;
-  }
-  
+
+  .cover-page { page: cover; }
   @page cover {
-    @bottom-center {
-      content: none;
-    }
+    margin: 0;
+    @bottom-center { content: none; }
   }
 
-  .table-of-contents {
-    page: toc;
-  }
-
+  .table-of-contents { page: toc; }
   @page toc {
-    @bottom-center {
-      content: none;
-    }
+    @bottom-center { content: none; }
   }
 
   /* ========================================
      PRINT OPTIMIZATION
      ======================================== */
   @media print {
-    .page-break {
-      page-break-after: always;
-    }
-
-    .no-print {
-      display: none;
-    }
-
-    a {
-      text-decoration: none;
-      color: inherit;
-    }
-
-    table {
-      page-break-inside: avoid;
-    }
-
-    .visa-pathway {
-      page-break-inside: avoid;
-    }
-
-    .company-tier {
-      page-break-inside: avoid;
-    }
+    .page-break { page-break-after: always; }
+    .no-print { display: none; }
+    a { text-decoration: none; color: inherit; }
+    .section { page-break-inside: avoid; }
+    table { page-break-inside: auto; }
+    tbody tr { page-break-inside: avoid; }
+    .visa-pathway { page-break-inside: avoid; }
+    .company-tier { page-break-inside: avoid; }
+    .city-card { page-break-inside: avoid; }
   }
 `;
-

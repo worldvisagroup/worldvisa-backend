@@ -8,107 +8,117 @@ interface Props {
 
 export function Section2_ProfessionalProfile({ data }: Props) {
   return (
-    <div className="section professional-profile page">
-      <SectionHeader number="2" title="Your Professional Profile – Assessment Input" />
+    <div className="section page">
+      <SectionHeader number="2" title="Your Professional Profile - Assessment Input" />
 
-      {/* Core Skills & Occupation Mapping */}
-      <div className="subsection">
-        <h3>2.1 Core Skills & Occupation Mapping</h3>
-        <p>{data.profileDescription}</p>
-
-        <div style={{
-          background: '#F9FAFB',
-          border: '1pt solid #E5E7EB',
-          borderRadius: '8pt',
-          padding: '16pt',
-          marginTop: '16pt'
-        }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12pt' }}>
-            <div>
-              <p style={{ fontSize: '10pt', color: '#6B7280', marginBottom: '4pt', fontWeight: '600' }}>
-                Primary ANZSCO Code
-              </p>
-              <p style={{ fontSize: '13pt', fontWeight: '700', color: '#0066CC', marginBottom: '0' }}>
-                {data.anzscoCode}
-              </p>
-            </div>
-            <div>
-              <p style={{ fontSize: '10pt', color: '#6B7280', marginBottom: '4pt', fontWeight: '600' }}>
-                Skill Level
-              </p>
-              <p style={{ fontSize: '13pt', fontWeight: '700', color: '#0066CC', marginBottom: '0' }}>
-                {data.skillLevel}
-              </p>
-            </div>
-          </div>
-        </div>
+      {/* Profile Description */}
+      <div style={{ marginBottom: '12pt' }}>
+        <p style={{ fontSize: '12pt', color: '#4B5563', lineHeight: '1.6', margin: 0 }}>
+          {data.profileDescription}
+        </p>
       </div>
 
-      {/* ANZSCO Codes Detailed Breakdown */}
-      {data.anzscoDetails && data.anzscoDetails.length > 0 && (
-        <div className="subsection">
-          <h3>2.2 ANZSCO Occupation Options for Your Profile</h3>
-          <p style={{ marginBottom: '16pt', fontSize: '10pt', color: '#6B7280' }}>
-            Your skills and experience qualify you for multiple ANZSCO occupation codes.
-            Each code has specific requirements and opportunities:
-          </p>
+      {/* Basic Profile Info Table */}
+      <div style={{ marginBottom: '12pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+          2.1 Occupation Mapping
+        </h3>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt' }}>
+          <tbody>
+            <tr>
+              <td style={{ padding: '6pt 8pt', border: '1pt solid #E5E7EB', background: '#F8F9FB', fontWeight: 600, color: '#111827', width: '40%' }}>
+                Primary Occupation
+              </td>
+              <td style={{ padding: '6pt 8pt', border: '1pt solid #E5E7EB', color: '#4B5563' }}>
+                {data.primaryOccupation}
+              </td>
+            </tr>
+            <tr>
+              <td style={{ padding: '6pt 8pt', border: '1pt solid #E5E7EB', background: '#F8F9FB', fontWeight: 600, color: '#111827' }}>
+                ANZSCO Code
+              </td>
+              <td style={{ padding: '6pt 8pt', border: '1pt solid #E5E7EB', color: '#2563EB', fontWeight: 600 }}>
+                {data.anzscoCode}
+              </td>
+            </tr>
+            <tr>
+              <td style={{ padding: '6pt 8pt', border: '1pt solid #E5E7EB', background: '#F8F9FB', fontWeight: 600, color: '#111827' }}>
+                Unit Group
+              </td>
+              <td style={{ padding: '6pt 8pt', border: '1pt solid #E5E7EB', color: '#4B5563' }}>
+                {data.unitGroup}
+              </td>
+            </tr>
+            <tr>
+              <td style={{ padding: '6pt 8pt', border: '1pt solid #E5E7EB', background: '#F8F9FB', fontWeight: 600, color: '#111827' }}>
+                Alternative Codes
+              </td>
+              <td style={{ padding: '6pt 8pt', border: '1pt solid #E5E7EB', color: '#4B5563' }}>
+                {data.alternativeCodes}
+              </td>
+            </tr>
+            <tr>
+              <td style={{ padding: '6pt 8pt', border: '1pt solid #E5E7EB', background: '#F8F9FB', fontWeight: 600, color: '#111827' }}>
+                Skill Level
+              </td>
+              <td style={{ padding: '6pt 8pt', border: '1pt solid #E5E7EB', color: '#059669', fontWeight: 600 }}>
+                {data.skillLevel}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
+      {/* ANZSCO Details */}
+      {data.anzscoDetails && data.anzscoDetails.length > 0 && (
+        <div style={{ marginBottom: '12pt' }}>
+          <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+            2.2 ANZSCO Occupation Options
+          </h3>
           {data.anzscoDetails.map((anzsco, index) => (
             <div
               key={index}
               style={{
-                background: '#FFFFFF',
-                border: '1pt solid #E5E7EB',
-                borderLeft: '4pt solid #0066CC',
-                borderRadius: '6pt',
-                padding: '16pt',
-                marginBottom: '16pt',
+                borderLeft: '3pt solid #1B2A4A',
+                padding: '8pt 10pt',
+                marginBottom: '8pt',
+                background: '#F8F9FB',
                 pageBreakInside: 'avoid'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12pt' }}>
-                <span style={{
-                  background: '#0066CC',
-                  color: '#FFFFFF',
-                  padding: '4pt 12pt',
-                  borderRadius: '4pt',
-                  fontSize: '11pt',
-                  fontWeight: '700',
-                  marginRight: '12pt'
-                }}>
+              <div style={{ marginBottom: '4pt' }}>
+                <span style={{ fontSize: '12pt', fontWeight: 700, color: '#2563EB', marginRight: '8pt' }}>
                   {anzsco.code}
                 </span>
-                <strong style={{ fontSize: '14pt', color: '#1F2937' }}>
+                <span style={{ fontSize: '12pt', fontWeight: 600, color: '#111827' }}>
                   {anzsco.title}
-                </strong>
+                </span>
               </div>
-
-              <p style={{ fontSize: '10pt', color: '#4B5563', marginBottom: '12pt', lineHeight: '1.6' }}>
+              <p style={{ fontSize: '12pt', color: '#4B5563', margin: '0 0 6pt 0', lineHeight: '1.5' }}>
                 {anzsco.description}
               </p>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '16pt' }}>
+              <div style={{ display: 'flex', gap: '16pt' }}>
                 {anzsco.keyResponsibilities && anzsco.keyResponsibilities.length > 0 && (
-                  <div>
-                    <p style={{ fontSize: '10pt', fontWeight: '600', color: '#1F2937', marginBottom: '8pt' }}>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: '12pt', fontWeight: 600, color: '#111827', margin: '0 0 4pt 0' }}>
                       Key Responsibilities:
                     </p>
-                    <ul style={{ fontSize: '9pt', color: '#4B5563', marginLeft: '16pt', marginBottom: '0' }}>
+                    <ul style={{ fontSize: '12pt', color: '#4B5563', margin: 0, paddingLeft: '14pt' }}>
                       {anzsco.keyResponsibilities.map((resp, idx) => (
-                        <li key={idx} style={{ marginBottom: '4pt' }}>{resp}</li>
+                        <li key={idx} style={{ marginBottom: '2pt', lineHeight: '1.4' }}>{resp}</li>
                       ))}
                     </ul>
                   </div>
                 )}
-
                 {anzsco.skillsRequired && anzsco.skillsRequired.length > 0 && (
-                  <div>
-                    <p style={{ fontSize: '10pt', fontWeight: '600', color: '#1F2937', marginBottom: '8pt' }}>
+                  <div style={{ flex: 1 }}>
+                    <p style={{ fontSize: '12pt', fontWeight: 600, color: '#111827', margin: '0 0 4pt 0' }}>
                       Skills Required:
                     </p>
-                    <ul style={{ fontSize: '9pt', color: '#4B5563', marginLeft: '16pt', marginBottom: '0' }}>
+                    <ul style={{ fontSize: '12pt', color: '#4B5563', margin: 0, paddingLeft: '14pt' }}>
                       {anzsco.skillsRequired.map((skill, idx) => (
-                        <li key={idx} style={{ marginBottom: '4pt' }}>{skill}</li>
+                        <li key={idx} style={{ marginBottom: '2pt', lineHeight: '1.4' }}>{skill}</li>
                       ))}
                     </ul>
                   </div>
@@ -119,90 +129,71 @@ export function Section2_ProfessionalProfile({ data }: Props) {
         </div>
       )}
 
-      {/* Skills Assessment Requirements */}
+      {/* Skills Assessment */}
       {data.skillsAssessment && (
-        <div className="subsection">
-          <h3>2.3 Skills Assessment Process</h3>
-          <div style={{
-            background: '#EBF5FF',
-            border: '1pt solid #BFDBFE',
-            borderRadius: '8pt',
-            padding: '16pt'
-          }}>
-            <div style={{ marginBottom: '16pt' }}>
-              <p style={{ fontSize: '11pt', fontWeight: '600', color: '#1F2937', marginBottom: '4pt' }}>
-                Assessing Authority:
-              </p>
-              <p style={{ fontSize: '13pt', fontWeight: '700', color: '#0066CC', marginBottom: '0' }}>
-                {data.skillsAssessment.authority}
-              </p>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12pt', marginBottom: '16pt' }}>
-              <div>
-                <p style={{ fontSize: '10pt', color: '#6B7280', marginBottom: '4pt' }}>
-                  Process:
-                </p>
-                <p style={{ fontSize: '11pt', color: '#1F2937', marginBottom: '0' }}>
+        <div style={{ marginBottom: '12pt' }}>
+          <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+            2.3 Skills Assessment Process
+          </h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt', marginBottom: '6pt' }}>
+            <tbody>
+              <tr>
+                <td style={{ padding: '6pt 8pt', border: '1pt solid #E5E7EB', background: '#F8F9FB', fontWeight: 600, color: '#111827', width: '40%' }}>
+                  Assessing Authority
+                </td>
+                <td style={{ padding: '6pt 8pt', border: '1pt solid #E5E7EB', color: '#2563EB', fontWeight: 600 }}>
+                  {data.skillsAssessment.authority}
+                </td>
+              </tr>
+              <tr>
+                <td style={{ padding: '6pt 8pt', border: '1pt solid #E5E7EB', background: '#F8F9FB', fontWeight: 600, color: '#111827' }}>
+                  Process
+                </td>
+                <td style={{ padding: '6pt 8pt', border: '1pt solid #E5E7EB', color: '#4B5563' }}>
                   {data.skillsAssessment.process}
-                </p>
-              </div>
-              <div>
-                <p style={{ fontSize: '10pt', color: '#6B7280', marginBottom: '4pt' }}>
-                  Timeline:
-                </p>
-                <p style={{ fontSize: '11pt', fontWeight: '600', color: '#1F2937', marginBottom: '0' }}>
+                </td>
+              </tr>
+              <tr>
+                <td style={{ padding: '6pt 8pt', border: '1pt solid #E5E7EB', background: '#F8F9FB', fontWeight: 600, color: '#111827' }}>
+                  Timeline
+                </td>
+                <td style={{ padding: '6pt 8pt', border: '1pt solid #E5E7EB', color: '#111827', fontWeight: 600 }}>
                   {data.skillsAssessment.timeline}
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <p style={{ fontSize: '10pt', fontWeight: '600', color: '#1F2937', marginBottom: '8pt' }}>
-                Requirements:
-              </p>
-              <ul className="checkmark-list">
-                {data.skillsAssessment.requirements.map((req, index) => (
-                  <li key={index} style={{ fontSize: '10pt', color: '#4B5563', marginBottom: '6pt' }}>
-                    {req}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p style={{ fontSize: '12pt', fontWeight: 600, color: '#111827', margin: '0 0 4pt 0' }}>
+            Requirements:
+          </p>
+          <ul style={{ margin: 0, paddingLeft: '16pt', listStyle: 'none' }}>
+            {data.skillsAssessment.requirements.map((req, index) => (
+              <li key={index} style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '3pt', lineHeight: '1.5' }}>
+                <span dangerouslySetInnerHTML={{ __html: '&#10003;' }} style={{ color: '#059669', marginRight: '6pt', fontWeight: 700 }} />
+                {req}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
-      {/* Additional Information */}
+      {/* Occupation Ceiling & Labour Market */}
       {(data.occupationCeiling || data.labourMarketInfo) && (
-        <div className="subsection">
-          <h3>2.4 Occupation Demand & Availability</h3>
+        <div style={{ marginBottom: '12pt' }}>
+          <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+            2.4 Occupation Demand &amp; Availability
+          </h3>
 
           {data.occupationCeiling && (
-            <div style={{
-              background: '#D1FAE5',
-              border: '1pt solid #10B981',
-              borderRadius: '6pt',
-              padding: '12pt',
-              marginBottom: '12pt'
-            }}>
-              <p style={{ marginBottom: '0', fontSize: '11pt' }}>
-                <strong style={{ color: '#065F46' }}>✓ Occupation Ceiling Status:</strong>{' '}
-                <span style={{ color: '#047857' }}>{data.occupationCeiling}</span>
-              </p>
-            </div>
+            <p style={{ fontSize: '12pt', color: '#4B5563', lineHeight: '1.6', margin: '0 0 6pt 0' }}>
+              <strong style={{ color: '#059669' }}>Occupation Ceiling Status:</strong> {data.occupationCeiling}
+            </p>
           )}
 
           {data.labourMarketInfo && (
-            <div style={{
-              background: '#FFFBEB',
-              border: '1pt solid #FCD34D',
-              borderRadius: '6pt',
-              padding: '12pt'
-            }}>
-              <p style={{ marginBottom: '0', fontSize: '11pt', lineHeight: '1.6' }}>
-                <strong style={{ color: '#92400E' }}>Labour Market Insight:</strong>{' '}
-                <span style={{ color: '#78350F' }}>{data.labourMarketInfo}</span>
+            <div style={{ borderLeft: '3pt solid #1B2A4A', paddingLeft: '10pt', background: '#F8F9FB', padding: '8pt 10pt' }}>
+              <p style={{ margin: 0, fontSize: '12pt', color: '#4B5563', lineHeight: '1.6' }}>
+                <strong style={{ color: '#111827' }}>Labour Market Insight:</strong> {data.labourMarketInfo}
               </p>
             </div>
           )}
@@ -211,4 +202,3 @@ export function Section2_ProfessionalProfile({ data }: Props) {
     </div>
   );
 }
-

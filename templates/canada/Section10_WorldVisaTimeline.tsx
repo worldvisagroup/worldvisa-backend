@@ -66,174 +66,65 @@ const STATIC_WORLD_VISA_TIMELINE_DATA: WorldVisaTimelineData = {
 export function Section10_WorldVisaTimeline() {
   const data = STATIC_WORLD_VISA_TIMELINE_DATA;
 
-  // Unified Colors
-  const colors = {
-    primary: '#111827',
-    secondary: '#4B5563',
-    accent: '#2563EB', // Blue for timeline
-    bgLight: '#F3F4F6',
-    border: '#E5E7EB',
-    cardBg: '#FFFFFF'
-  };
-
   return (
-    <div className="section worldvisa-timeline">
+    <div className="section page">
       <SectionHeader number="10" title="WorldVisa Immigration Timeline" />
 
-      <p style={{ marginBottom: '32pt', color: colors.secondary, fontSize: '11pt' }}>
-        Your step-by-step journey to Canadian permanent residency with WorldVisa&apos;s comprehensive support.
+      <p style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '12pt', lineHeight: '1.5', marginTop: 0 }}>
+        Your step-by-step journey to Canadian permanent residency with WorldVisa's comprehensive support.
       </p>
 
-      {/* Visual Timeline */}
-      <div className="timeline-container" style={{ position: 'relative', marginBottom: '40pt' }}>
-
-        {/* Vertical Line */}
-        <div style={{
-          position: 'absolute',
-          left: '24pt',
-          top: '8pt',
-          bottom: '40pt',
-          width: '2px',
-          background: '#E2E8F0',
-          zIndex: 0
-        }} />
-
-        {data.phases.map((phase, index) => (
-          <div key={index} style={{
-            marginBottom: '32pt',
-            position: 'relative',
-            paddingLeft: '60pt'
-          }}>
-
-            {/* Timeline Node */}
-            <div style={{
-              position: 'absolute',
-              left: '16pt',
-              top: '0',
-              width: '16pt',
-              height: '16pt',
-              borderRadius: '50%',
-              background: colors.accent,
-              border: '4px solid #fff',
-              boxShadow: '0 0 0 2px #E2E8F0',
-              zIndex: 2
-            }} />
-
-            {/* Content Card */}
-            <div style={{
-              background: colors.cardBg,
-              border: `1px solid ${colors.border}`,
-              borderRadius: '8pt',
-              padding: '16pt 20pt'
-            }}>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'flex-start',
-                marginBottom: '12pt',
-                borderBottom: `1px solid ${colors.bgLight}`,
-                paddingBottom: '8pt'
-              }}>
-                <div style={{ fontSize: '12pt', fontWeight: '700', color: colors.primary }}>
-                  {phase.name}
-                </div>
-                <div style={{
-                  background: '#EFF6FF',
-                  color: colors.accent,
-                  fontSize: '9pt',
-                  fontWeight: '700',
-                  padding: '4pt 10pt',
-                  borderRadius: '12pt',
-                  whiteSpace: 'nowrap'
-                }}>
-                  {phase.duration}
-                </div>
-              </div>
-
-              <ul style={{ margin: 0, paddingLeft: '16pt' }}>
-                {phase.steps.map((step, stepIndex) => (
-                  <li key={stepIndex} style={{
-                    fontSize: '10pt',
-                    color: colors.secondary,
-                    marginBottom: '6pt',
-                    lineHeight: '1.5'
-                  }}>
-                    {step}
-                  </li>
-                ))}
-              </ul>
+      {/* Timeline Phases */}
+      {data.phases.map((phase, index) => (
+        <div key={index} style={{ marginBottom: '8pt', pageBreakInside: 'avoid' }}>
+          <div style={{ borderLeft: '3pt solid #1B2A4A', padding: '6pt 10pt', background: '#FFFFFF', border: '0.5pt solid #E5E7EB', borderLeftWidth: '3pt', borderLeftColor: '#1B2A4A' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4pt', paddingBottom: '4pt', borderBottom: '0.5pt solid #E5E7EB' }}>
+              <span style={{ fontSize: '12pt', fontWeight: 700, color: '#111827' }}>{phase.name}</span>
+              <span style={{ fontSize: '10pt', fontWeight: 600, color: '#1B2A4A', background: '#EFF6FF', padding: '2pt 6pt' }}>
+                {phase.duration}
+              </span>
             </div>
+            <ul style={{ margin: 0, paddingLeft: '14pt', fontSize: '12pt', color: '#4B5563', lineHeight: '1.4' }}>
+              {phase.steps.map((step, stepIndex) => (
+                <li key={stepIndex} style={{ marginBottom: '2pt' }}>
+                  {step}
+                </li>
+              ))}
+            </ul>
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
 
-      {/* Success Indicators */}
-      <div style={{
-        marginTop: '24pt',
-        padding: '24pt',
-        background: '#ECFDF5', // Lighter emerald bg
-        borderRadius: '12pt',
-        border: '1px solid #10B981',
-        boxShadow: '0 4px 6px -1px rgba(16, 185, 129, 0.1)'
-      }}>
-        <h4 style={{
-          fontSize: '14pt',
-          fontWeight: '700',
-          color: '#065F46',
-          marginTop: '0',
-          marginBottom: '20pt',
-          textAlign: 'center'
-        }}>
-          WorldVisa&apos;s Success Track Record
+      {/* Success Track Record */}
+      <div style={{ marginTop: '10pt', padding: '10pt', background: '#F0FDF4', border: '0.5pt solid #059669' }}>
+        <h4 style={{ fontSize: '12pt', fontWeight: 700, color: '#065F46', marginTop: 0, marginBottom: '6pt', textAlign: 'center' }}>
+          WorldVisa's Success Track Record
         </h4>
-
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '24pt'
-        }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10pt' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '24pt', fontWeight: '800', color: '#059669' }}>95%</div>
-            <div style={{ fontSize: '10pt', fontWeight: '600', color: '#064E3B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Success Rate</div>
+            <div style={{ fontSize: '14pt', fontWeight: 700, color: '#059669' }}>95%</div>
+            <div style={{ fontSize: '10pt', fontWeight: 600, color: '#064E3B', textTransform: 'uppercase' }}>Success Rate</div>
           </div>
-          <div style={{ textAlign: 'center', borderLeft: '1px solid #A7F3D0', borderRight: '1px solid #A7F3D0' }}>
-            <div style={{ fontSize: '24pt', fontWeight: '800', color: '#059669' }}>5,000+</div>
-            <div style={{ fontSize: '10pt', fontWeight: '600', color: '#064E3B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Clients Served</div>
+          <div style={{ textAlign: 'center', borderLeft: '0.5pt solid #A7F3D0', borderRight: '0.5pt solid #A7F3D0' }}>
+            <div style={{ fontSize: '14pt', fontWeight: 700, color: '#059669' }}>5,000+</div>
+            <div style={{ fontSize: '10pt', fontWeight: 600, color: '#064E3B', textTransform: 'uppercase' }}>Clients Served</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '24pt', fontWeight: '800', color: '#059669' }}>15+</div>
-            <div style={{ fontSize: '10pt', fontWeight: '600', color: '#064E3B', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Years Experience</div>
+            <div style={{ fontSize: '14pt', fontWeight: 700, color: '#059669' }}>15+</div>
+            <div style={{ fontSize: '10pt', fontWeight: 600, color: '#064E3B', textTransform: 'uppercase' }}>Years Experience</div>
           </div>
         </div>
       </div>
 
-      {/* Next Steps CTA */}
-      <div style={{
-        marginTop: '24pt',
-        padding: '20pt',
-        background: '#EFF6FF',
-        borderRadius: '12pt',
-        border: '1px solid #BFDBFE',
-        textAlign: 'center'
-      }}>
-        <p style={{
-          fontSize: '13pt',
-          fontWeight: '700',
-          color: '#1E3A8A',
-          marginBottom: '8pt'
-        }}>
+      {/* Next Steps */}
+      <div style={{ marginTop: '10pt', padding: '8pt 10pt', background: '#EFF6FF', border: '0.5pt solid #BFDBFE', textAlign: 'center' }}>
+        <p style={{ fontSize: '12pt', fontWeight: 700, color: '#1E3A8A', marginBottom: '4pt', marginTop: 0 }}>
           Ready to begin your Canadian immigration journey?
         </p>
-        <p style={{
-          fontSize: '11pt',
-          color: '#4B5563',
-          marginBottom: '0',
-          lineHeight: '1.6'
-        }}>
+        <p style={{ fontSize: '12pt', color: '#4B5563', marginBottom: 0, lineHeight: '1.5' }}>
           Contact WorldVisa today to schedule your free consultation and get started on your pathway to permanent residency.
         </p>
       </div>
     </div>
   );
 }
-

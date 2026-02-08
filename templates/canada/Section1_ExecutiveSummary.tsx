@@ -1,7 +1,6 @@
 import React from 'react';
 import type { CanadaExecutiveSummaryData } from '../types/report-types';
 import { SectionHeader } from '../shared/SectionHeader';
-import { Table } from '../shared/Table';
 
 interface Props {
   data: CanadaExecutiveSummaryData;
@@ -9,61 +8,100 @@ interface Props {
 
 export function Section1_ExecutiveSummary({ data }: Props) {
   return (
-    <div className="section executive-summary">
+    <div className="section page">
       <SectionHeader number="1" title="Executive Summary" />
 
-      <div className="subsection">
-        <h3>1.1 Purpose of This Report</h3>
-        <p>{data.purpose}</p>
+      <div style={{ marginBottom: '8pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+          1.1 Purpose of This Report
+        </h3>
+        <p style={{ fontSize: '12pt', color: '#4B5563', lineHeight: 1.5, margin: 0 }}>{data.purpose}</p>
       </div>
 
-      <div className="subsection">
-        <h3>1.2 Why Canada</h3>
-        <p>{data.whyCanada}</p>
+      <div style={{ marginBottom: '12pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+          1.2 Why Canada
+        </h3>
+        <p style={{ fontSize: '12pt', color: '#4B5563', lineHeight: 1.5, margin: 0 }}>{data.whyCanada}</p>
       </div>
 
-      <div className="subsection" style={{ marginTop: '8pt' }}>
-        <h3 style={{ marginBottom: '10pt' }}>1.3 Top 3 Recommended Canadian Provinces (Without Job Offer / Sponsor)</h3>
-        <Table
-          columns={[
-            { header: 'Rank', key: 'rank', align: 'center' },
-            { header: 'Province', key: 'province' },
-            { header: 'Pathway', key: 'pathway' },
-            { header: 'CRS Advantage', key: 'crsAdvantage' },
-            { header: 'Job Demand', key: 'jobDemand' },
-            { header: 'Cost of Living', key: 'costOfLiving' },
-            { header: 'Recommendation', key: 'recommendation' },
-          ]}
-          data={data.topProvinces.map(province => ({
-            rank: province.rank,
-            province: province.province,
-            pathway: province.pathway,
-            crsAdvantage: province.crsAdvantage,
-            jobDemand: province.jobDemand,
-            costOfLiving: province.costOfLiving,
-            recommendation: province.recommendation,
-          }))}
-        />
+      <div style={{ marginBottom: '12pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+          1.3 Top Recommended Canadian Provinces
+        </h3>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt' }}>
+          <thead>
+            <tr>
+              {['Rank', 'Province', 'Pathway', 'CRS Advantage', 'Job Demand', 'Recommendation'].map((h) => (
+                <th
+                  key={h}
+                  style={{
+                    textAlign: 'left',
+                    padding: '5pt 6pt',
+                    backgroundColor: '#1B2A4A',
+                    color: '#FFFFFF',
+                    fontWeight: 600,
+                    fontSize: '10pt',
+                    borderBottom: '1pt solid #E5E7EB',
+                  }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.topProvinces.map((p: any, i: number) => (
+              <tr key={i} style={{ backgroundColor: i % 2 === 0 ? '#F8F9FB' : '#FFFFFF' }}>
+                <td style={{ padding: '4pt 6pt', color: '#111827', textAlign: 'center', borderBottom: '1pt solid #E5E7EB' }}>{p.rank}</td>
+                <td style={{ padding: '4pt 6pt', color: '#111827', fontWeight: 600, borderBottom: '1pt solid #E5E7EB' }}>{p.province}</td>
+                <td style={{ padding: '4pt 6pt', color: '#4B5563', borderBottom: '1pt solid #E5E7EB' }}>{p.pathway}</td>
+                <td style={{ padding: '4pt 6pt', color: '#4B5563', borderBottom: '1pt solid #E5E7EB' }}>{p.crsAdvantage}</td>
+                <td style={{ padding: '4pt 6pt', color: '#4B5563', borderBottom: '1pt solid #E5E7EB' }}>{p.jobDemand}</td>
+                <td style={{ padding: '4pt 6pt', color: '#4B5563', borderBottom: '1pt solid #E5E7EB' }}>{p.recommendation}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      <div className="subsection">
-        <h3>1.4 High-Level Risk & Reward Overview</h3>
-        <Table
-          columns={[
-            { header: 'Factor', key: 'factor' },
-            { header: 'Risk Level', key: 'riskLevel' },
-            { header: 'Reward Level', key: 'rewardLevel' },
-            { header: 'Mitigation', key: 'mitigation' },
-          ]}
-          data={data.riskReward.map(row => ({
-            factor: row.factor,
-            riskLevel: row.riskLevel,
-            rewardLevel: row.rewardLevel,
-            mitigation: row.mitigation,
-          }))}
-        />
+      <div style={{ marginBottom: '6pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+          1.4 High-Level Risk &amp; Reward Overview
+        </h3>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt' }}>
+          <thead>
+            <tr>
+              {['Factor', 'Risk Level', 'Reward Level', 'Mitigation'].map((h) => (
+                <th
+                  key={h}
+                  style={{
+                    textAlign: 'left',
+                    padding: '5pt 6pt',
+                    backgroundColor: '#1B2A4A',
+                    color: '#FFFFFF',
+                    fontWeight: 600,
+                    fontSize: '10pt',
+                    borderBottom: '1pt solid #E5E7EB',
+                  }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.riskReward.map((r: any, i: number) => (
+              <tr key={i} style={{ backgroundColor: i % 2 === 0 ? '#F8F9FB' : '#FFFFFF' }}>
+                <td style={{ padding: '4pt 6pt', color: '#111827', fontWeight: 600, borderBottom: '1pt solid #E5E7EB' }}>{r.factor}</td>
+                <td style={{ padding: '4pt 6pt', color: '#4B5563', borderBottom: '1pt solid #E5E7EB' }}>{r.riskLevel}</td>
+                <td style={{ padding: '4pt 6pt', color: '#4B5563', borderBottom: '1pt solid #E5E7EB' }}>{r.rewardLevel}</td>
+                <td style={{ padding: '4pt 6pt', color: '#4B5563', borderBottom: '1pt solid #E5E7EB' }}>{r.mitigation}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
-

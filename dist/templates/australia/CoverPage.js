@@ -26,7 +26,7 @@ function CoverPage({ data, meta }) {
                     textAlign: 'left'
                 } },
                 react_1.default.createElement("p", { style: {
-                        fontSize: '10pt',
+                        fontSize: '12pt',
                         color: '#6B7280',
                         marginBottom: '6pt',
                         fontWeight: '600'
@@ -45,7 +45,7 @@ function CoverPage({ data, meta }) {
                     textAlign: 'left'
                 } },
                 react_1.default.createElement("p", { style: {
-                        fontSize: '10pt',
+                        fontSize: '12pt',
                         color: '#6B7280',
                         marginBottom: '6pt',
                         fontWeight: '600'
@@ -67,7 +67,7 @@ function CoverPage({ data, meta }) {
                 color: '#0066CC',
                 padding: '8pt 16pt',
                 borderRadius: '20pt',
-                fontSize: '10pt',
+                fontSize: '12pt',
                 fontWeight: '600'
             } },
             "Version ",
@@ -79,7 +79,7 @@ function CoverPage({ data, meta }) {
                 right: '0',
                 textAlign: 'center',
                 color: '#9CA3AF',
-                fontSize: '10pt'
+                fontSize: '12pt'
             } },
             react_1.default.createElement("div", { style: {
                     width: '100pt',

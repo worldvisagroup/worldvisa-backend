@@ -43,15 +43,15 @@ function CoverPage({ data, meta, countries }) {
         react_1.default.createElement("div", { style: {
                 position: 'relative',
                 zIndex: 10,
-                padding: '18pt', // Reduced padding from 60pt
+                padding: '36pt 32pt 28pt 32pt',
                 height: '100%',
                 display: 'flex',
                 flexDirection: 'column'
             } },
-            react_1.default.createElement("div", { style: { marginTop: '30pt' } },
+            react_1.default.createElement("div", { style: { marginTop: '16pt' } },
                 react_1.default.createElement("img", { src: "https://res.cloudinary.com/djvvz62dw/image/upload/v1765014046/worldvisa/logo_uavsjh.svg", alt: "WorldVisa", style: { height: '36pt', marginBottom: '24pt', display: 'block' } }),
                 react_1.default.createElement("p", { style: {
-                        fontSize: '10pt',
+                        fontSize: '12pt',
                         fontWeight: '400',
                         color: theme.dark,
                         marginBottom: '16pt',
@@ -59,7 +59,7 @@ function CoverPage({ data, meta, countries }) {
                         letterSpacing: '0.5px'
                     } }, "Personalized for you"),
                 react_1.default.createElement("h1", { style: {
-                        fontSize: '52pt', // Increased size slightly
+                        fontSize: '52pt',
                         fontWeight: '700',
                         color: theme.dark,
                         lineHeight: '1.0',
@@ -74,7 +74,7 @@ function CoverPage({ data, meta, countries }) {
                     } }, "Ready now")),
             react_1.default.createElement("div", { style: { marginTop: '32pt', maxWidth: '450pt' } },
                 react_1.default.createElement("p", { style: {
-                        fontSize: '11pt',
+                        fontSize: '12pt',
                         color: theme.text,
                         lineHeight: '1.6',
                         marginBottom: '24pt'
@@ -90,7 +90,7 @@ function CoverPage({ data, meta, countries }) {
                     } })),
             react_1.default.createElement("div", { style: { marginBottom: '30pt' } },
                 react_1.default.createElement("p", { style: {
-                        fontSize: '9pt',
+                        fontSize: '12pt',
                         fontWeight: '500',
                         color: theme.text,
                         textTransform: 'uppercase',
@@ -113,26 +113,26 @@ function CoverPage({ data, meta, countries }) {
                 } },
                 react_1.default.createElement("div", null,
                     react_1.default.createElement("div", { style: { fontSize: '36pt', fontWeight: '600', color: theme.dark } }, "150+"),
-                    react_1.default.createElement("div", { style: { fontSize: '10pt', color: theme.text, marginTop: '4pt', fontWeight: '500' } }, "options for you")),
+                    react_1.default.createElement("div", { style: { fontSize: '12pt', color: theme.text, marginTop: '4pt', fontWeight: '500' } }, "options for you")),
                 react_1.default.createElement("div", null,
                     react_1.default.createElement("div", { style: { fontSize: '36pt', fontWeight: '600', color: theme.dark } }, "50k+"),
-                    react_1.default.createElement("div", { style: { fontSize: '10pt', color: theme.text, marginTop: '4pt', fontWeight: '500' } }, "happy clients")),
+                    react_1.default.createElement("div", { style: { fontSize: '12pt', color: theme.text, marginTop: '4pt', fontWeight: '500' } }, "happy clients")),
                 react_1.default.createElement("div", null,
                     react_1.default.createElement("div", { style: { fontSize: '36pt', fontWeight: '600', color: theme.dark } }, "21+"),
-                    react_1.default.createElement("div", { style: { fontSize: '10pt', color: theme.text, marginTop: '4pt', fontWeight: '500' } }, "in industry"))),
+                    react_1.default.createElement("div", { style: { fontSize: '12pt', color: theme.text, marginTop: '4pt', fontWeight: '500' } }, "in industry"))),
             react_1.default.createElement("div", { style: {
                     borderTop: `1px solid #D1D5DB`,
-                    paddingTop: '20pt',
-                    marginTop: '8pt',
-                    paddingBottom: '20pt'
+                    paddingTop: '16pt',
+                    marginTop: 'auto',
+                    paddingBottom: '8pt'
                 } },
                 react_1.default.createElement("div", { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' } },
                     react_1.default.createElement("div", null,
-                        react_1.default.createElement("p", { style: { fontSize: '9pt', color: theme.text, fontWeight: '600', marginBottom: '4pt', letterSpacing: '0.5px', textTransform: 'uppercase' } }, "Prepared Exclusively For"),
+                        react_1.default.createElement("p", { style: { fontSize: '12pt', color: theme.text, fontWeight: '600', marginBottom: '4pt', letterSpacing: '0.5px', textTransform: 'uppercase' } }, "Prepared Exclusively For"),
                         react_1.default.createElement("p", { style: { fontSize: '18pt', fontWeight: '600', color: theme.dark } }, meta.userName)),
                     react_1.default.createElement("div", { style: { textAlign: 'right' } },
-                        react_1.default.createElement("p", { style: { fontSize: '10pt', color: theme.text, marginBottom: '2pt', fontWeight: '500' } },
+                        react_1.default.createElement("p", { style: { fontSize: '12pt', color: theme.text, marginBottom: '2pt', fontWeight: '500' } },
                             "Date: ",
                             meta.generatedDate))),
-                react_1.default.createElement("p", { style: { fontSize: '9pt', fontWeight: '600', color: theme.dark, marginTop: '10pt' } }, "Your 1:1 call will be followed up")))));
+                react_1.default.createElement("p", { style: { fontSize: '12pt', fontWeight: '600', color: theme.dark, marginTop: '10pt' } }, "Your 1:1 call will be followed up")))));
 }

@@ -57,14 +57,14 @@ export function CoverPage({ data, meta, countries }: CoverPageProps) {
       <div style={{
         position: 'relative',
         zIndex: 10,
-        padding: '18pt', // Reduced padding from 60pt
+        padding: '36pt 32pt 28pt 32pt',
         height: '100%',
         display: 'flex',
         flexDirection: 'column'
       }}>
 
         {/* 1. Header Section */}
-        <div style={{ marginTop: '30pt' }}>
+        <div style={{ marginTop: '16pt' }}>
 
           {/* LOGO ADDED ABOVE TEXT */}
           <img
@@ -74,7 +74,7 @@ export function CoverPage({ data, meta, countries }: CoverPageProps) {
           />
 
           <p style={{
-            fontSize: '10pt',
+            fontSize: '12pt',
             fontWeight: '400',
             color: theme.dark,
             marginBottom: '16pt',
@@ -85,7 +85,7 @@ export function CoverPage({ data, meta, countries }: CoverPageProps) {
           </p>
 
           <h1 style={{
-            fontSize: '52pt', // Increased size slightly
+            fontSize: '52pt', 
             fontWeight: '700',
             color: theme.dark,
             lineHeight: '1.0',
@@ -107,7 +107,7 @@ export function CoverPage({ data, meta, countries }: CoverPageProps) {
         {/* 2. Description Section */}
         <div style={{ marginTop: '32pt', maxWidth: '450pt' }}>
           <p style={{
-            fontSize: '11pt',
+            fontSize: '12pt',
             color: theme.text,
             lineHeight: '1.6',
             marginBottom: '24pt'
@@ -128,7 +128,7 @@ export function CoverPage({ data, meta, countries }: CoverPageProps) {
         {/* 3. Target Countries (Requested Above USP) */}
         <div style={{ marginBottom: '30pt' }}>
           <p style={{
-            fontSize: '9pt',
+            fontSize: '12pt',
             fontWeight: '500',
             color: theme.text,
             textTransform: 'uppercase',
@@ -162,28 +162,28 @@ export function CoverPage({ data, meta, countries }: CoverPageProps) {
         }}>
           <div>
             <div style={{ fontSize: '36pt', fontWeight: '600', color: theme.dark }}>150+</div>
-            <div style={{ fontSize: '10pt', color: theme.text, marginTop: '4pt', fontWeight: '500' }}>options for you</div>
+            <div style={{ fontSize: '12pt', color: theme.text, marginTop: '4pt', fontWeight: '500' }}>options for you</div>
           </div>
           <div>
             <div style={{ fontSize: '36pt', fontWeight: '600', color: theme.dark }}>50k+</div>
-            <div style={{ fontSize: '10pt', color: theme.text, marginTop: '4pt', fontWeight: '500' }}>happy clients</div>
+            <div style={{ fontSize: '12pt', color: theme.text, marginTop: '4pt', fontWeight: '500' }}>happy clients</div>
           </div>
           <div>
             <div style={{ fontSize: '36pt', fontWeight: '600', color: theme.dark }}>21+</div>
-            <div style={{ fontSize: '10pt', color: theme.text, marginTop: '4pt', fontWeight: '500' }}>in industry</div>
+            <div style={{ fontSize: '12pt', color: theme.text, marginTop: '4pt', fontWeight: '500' }}>in industry</div>
           </div>
         </div>
 
         {/* 5. Meta Information (Footer) - Aligned to bottom */}
         <div style={{
           borderTop: `1px solid #D1D5DB`,
-          paddingTop: '20pt',
-          marginTop: '8pt',
-          paddingBottom: '20pt'
+          paddingTop: '16pt',
+          marginTop: 'auto',
+          paddingBottom: '8pt'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
             <div>
-              <p style={{ fontSize: '9pt', color: theme.text, fontWeight: '600', marginBottom: '4pt', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+              <p style={{ fontSize: '12pt', color: theme.text, fontWeight: '600', marginBottom: '4pt', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
                 Prepared Exclusively For
               </p>
               <p style={{ fontSize: '18pt', fontWeight: '600', color: theme.dark }}>
@@ -192,13 +192,13 @@ export function CoverPage({ data, meta, countries }: CoverPageProps) {
             </div>
 
             <div style={{ textAlign: 'right' }}>
-              <p style={{ fontSize: '10pt', color: theme.text, marginBottom: '2pt', fontWeight: '500' }}>
+              <p style={{ fontSize: '12pt', color: theme.text, marginBottom: '2pt', fontWeight: '500' }}>
                 Date: {meta.generatedDate}
               </p>
             </div>
           </div>
 
-          <p style={{ fontSize: '9pt', fontWeight: '600', color: theme.dark, marginTop: '10pt' }}>
+          <p style={{ fontSize: '12pt', fontWeight: '600', color: theme.dark, marginTop: '10pt' }}>
             Your 1:1 call will be followed up
           </p>
         </div>

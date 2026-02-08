@@ -1,7 +1,7 @@
 import React from 'react';
 
 interface CountryIntroPageProps {
-  countryName: string; // Dynamic: "Australia", "Canada", "Germany", etc.
+  countryName: string;
   flagImagePath: string;
   usps: string[];
   colors: {
@@ -10,12 +10,19 @@ interface CountryIntroPageProps {
   };
 }
 
-export function CountryIntroPage({ 
-  countryName, 
-  flagImagePath, 
-  usps, 
-  colors 
+export function CountryIntroPage({
+  countryName,
+  flagImagePath,
+  usps,
 }: CountryIntroPageProps) {
+  const t = {
+    dark: '#111827',
+    text: '#4B5563',
+    accent: '#1B2A4A',
+    border: '#E5E7EB',
+    bg: '#FAFAFA',
+  };
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -23,100 +30,96 @@ export function CountryIntroPage({
       flexDirection: 'column',
       justifyContent: 'center',
       alignItems: 'center',
-      color: '#222222',
-      padding: '0mm 0mm',
+      padding: '10mm 14mm',
       textAlign: 'center'
     }}>
       {/* Flag */}
       <div style={{
-        width: '200pt',
+        width: '240pt',
         height: '120pt',
-        marginBottom: '32pt',
-        borderRadius: '12pt',
+        marginBottom: '20pt',
+        borderRadius: '6pt',
         overflow: 'hidden',
       }}>
-        <img 
-          src={flagImagePath} 
+        <img
+          src={flagImagePath}
           alt={`${countryName} flag`}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover'
-          }}
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
         />
       </div>
-      
+
       {/* Heading */}
       <h1 style={{
-        fontSize: '42pt',
-        fontWeight: '700',
-        marginBottom: '16pt',
-        letterSpacing: '0.5pt',
-        margin: '0 0 16pt 0'
+        fontSize: '32pt',
+        fontWeight: 700,
+        color: t.dark,
+        marginBottom: '4pt',
+        lineHeight: 1.1,
       }}>
-        {countryName} Visa Opportunities Report
+        {countryName}
       </h1>
-      
-      
+      <p style={{
+        fontSize: '14pt',
+        color: t.accent,
+        fontWeight: 600,
+        marginBottom: '20pt',
+      }}>
+        Visa Opportunities Report
+      </p>
+
+      {/* Divider */}
+      <div style={{ width: '40pt', height: '2px', background: t.accent, marginBottom: '20pt' }} />
+
       {/* USPs */}
       <div style={{
-        background: '#FFFFFF',
-        backdropFilter: 'blur(10pt)',
-        borderRadius: '16pt',
-        padding: '24pt 32pt',
-        maxWidth: '500pt',
-        border: '1pt solid #222222'
+        background: t.bg,
+        borderRadius: '8pt',
+        padding: '16pt 20pt',
+        maxWidth: '400pt',
+        width: '100%',
+        border: `0.5pt solid ${t.border}`,
+        textAlign: 'left',
       }}>
         <h3 style={{
-          fontSize: '16pt',
-          fontWeight: '700',
-          marginBottom: '16pt',
-          marginTop: '0',
+          fontSize: '11pt',
+          fontWeight: 700,
+          color: t.dark,
+          marginBottom: '10pt',
+          marginTop: 0,
           textTransform: 'uppercase',
-          letterSpacing: '1pt'
+          letterSpacing: '0.5pt',
+          textAlign: 'center',
         }}>
           Why {countryName}?
         </h3>
-        
-        <ul style={{
-          listStyle: 'none',
-          padding: '0',
-          margin: '0',
-          textAlign: 'left'
-        }}>
-          {usps.map((usp, index) => (
-            <li key={index} style={{
-              fontSize: '12pt',
-              lineHeight: '1.7',
-              marginBottom: '8pt',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '12pt'
-            }}>
-              <span style={{
-                fontSize: '18pt',
-                fontWeight: '700',
-                marginTop: '-2pt',
-                flexShrink: 0
-              }}>✓</span>
-              <span>{usp}</span>
-            </li>
-          ))}
-        </ul>
+
+        {usps.map((usp, index) => (
+          <div key={index} style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '8pt',
+            marginBottom: '6pt',
+            fontSize: '11pt',
+            lineHeight: '1.5',
+            color: t.text,
+          }}>
+            <span style={{ color: t.accent, fontWeight: 700, flexShrink: 0, marginTop: '1pt' }}>&#10003;</span>
+            <span>{usp}</span>
+          </div>
+        ))}
       </div>
-      
-      {/* Decorative element */}
+
+      {/* Bottom label */}
       <div style={{
-        marginTop: '32pt',
-        fontSize: '11pt',
-        opacity: '0.9',
-        fontWeight: '600',
+        marginTop: '20pt',
+        fontSize: '10pt',
+        color: t.text,
+        fontWeight: 600,
         textTransform: 'uppercase',
-        letterSpacing: '2pt'
+        letterSpacing: '2pt',
       }}>
         Comprehensive Migration Assessment
       </div>
     </div>
   );
 }
-

@@ -13,9 +13,7 @@ const ThankYouPage_1 = require("./shared/ThankYouPage");
 const country_registry_1 = require("./utils/country-registry");
 const toc_generator_1 = require("./utils/toc-generator");
 function CombinedReport({ countries, reportData, userName }) {
-    // Get configurations for selected countries
     const countryConfigs = (0, country_registry_1.getCountriesConfig)(countries);
-    // Validate we have valid countries
     if (countryConfigs.length === 0) {
         return (react_1.default.createElement("html", { lang: "en" },
             react_1.default.createElement("head", null,
@@ -28,9 +26,7 @@ function CombinedReport({ countries, reportData, userName }) {
                         "Selected: ",
                         countries.join(', '))))));
     }
-    // Generate dynamic TOC
     const tocSections = (0, toc_generator_1.generateCombinedTOC)(countryConfigs);
-    // Get first country's data for cover/thank you (or use first available)
     const firstCountryData = reportData[countryConfigs[0]?.dataKey];
     return (react_1.default.createElement("html", { lang: "en" },
         react_1.default.createElement("head", null,
@@ -55,18 +51,14 @@ function CombinedReport({ countries, reportData, userName }) {
             countryConfigs.map((countryConfig, countryIndex) => {
                 const countryData = reportData[countryConfig.dataKey];
                 if (!countryData) {
-                    // Skip if no data for this country
                     console.warn(`No data found for country: ${countryConfig.name}`);
                     return null;
                 }
                 return (react_1.default.createElement(react_1.default.Fragment, { key: countryConfig.code },
                     react_1.default.createElement(CountryIntroPage_1.CountryIntroPage, { countryName: countryConfig.name, flagImagePath: countryConfig.flagPath, usps: countryConfig.usps, colors: countryConfig.colors }),
-                    react_1.default.createElement("div", { className: "page-break" }),
                     react_1.default.createElement("div", null, countryConfig.sections.map((section, sectionIndex) => {
                         const SectionComponent = section.component;
                         const sectionData = countryData[section.dataKey];
-                        // Render component with data if available (dynamic sections),
-                        // or without data prop if static (static sections like AboutWorldVisa, Timeline)
                         return (react_1.default.createElement(react_1.default.Fragment, { key: `${countryConfig.code}-${section.id}` },
                             sectionData ? (react_1.default.createElement(SectionComponent, { data: sectionData })) : (react_1.default.createElement(SectionComponent, null)),
                             sectionIndex < countryConfig.sections.length - 1 && (react_1.default.createElement("div", null))));

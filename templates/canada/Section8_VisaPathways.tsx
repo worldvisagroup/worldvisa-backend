@@ -1,293 +1,237 @@
 import React from 'react';
 import type { CanadaVisaPathwaysData } from '../types/report-types';
 import { SectionHeader } from '../shared/SectionHeader';
-import { Table } from '../shared/Table';
 
 interface Props {
   data: CanadaVisaPathwaysData;
 }
 
+const thStyle: React.CSSProperties = {
+  padding: '5pt 6pt',
+  textAlign: 'left',
+  fontWeight: 700,
+  fontSize: '12pt',
+  color: '#FFFFFF',
+  background: '#1B2A4A',
+  borderBottom: '1pt solid #E5E7EB',
+};
+
+const tdStyle: React.CSSProperties = {
+  padding: '4pt 6pt',
+  color: '#4B5563',
+  borderBottom: '0.5pt solid #E5E7EB',
+  lineHeight: '1.4',
+  fontSize: '12pt',
+};
+
 export function Section8_VisaPathways({ data }: Props) {
   return (
-    <div className="section visa-pathways">
+    <div className="section page">
       <SectionHeader number="8" title="Visa Pathways & Migration Strategy (Per Shortlisted Province)" />
 
-      <div className="subsection">
-        <h3>8.1 Primary Visa Routes (PR / Work / Hybrid) – Overview</h3>
-        <p><strong>VISA ROUTES IN CANADA (COMPARISON):</strong></p>
-        <Table
-          columns={[
-            { header: 'Route', key: 'route' },
-            { header: 'Type', key: 'type' },
-            { header: 'Processing Time', key: 'processingTime' },
-            { header: 'Job Offer', key: 'jobOffer' },
-            { header: 'PR Timeline', key: 'prTimeline' },
-            { header: 'Cost', key: 'cost' },
-            { header: 'Recommendation', key: 'recommendation' },
-          ]}
-          data={data.overview.map(row => ({
-            route: row.route,
-            type: row.type,
-            processingTime: row.processingTime,
-            jobOffer: row.jobOffer,
-            prTimeline: row.prTimeline,
-            cost: row.cost,
-            recommendation: row.recommendation,
-          }))}
-        />
-      </div>
-
-      <div className="subsection">
-        <h3>8.2 Eligibility Snapshot – Age, Education, Experience, Language</h3>
-        <p><strong>YOUR ELIGIBILITY FOR CANADIAN IMMIGRATION:</strong></p>
-        <Table
-          columns={[
-            { header: 'Criterion', key: 'criterion' },
-            { header: 'Requirement', key: 'requirement' },
-            { header: 'Your Profile', key: 'yourProfile' },
-            { header: 'Status', key: 'status' },
-          ]}
-          data={data.eligibilitySnapshot.map(row => ({
-            criterion: row.criterion,
-            requirement: row.requirement,
-            yourProfile: row.yourProfile,
-            status: row.status,
-          }))}
-        />
-        <p style={{ marginTop: '12pt' }}>
-          <strong>OVERALL:</strong> You are in exceptional position for Canadian immigration. 
-          All boxes ticked except language test (easily achievable).
-        </p>
-      </div>
-
-      <div className="subsection">
-        <h3>8.3 CRS/Scoring Comparisons (Where Applicable)</h3>
-        <p><strong>YOUR COMPREHENSIVE RANKING SYSTEM (CRS) SCORE BREAKDOWN:</strong></p>
-        
-        {/* Core Human Capital Factors */}
-        <div style={{
-          background: 'linear-gradient(135deg, #EBF5FF 0%, #DBEAFE 100%)',
-          border: '2pt solid #0066CC',
-          borderRadius: '8pt',
-          padding: '16pt',
-          marginBottom: '12pt'
-        }}>
-          <h4 style={{
-            fontSize: '12pt',
-            fontWeight: '700',
-            color: '#0066CC',
-            marginTop: '0',
-            marginBottom: '12pt'
-          }}>
-            CORE HUMAN CAPITAL FACTORS (Max 500 points)
-          </h4>
-          
-          <div style={{ display: 'grid', gap: '8pt' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: '#1F2937' }}>✓ Age (21 years, 18–35 range)</span>
-              <span style={{ fontWeight: '700', color: '#10B981' }}>+110 points</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: '#1F2937' }}>✓ Education (Bachelor&apos;s degree)</span>
-              <span style={{ fontWeight: '700', color: '#10B981' }}>+133 points</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: '#1F2937' }}>✓ Language Proficiency (Estimated CLB 8)</span>
-              <span style={{ fontWeight: '700', color: '#10B981' }}>+103 points</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: '#1F2937' }}>✓ Work Experience (4 years)</span>
-              <span style={{ fontWeight: '700', color: '#10B981' }}>+80 points</span>
-            </div>
-            <div style={{
-              borderTop: '2pt solid #0066CC',
-              marginTop: '8pt',
-              paddingTop: '8pt',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <span style={{ fontWeight: '700', color: '#0066CC' }}>SUBTOTAL</span>
-              <span style={{ fontWeight: '700', fontSize: '14pt', color: '#0066CC' }}>426 points</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Additional Factors */}
-        <div style={{
-          background: '#F9FAFB',
-          border: '1pt solid #E5E7EB',
-          borderRadius: '8pt',
-          padding: '16pt',
-          marginBottom: '12pt'
-        }}>
-          <h4 style={{
-            fontSize: '11pt',
-            fontWeight: '700',
-            color: '#374151',
-            marginTop: '0',
-            marginBottom: '12pt'
-          }}>
-            ADDITIONAL FACTORS
-          </h4>
-          <div style={{ display: 'grid', gap: '6pt' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#6B7280' }}>Spouse/Partner (not applicable)</span>
-              <span style={{ fontWeight: '600', color: '#6B7280' }}>+0 points</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: '#6B7280' }}>Arranged Employment (if applicable)</span>
-              <span style={{ fontWeight: '600', color: '#F59E0B' }}>+200 points</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Skill Transferability */}
-        <div style={{
-          background: '#F9FAFB',
-          border: '1pt solid #E5E7EB',
-          borderRadius: '8pt',
-          padding: '16pt',
-          marginBottom: '12pt'
-        }}>
-          <h4 style={{
-            fontSize: '11pt',
-            fontWeight: '700',
-            color: '#374151',
-            marginTop: '0',
-            marginBottom: '12pt'
-          }}>
-            SKILL TRANSFERABILITY FACTORS (Max 100 points)
-          </h4>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: '#6B7280' }}>Education + Work Experience</span>
-            <span style={{ fontWeight: '600', color: '#10B981' }}>+50 points</span>
-          </div>
-        </div>
-
-        {/* Game Changers */}
-        <div style={{
-          background: 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)',
-          border: '2pt solid #F59E0B',
-          borderRadius: '8pt',
-          padding: '16pt',
-          marginBottom: '16pt'
-        }}>
-          <h4 style={{
-            fontSize: '12pt',
-            fontWeight: '700',
-            color: '#92400E',
-            marginTop: '0',
-            marginBottom: '12pt',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8pt'
-          }}>
-            <span style={{ fontSize: '16pt' }}>🎯</span> GAME CHANGERS (MULTIPLIERS)
-          </h4>
-          <div style={{ display: 'grid', gap: '8pt' }}>
-            <div style={{
-              background: 'rgba(255,255,255,0.7)',
-              padding: '8pt',
-              borderRadius: '4pt',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <span style={{ fontWeight: '600', color: '#92400E' }}>Option A - Provincial Nomination (PNP)</span>
-              <span style={{ fontWeight: '700', fontSize: '14pt', color: '#D97706' }}>+600 points 🌟</span>
-            </div>
-            <div style={{
-              background: 'rgba(255,255,255,0.7)',
-              padding: '8pt',
-              borderRadius: '4pt',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <span style={{ fontWeight: '600', color: '#92400E' }}>Option B - Job Offer from CA employer</span>
-              <span style={{ fontWeight: '700', fontSize: '14pt', color: '#D97706' }}>+200 points</span>
-            </div>
-            <div style={{
-              background: 'rgba(255,255,255,0.7)',
-              padding: '8pt',
-              borderRadius: '4pt',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <span style={{ fontWeight: '600', color: '#92400E' }}>Option C - French Language Skills</span>
-              <span style={{ fontWeight: '700', fontSize: '14pt', color: '#D97706' }}>+50 points</span>
-            </div>
-          </div>
-        </div>
-
-        <p><strong>TOTAL CRS SCENARIOS:</strong></p>
-        <Table
-          columns={[
-            { header: 'Scenario', key: 'scenario' },
-            { header: 'Points', key: 'points' },
-            { header: 'Competitive?', key: 'competitive' },
-          ]}
-          data={data.crsScoring.scenarios.map(scenario => ({
-            scenario: scenario.scenario,
-            points: scenario.points,
-            competitive: scenario.competitive,
-          }))}
-        />
-
-        <p style={{ marginTop: '12pt' }}><strong>STRATEGY TO IMPROVE YOUR CRS SCORE:</strong></p>
-        <p>Current Situation: CRS ~426 points (borderline for Express Entry alone)</p>
-        
-        <p><strong>Improvement Actions (Pick 1–2):</strong></p>
-        <table>
+      {/* 8.1 Visa Routes Overview */}
+      <div style={{ marginBottom: '12pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+          8.1 Primary Visa Routes -- Overview
+        </h3>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt' }}>
           <thead>
             <tr>
-              <th>Action</th>
-              <th>CRS Boost</th>
+              <th style={thStyle}>Route</th>
+              <th style={thStyle}>Type</th>
+              <th style={thStyle}>Processing Time</th>
+              <th style={thStyle}>Job Offer</th>
+              <th style={thStyle}>PR Timeline</th>
+              <th style={thStyle}>Cost</th>
+              <th style={thStyle}>Recommendation</th>
             </tr>
           </thead>
           <tbody>
-            {data.crsScoring.improvements.map((improvement, index) => (
-              <tr key={index}>
-                <td>{improvement.action}</td>
-                <td>{improvement.boost}</td>
+            {data.overview.map((row, i) => (
+              <tr key={i} style={{ background: i % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
+                <td style={{ ...tdStyle, fontWeight: 600, color: '#111827' }}>{row.route}</td>
+                <td style={tdStyle}>{row.type}</td>
+                <td style={tdStyle}>{row.processingTime}</td>
+                <td style={tdStyle}>{row.jobOffer}</td>
+                <td style={tdStyle}>{row.prTimeline}</td>
+                <td style={tdStyle}>{row.cost}</td>
+                <td style={{ ...tdStyle, fontWeight: 600, color: '#059669' }}>{row.recommendation}</td>
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
 
-        <div className="card" style={{ marginTop: '12pt' }}>
-          <p><strong>BEST STRATEGY:</strong></p>
-          <p>{data.crsScoring.bestStrategy}</p>
+      {/* 8.2 Eligibility Snapshot */}
+      <div style={{ marginBottom: '12pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+          8.2 Eligibility Snapshot
+        </h3>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt' }}>
+          <thead>
+            <tr>
+              <th style={thStyle}>Criterion</th>
+              <th style={thStyle}>Requirement</th>
+              <th style={thStyle}>Your Profile</th>
+              <th style={thStyle}>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.eligibilitySnapshot.map((row, i) => (
+              <tr key={i} style={{ background: i % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
+                <td style={{ ...tdStyle, fontWeight: 600, color: '#111827' }}>{row.criterion}</td>
+                <td style={tdStyle}>{row.requirement}</td>
+                <td style={tdStyle}>{row.yourProfile}</td>
+                <td style={{
+                  ...tdStyle,
+                  fontWeight: 600,
+                  color: row.status?.toLowerCase().includes('pass') || row.status?.toLowerCase().includes('met') || row.status?.toLowerCase().includes('yes')
+                    ? '#059669'
+                    : row.status?.toLowerCase().includes('fail') || row.status?.toLowerCase().includes('no')
+                      ? '#DC2626'
+                      : '#D97706',
+                }}>
+                  {row.status}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* 8.3 CRS Scoring */}
+      <div style={{ marginBottom: '12pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+          8.3 CRS / Scoring Comparisons
+        </h3>
+
+        {/* CRS Breakdown text */}
+        {data.crsScoring.breakdown && (
+          <div style={{
+            borderLeft: '3pt solid #1B2A4A',
+            padding: '6pt 10pt',
+            marginBottom: '8pt',
+            background: '#F8F9FB',
+            fontSize: '12pt',
+            color: '#4B5563',
+            lineHeight: '1.5',
+          }}>
+            {data.crsScoring.breakdown}
+          </div>
+        )}
+
+        {/* CRS Scenarios */}
+        {data.crsScoring.scenarios.length > 0 && (
+          <div style={{ marginBottom: '8pt' }}>
+            <div style={{ fontSize: '12pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '3pt' }}>
+              Total CRS Scenarios
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt' }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Scenario</th>
+                  <th style={thStyle}>Points</th>
+                  <th style={thStyle}>Competitive?</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.crsScoring.scenarios.map((scenario, i) => (
+                  <tr key={i} style={{ background: i % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
+                    <td style={{ ...tdStyle, fontWeight: 600, color: '#111827' }}>{scenario.scenario}</td>
+                    <td style={{ ...tdStyle, fontWeight: 600, color: '#2563EB' }}>{scenario.points}</td>
+                    <td style={{
+                      ...tdStyle,
+                      fontWeight: 600,
+                      color: scenario.competitive?.toLowerCase().includes('yes') || scenario.competitive?.toLowerCase().includes('high')
+                        ? '#059669'
+                        : '#D97706',
+                    }}>
+                      {scenario.competitive}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* CRS Improvements */}
+        {data.crsScoring.improvements.length > 0 && (
+          <div style={{ marginBottom: '8pt' }}>
+            <div style={{ fontSize: '12pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '3pt' }}>
+              Strategy to Improve CRS Score
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt' }}>
+              <thead>
+                <tr>
+                  <th style={thStyle}>Action</th>
+                  <th style={{ ...thStyle, width: '25%' }}>CRS Boost</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.crsScoring.improvements.map((improvement, i) => (
+                  <tr key={i} style={{ background: i % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
+                    <td style={{ ...tdStyle, color: '#111827' }}>{improvement.action}</td>
+                    <td style={{ ...tdStyle, fontWeight: 600, color: '#059669' }}>{improvement.boost}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Best Strategy */}
+        {data.crsScoring.bestStrategy && (
+          <div style={{
+            borderLeft: '3pt solid #1B2A4A',
+            padding: '6pt 10pt',
+            background: '#F8F9FB',
+            marginBottom: '8pt',
+          }}>
+            <div style={{ fontSize: '12pt', fontWeight: 700, color: '#111827', marginBottom: '2pt' }}>
+              Best Strategy
+            </div>
+            <div style={{ fontSize: '12pt', color: '#4B5563', lineHeight: '1.5' }}>
+              {data.crsScoring.bestStrategy}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 8.4 Status Comparison */}
+      {data.statusComparison.length > 0 && (
+        <div style={{ marginBottom: '8pt' }}>
+          <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+            8.4 PR vs Temporary vs Work Permit Routes
+          </h3>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt' }}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Status</th>
+                <th style={thStyle}>Processing</th>
+                <th style={thStyle}>Duration</th>
+                <th style={thStyle}>Work Permit</th>
+                <th style={thStyle}>Change Jobs</th>
+                <th style={thStyle}>PR Pathway</th>
+                <th style={thStyle}>Recommendation</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.statusComparison.map((row, i) => (
+                <tr key={i} style={{ background: i % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
+                  <td style={{ ...tdStyle, fontWeight: 600, color: '#111827' }}>{row.status}</td>
+                  <td style={tdStyle}>{row.processing}</td>
+                  <td style={tdStyle}>{row.duration}</td>
+                  <td style={tdStyle}>{row.workPermit}</td>
+                  <td style={tdStyle}>{row.changeJobs}</td>
+                  <td style={tdStyle}>{row.prPathway}</td>
+                  <td style={{ ...tdStyle, fontWeight: 600, color: '#059669' }}>{row.recommendation}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </div>
-
-      <div className="subsection">
-        <h3>8.4 PR vs Temporary vs Work Permit Routes</h3>
-        <p><strong>CANADIAN VISA STATUS COMPARISON:</strong></p>
-        <Table
-          columns={[
-            { header: 'Status', key: 'status' },
-            { header: 'Processing', key: 'processing' },
-            { header: 'Duration', key: 'duration' },
-            { header: 'Work Permit', key: 'workPermit' },
-            { header: 'Change Jobs', key: 'changeJobs' },
-            { header: 'PR Pathway', key: 'prPathway' },
-            { header: 'Recommendation', key: 'recommendation' },
-          ]}
-          data={data.statusComparison.map(row => ({
-            status: row.status,
-            processing: row.processing,
-            duration: row.duration,
-            workPermit: row.workPermit,
-            changeJobs: row.changeJobs,
-            prPathway: row.prPathway,
-            recommendation: row.recommendation,
-          }))}
-        />
-      </div>
+      )}
     </div>
   );
 }
-

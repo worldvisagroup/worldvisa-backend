@@ -1,7 +1,6 @@
 import React from 'react';
 import type { CanadaSkillDemandData } from '../types/report-types';
 import { SectionHeader } from '../shared/SectionHeader';
-import { Table } from '../shared/Table';
 
 interface Props {
   data: CanadaSkillDemandData;
@@ -9,89 +8,131 @@ interface Props {
 
 export function Section5_SkillDemand({ data }: Props) {
   return (
-    <div className="section skill-demand">
+    <div className="section page">
       <SectionHeader number="5" title="Global Skill Demand Mapping – Where Your Skills Are in Demand" />
 
-      <div className="subsection">
-        <h3>5.1 Mapping Your Core Skills to Canadian NOC Codes</h3>
-        <p><strong>Your Skill Stack → NOC Mapping:</strong></p>
-        <Table
-          columns={[
-            { header: 'Your Skill', key: 'skill' },
-            { header: 'NOC 21231', key: 'noc21231' },
-            { header: 'NOC 21234', key: 'noc21234' },
-            { header: 'Weight in Market', key: 'weightInMarket' },
-          ]}
-          data={data.skillMapping.map(row => ({
-            skill: row.skill,
-            noc21231: row.noc21231,
-            noc21234: row.noc21234,
-            weightInMarket: row.weightInMarket,
-          }))}
-        />
-        <p style={{ marginTop: '12pt' }}>
-          <strong>Verdict:</strong> Your skill set perfectly matches both NOC 21231 (Software Engineers) 
-          and 21234 (Web Developers), with exceptional advantage in visa/immigration tech domain.
-        </p>
+      {/* 5.1 Skill Mapping */}
+      <div style={{ marginBottom: '12pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+          5.1 Mapping Your Core Skills to Canadian NOC Codes
+        </h3>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt' }}>
+          <thead>
+            <tr>
+              {['Your Skill', 'NOC 21231', 'NOC 21234', 'Weight in Market'].map((h) => (
+                <th
+                  key={h}
+                  style={{
+                    textAlign: 'left',
+                    padding: '5pt 6pt',
+                    backgroundColor: '#1B2A4A',
+                    color: '#FFFFFF',
+                    fontWeight: 600,
+                    fontSize: '10pt',
+                    borderBottom: '1pt solid #E5E7EB',
+                  }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.skillMapping.map((row: any, i: number) => (
+              <tr key={i} style={{ backgroundColor: i % 2 === 0 ? '#F8F9FB' : '#FFFFFF' }}>
+                <td style={{ padding: '4pt 6pt', color: '#111827', fontWeight: 600, borderBottom: '1pt solid #E5E7EB' }}>{row.skill}</td>
+                <td style={{ padding: '4pt 6pt', color: '#4B5563', borderBottom: '1pt solid #E5E7EB' }}>{row.noc21231}</td>
+                <td style={{ padding: '4pt 6pt', color: '#4B5563', borderBottom: '1pt solid #E5E7EB' }}>{row.noc21234}</td>
+                <td style={{ padding: '4pt 6pt', color: '#4B5563', borderBottom: '1pt solid #E5E7EB' }}>{row.weightInMarket}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      <div className="subsection">
-        <h3>5.2 Canada Skill Shortage Lists & Relevant Categories</h3>
-        <div className="card">
-          <p><strong>{data.shortageListInfo}</strong></p>
-          
-          <p><strong>Canadian Job Vacancy Data:</strong></p>
-          <ul>
-            {data.jobVacancyData.map((item, index) => (
-              <li key={index}>{item}</li>
+      {/* 5.2 Shortage Lists */}
+      <div style={{ marginBottom: '12pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+          5.2 Canada Skill Shortage Lists &amp; Relevant Categories
+        </h3>
+        <div style={{ borderLeft: '3pt solid #1B2A4A', padding: '6pt 10pt', backgroundColor: '#F8F9FB', marginBottom: '6pt' }}>
+          <p style={{ fontSize: '12pt', fontWeight: 600, color: '#111827', margin: '0 0 4pt 0' }}>{data.shortageListInfo}</p>
+          <p style={{ fontSize: '12pt', fontWeight: 600, color: '#111827', margin: '0 0 2pt 0' }}>Canadian Job Vacancy Data:</p>
+          <ul style={{ margin: '0', paddingLeft: '14pt', fontSize: '12pt', color: '#4B5563', lineHeight: 1.5 }}>
+            {data.jobVacancyData.map((item: any, index: number) => (
+              <li key={index} style={{ marginBottom: '1pt' }}>{item}</li>
             ))}
           </ul>
-
-          <p style={{ marginTop: '12pt' }}>
-            <strong>Conclusion:</strong> Software developers have the best-in-demand profile for Canadian immigration.
-          </p>
         </div>
       </div>
 
-      <div className="subsection">
-        <h3>5.3 Demand Level by Province (High / Moderate / Emerging)</h3>
-        <p><strong>DEMAND SCORECARD BY PROVINCE:</strong></p>
-        <Table
-          columns={[
-            { header: 'Province', key: 'province' },
-            { header: 'NOC 21231', key: 'noc21231' },
-            { header: 'NOC 21234', key: 'noc21234' },
-            { header: 'Overall Demand', key: 'overallDemand' },
-            { header: 'Jobs (2025 est.)', key: 'jobs' },
-            { header: 'Growth', key: 'growth' },
-          ]}
-          data={data.demandByProvince.map(row => ({
-            province: row.province,
-            noc21231: row.noc21231,
-            noc21234: row.noc21234,
-            overallDemand: row.overallDemand,
-            jobs: row.jobs,
-            growth: row.growth,
-          }))}
-        />
+      {/* 5.3 Demand by Province */}
+      <div style={{ marginBottom: '12pt' }}>
+        <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
+          5.3 Demand Level by Province
+        </h3>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt', marginBottom: '8pt' }}>
+          <thead>
+            <tr>
+              {['Province', 'NOC 21231', 'NOC 21234', 'Overall Demand', 'Jobs (est.)', 'Growth'].map((h) => (
+                <th
+                  key={h}
+                  style={{
+                    textAlign: 'left',
+                    padding: '5pt 6pt',
+                    backgroundColor: '#1B2A4A',
+                    color: '#FFFFFF',
+                    fontWeight: 600,
+                    fontSize: '10pt',
+                    borderBottom: '1pt solid #E5E7EB',
+                  }}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {data.demandByProvince.map((row: any, i: number) => (
+              <tr key={i} style={{ backgroundColor: i % 2 === 0 ? '#F8F9FB' : '#FFFFFF' }}>
+                <td style={{ padding: '4pt 6pt', color: '#111827', fontWeight: 600, borderBottom: '1pt solid #E5E7EB' }}>{row.province}</td>
+                <td style={{ padding: '4pt 6pt', color: '#4B5563', borderBottom: '1pt solid #E5E7EB' }}>{row.noc21231}</td>
+                <td style={{ padding: '4pt 6pt', color: '#4B5563', borderBottom: '1pt solid #E5E7EB' }}>{row.noc21234}</td>
+                <td style={{ padding: '4pt 6pt', color: '#4B5563', borderBottom: '1pt solid #E5E7EB' }}>{row.overallDemand}</td>
+                <td style={{ padding: '4pt 6pt', color: '#4B5563', borderBottom: '1pt solid #E5E7EB' }}>{row.jobs}</td>
+                <td style={{ padding: '4pt 6pt', color: '#059669', fontWeight: 600, borderBottom: '1pt solid #E5E7EB' }}>{row.growth}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-        <h4 style={{ marginTop: '20pt' }}>Provincial Context:</h4>
-        {data.provinceContexts.map((context, index) => (
-          <div key={index} className="card" style={{ marginBottom: '12pt' }}>
-            <h4 style={{ color: '#0066CC', marginTop: 0 }}>
-              {context.province} ({context.city}) – {context.techHubStatus}
-            </h4>
-            <p><strong>Companies:</strong> {context.companies.join(', ')}</p>
-            <p><strong>Salary Range:</strong> {context.salaryRange}</p>
-            <p><strong>Job Openings:</strong> {context.jobOpenings}</p>
-            <p><strong>Visa Tech Employers:</strong> {context.visaTechEmployers}</p>
-            {context.costOfLiving && (
-              <p><strong>Cost of Living:</strong> {context.costOfLiving}</p>
-            )}
+        {/* Province Contexts */}
+        <p style={{ fontSize: '12pt', fontWeight: 600, color: '#111827', margin: '0 0 4pt 0' }}>Provincial Context:</p>
+        {data.provinceContexts.map((ctx: any, index: number) => (
+          <div
+            key={index}
+            style={{
+              borderLeft: '3pt solid #1B2A4A',
+              padding: '6pt 10pt',
+              marginBottom: '6pt',
+              backgroundColor: '#F8F9FB',
+            }}
+          >
+            <div style={{ fontSize: '12pt', fontWeight: 700, color: '#1B2A4A', marginBottom: '3pt' }}>
+              {ctx.province} ({ctx.city}) – {ctx.techHubStatus}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4pt 16pt', fontSize: '12pt', color: '#4B5563' }}>
+              <span><span style={{ fontWeight: 600, color: '#111827' }}>Companies:</span> {ctx.companies.join(', ')}</span>
+              <span><span style={{ fontWeight: 600, color: '#111827' }}>Salary:</span> {ctx.salaryRange}</span>
+              <span><span style={{ fontWeight: 600, color: '#111827' }}>Openings:</span> {ctx.jobOpenings}</span>
+              <span><span style={{ fontWeight: 600, color: '#111827' }}>Visa Employers:</span> {ctx.visaTechEmployers}</span>
+              {ctx.costOfLiving && (
+                <span><span style={{ fontWeight: 600, color: '#111827' }}>Cost of Living:</span> {ctx.costOfLiving}</span>
+              )}
+            </div>
           </div>
         ))}
       </div>
     </div>
   );
 }
-
