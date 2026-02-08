@@ -9,7 +9,7 @@ const SectionHeader_1 = require("../shared/SectionHeader");
 function Section9_AboutWorldVisa() {
     return (react_1.default.createElement("div", { className: "section page" },
         react_1.default.createElement(SectionHeader_1.SectionHeader, { number: "9", title: "About Canada PR & Work Visa with WorldVisa" }),
-        react_1.default.createElement("div", { style: { marginBottom: '12pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, "Canada PR Visa Services"),
             react_1.default.createElement("div", { style: { borderLeft: '3pt solid #1B2A4A', padding: '8pt 10pt', background: '#F8F9FB' } },
                 react_1.default.createElement("p", { style: { fontSize: '12pt', color: '#4B5563', marginBottom: '6pt', lineHeight: '1.5', marginTop: 0 } }, "WorldVisa's Permanent Residency (PR) services provide comprehensive guidance for skilled professionals seeking to immigrate to Canada through Express Entry and Provincial Nominee Programs. Our RCIC-certified advisors assist with:"),
@@ -22,7 +22,7 @@ function Section9_AboutWorldVisa() {
                     react_1.default.createElement("li", { style: { marginBottom: '2pt' } }, "Application tracking and communication with immigration authorities"),
                     react_1.default.createElement("li", null, "Post-landing settlement support")),
                 react_1.default.createElement("p", { style: { fontSize: '12pt', color: '#059669', marginTop: '6pt', marginBottom: 0, fontWeight: 600, lineHeight: '1.5' } }, "With a 95% success rate in PR applications, WorldVisa has helped thousands of tech professionals successfully navigate Canada's complex immigration system."))),
-        react_1.default.createElement("div", { style: { marginBottom: '6pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, "Canada Work Visa Services"),
             react_1.default.createElement("div", { style: { borderLeft: '3pt solid #1B2A4A', padding: '8pt 10pt', background: '#F8F9FB' } },
                 react_1.default.createElement("p", { style: { fontSize: '12pt', color: '#4B5563', marginBottom: '6pt', lineHeight: '1.5', marginTop: 0 } }, "WorldVisa offers comprehensive Work Permit services for professionals seeking to work in Canada temporarily or as a pathway to permanent residency:"),

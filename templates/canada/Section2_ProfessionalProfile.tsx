@@ -12,7 +12,7 @@ export function Section2_ProfessionalProfile({ data }: Props) {
       <SectionHeader number="2" title="Your Professional Profile" />
 
       {/* 2.1 NOC Codes */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           2.1 Core Skills &amp; Occupation Mapping (to NOC)
         </h3>
@@ -65,7 +65,7 @@ export function Section2_ProfessionalProfile({ data }: Props) {
       </div>
 
       {/* 2.2 Experience Metrics */}
-      <div style={{ marginBottom: '6pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           2.2 Years of Experience &amp; Seniority Level
         </h3>

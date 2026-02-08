@@ -12,7 +12,7 @@ export function Section1_ExecutiveSummary({ data }: Props) {
       <SectionHeader number="1" title="Executive Summary" />
 
       {/* 1.1 Purpose */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '4pt' }}>
           1.1 Purpose of This Report
         </h3>
@@ -22,7 +22,7 @@ export function Section1_ExecutiveSummary({ data }: Props) {
       </div>
 
       {/* 1.2 Key Advantages */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '4pt' }}>
           1.2 Snapshot of Your Global Mobility Options
         </h3>
@@ -40,7 +40,7 @@ export function Section1_ExecutiveSummary({ data }: Props) {
       </div>
 
       {/* 1.3 Top Cities Table */}
-      <div style={{ marginBottom: '8pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '4pt' }}>
           1.3 Top Recommended German Cities
         </h3>

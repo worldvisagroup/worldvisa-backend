@@ -18,7 +18,7 @@ export function Section5_JobOpportunities({ data }: Props) {
         const sectionNumber = cityIndex + 1;
 
         return (
-          <div key={cityKey} style={{ marginBottom: '12pt', pageBreakInside: 'avoid' }}>
+          <div key={cityKey} style={{ marginBottom: '20pt', pageBreakInside: 'avoid' }}>
             <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
               5.{sectionNumber} {city.name}
             </h3>

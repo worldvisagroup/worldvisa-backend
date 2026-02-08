@@ -12,7 +12,7 @@ export function Section6_TopEmployers({ data }: Props) {
       <SectionHeader number="6" title="Top Target Employers (by Province & Sector)" />
 
       {data.provinces.map((provinceData, index) => (
-        <div key={index} style={{ marginBottom: '12pt', pageBreakInside: 'avoid' }}>
+        <div key={index} style={{ marginBottom: '20pt', pageBreakInside: 'avoid' }}>
           <div style={{
             borderLeft: '3pt solid #1B2A4A',
             padding: '5pt 10pt',

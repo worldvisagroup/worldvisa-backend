@@ -29,7 +29,7 @@ export function Section7_SalaryVariation({ data }: Props) {
       <SectionHeader number="7" title="City-wise Salary Variation (Toronto vs Vancouver vs Montreal)" />
 
       {/* Salary Comparison Table */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           Salary Comparison
         </h3>
@@ -72,7 +72,7 @@ export function Section7_SalaryVariation({ data }: Props) {
       </div>
 
       {/* Recommendation Summary */}
-      <div style={{ marginBottom: '8pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           Recommendation Summary
         </h3>

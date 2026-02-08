@@ -12,7 +12,7 @@ export function Section5_SkillDemand({ data }: Props) {
       <SectionHeader number="5" title="Global Skill Demand Mapping – Where Your Skills Are in Demand" />
 
       {/* 5.1 Skill Mapping */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           5.1 Mapping Your Core Skills to Canadian NOC Codes
         </h3>
@@ -51,7 +51,7 @@ export function Section5_SkillDemand({ data }: Props) {
       </div>
 
       {/* 5.2 Shortage Lists */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           5.2 Canada Skill Shortage Lists &amp; Relevant Categories
         </h3>
@@ -67,7 +67,7 @@ export function Section5_SkillDemand({ data }: Props) {
       </div>
 
       {/* 5.3 Demand by Province */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           5.3 Demand Level by Province
         </h3>

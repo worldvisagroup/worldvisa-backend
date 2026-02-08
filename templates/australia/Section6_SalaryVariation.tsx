@@ -11,7 +11,7 @@ export function Section6_SalaryVariation({ data }: Props) {
     <div className="section page">
       <SectionHeader number="6" title="City-wise Salary Variation (Capitals vs Tier-2)" />
 
-      <p style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '12pt', lineHeight: '1.5' }}>
+      <p style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '20pt', lineHeight: '1.5' }}>
         {data.roleName
           ? `Salary variation for ${data.roleName} across Australian cities, including take-home estimates and living costs.`
           : 'Salary ranges across Australian cities, including take-home estimates and living costs.'}
@@ -23,7 +23,7 @@ export function Section6_SalaryVariation({ data }: Props) {
           style={{
             borderLeft: '3pt solid #1B2A4A',
             padding: '8pt 10pt',
-            marginBottom: '12pt',
+            marginBottom: '20pt',
             background: '#FFFFFF',
             border: '0.5pt solid #E5E7EB',
             borderLeftWidth: '3pt',

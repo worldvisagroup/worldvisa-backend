@@ -9,7 +9,7 @@ const SectionHeader_1 = require("../shared/SectionHeader");
 function Section2_ProfessionalProfile({ data }) {
     return (react_1.default.createElement("div", { className: "section page" },
         react_1.default.createElement(SectionHeader_1.SectionHeader, { number: "2", title: "Your Professional Profile" }),
-        react_1.default.createElement("div", { style: { marginBottom: '12pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, "2.1 Core Skills & Occupation Mapping (to NOC)"),
             react_1.default.createElement("p", { style: { fontSize: '12pt', color: '#4B5563', lineHeight: 1.5, margin: '0 0 6pt 0' } }, "Your profile maps to the following Canadian NOC codes:"),
             data.nocCodes.map((noc, index) => (react_1.default.createElement("div", { key: index, style: {
@@ -37,7 +37,7 @@ function Section2_ProfessionalProfile({ data }) {
                         react_1.default.createElement("span", { dangerouslySetInnerHTML: { __html: '&#10003;' } }),
                         " ",
                         item)))))))))),
-        react_1.default.createElement("div", { style: { marginBottom: '6pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, "2.2 Years of Experience & Seniority Level"),
             react_1.default.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: '12pt' } },
                 react_1.default.createElement("thead", null,

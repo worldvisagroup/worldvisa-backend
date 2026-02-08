@@ -9,8 +9,8 @@ const SectionHeader_1 = require("./shared/SectionHeader");
 function Section5_TopEmployers({ data }) {
     return (react_1.default.createElement("div", { className: "section page" },
         react_1.default.createElement(SectionHeader_1.SectionHeader, { number: "5", title: "Top 20 Target Employers (by Sector, Australia)" }),
-        react_1.default.createElement("p", { style: { fontSize: '12pt', color: '#4B5563', marginBottom: '12pt', lineHeight: '1.5' } }, "Based on your professional background, these companies represent the best opportunities for your skills and experience."),
-        data.tiers.map((tier, tierIndex) => (react_1.default.createElement("div", { key: tierIndex, style: { marginBottom: '12pt', pageBreakInside: 'avoid' } },
+        react_1.default.createElement("p", { style: { fontSize: '12pt', color: '#4B5563', marginBottom: '20pt', lineHeight: '1.5' } }, "Based on your professional background, these companies represent the best opportunities for your skills and experience."),
+        data.tiers.map((tier, tierIndex) => (react_1.default.createElement("div", { key: tierIndex, style: { marginBottom: '20pt', pageBreakInside: 'avoid' } },
             react_1.default.createElement("div", { style: { borderLeft: '3pt solid #1B2A4A', padding: '6pt 10pt', marginBottom: '6pt', background: '#F8F9FB' } },
                 react_1.default.createElement("div", { style: { fontSize: '12pt', fontWeight: 700, color: '#111827' } }, tier.tierName),
                 react_1.default.createElement("div", { style: { fontSize: '10pt', color: '#9CA3AF', marginTop: '2pt' } }, tier.tierDescription)),

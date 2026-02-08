@@ -12,14 +12,14 @@ export function Section2_ProfessionalProfile({ data }: Props) {
       <SectionHeader number="2" title="Your Professional Profile - Assessment Input" />
 
       {/* Profile Description */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <p style={{ fontSize: '12pt', color: '#4B5563', lineHeight: '1.6', margin: 0 }}>
           {data.profileDescription}
         </p>
       </div>
 
       {/* Basic Profile Info Table */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           2.1 Occupation Mapping
         </h3>
@@ -71,7 +71,7 @@ export function Section2_ProfessionalProfile({ data }: Props) {
 
       {/* ANZSCO Details */}
       {data.anzscoDetails && data.anzscoDetails.length > 0 && (
-        <div style={{ marginBottom: '12pt' }}>
+        <div style={{ marginBottom: '20pt' }}>
           <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
             2.2 ANZSCO Occupation Options
           </h3>
@@ -131,7 +131,7 @@ export function Section2_ProfessionalProfile({ data }: Props) {
 
       {/* Skills Assessment */}
       {data.skillsAssessment && (
-        <div style={{ marginBottom: '12pt' }}>
+        <div style={{ marginBottom: '20pt' }}>
           <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
             2.3 Skills Assessment Process
           </h3>
@@ -179,7 +179,7 @@ export function Section2_ProfessionalProfile({ data }: Props) {
 
       {/* Occupation Ceiling & Labour Market */}
       {(data.occupationCeiling || data.labourMarketInfo) && (
-        <div style={{ marginBottom: '12pt' }}>
+        <div style={{ marginBottom: '20pt' }}>
           <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
             2.4 Occupation Demand &amp; Availability
           </h3>

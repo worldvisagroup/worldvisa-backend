@@ -12,7 +12,7 @@ export function Section3_NoJobOffer({ data }: Props) {
       <SectionHeader number="3" title="You Can Move to WITHOUT a Job Offer" />
 
       {/* 3.1 Concept Overview */}
-      <div style={{ marginBottom: '8pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           3.1 Concept Overview – &quot;Job-Offer-Free&quot; Migration Pathways
         </h3>
@@ -20,7 +20,7 @@ export function Section3_NoJobOffer({ data }: Props) {
       </div>
 
       {/* 3.2 Visa Categories */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           3.2 Canadian Visa Categories &amp; Conditions
         </h3>
@@ -168,7 +168,7 @@ export function Section3_NoJobOffer({ data }: Props) {
       </div>
 
       {/* 3.3 Comparative Summary */}
-      <div style={{ marginBottom: '6pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           3.3 Comparative Summary – Ease, Timelines, Long-Term PR Options
         </h3>

@@ -9,7 +9,7 @@ const SectionHeader_1 = require("../shared/SectionHeader");
 function Section6_TopEmployers({ data }) {
     return (react_1.default.createElement("div", { className: "section page" },
         react_1.default.createElement(SectionHeader_1.SectionHeader, { number: "6", title: "Top Target Employers (by Province & Sector)" }),
-        data.provinces.map((provinceData, index) => (react_1.default.createElement("div", { key: index, style: { marginBottom: '12pt', pageBreakInside: 'avoid' } },
+        data.provinces.map((provinceData, index) => (react_1.default.createElement("div", { key: index, style: { marginBottom: '20pt', pageBreakInside: 'avoid' } },
             react_1.default.createElement("div", { style: {
                     borderLeft: '3pt solid #1B2A4A',
                     padding: '5pt 10pt',

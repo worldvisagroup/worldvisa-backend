@@ -7,7 +7,7 @@ export function Section7_AboutWorldVisa() {
       <SectionHeader number="7" title="About Germany PR & Work Visa with WorldVisa" />
 
       {/* Germany PR Visa Services */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           Germany PR Visa Services
         </h3>
@@ -31,7 +31,7 @@ export function Section7_AboutWorldVisa() {
       </div>
 
       {/* Germany Work Visa Services */}
-      <div style={{ marginBottom: '6pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           Germany Work Visa Services
         </h3>

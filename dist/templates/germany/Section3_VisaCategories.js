@@ -9,10 +9,10 @@ const SectionHeader_1 = require("../shared/SectionHeader");
 function Section3_VisaCategories({ data }) {
     return (react_1.default.createElement("div", { className: "section page" },
         react_1.default.createElement(SectionHeader_1.SectionHeader, { number: "3", title: "German Visa Categories & Pathways" }),
-        react_1.default.createElement("div", { style: { marginBottom: '12pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '4pt' } }, "3.1 Concept Overview"),
             react_1.default.createElement("p", { style: { fontSize: '12pt', color: '#4B5563', lineHeight: 1.5, marginTop: 0 } }, data.conceptOverview)),
-        react_1.default.createElement("div", { style: { marginBottom: '12pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '4pt' } },
                 "3.2 Primary Pathway: ",
                 data.opportunityCard.title),
@@ -34,7 +34,7 @@ function Section3_VisaCategories({ data }) {
                             fontWeight: 600,
                             borderRadius: '3pt'
                         } }, data.opportunityCard.successProbability)))),
-        react_1.default.createElement("div", { style: { marginBottom: '8pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '4pt' } },
                 "3.3 Secondary Pathway: ",
                 data.euBlueCard.title),

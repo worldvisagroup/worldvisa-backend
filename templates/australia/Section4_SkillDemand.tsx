@@ -26,7 +26,7 @@ export function Section4_SkillDemand({ data }: Props) {
       <SectionHeader number="4" title="Global Skill Demand Mapping - Where Your Skills Are in Demand" />
 
       {/* Skill Mapping Table */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           4.1 Core Skills to Occupation Codes
         </h3>
@@ -77,7 +77,7 @@ export function Section4_SkillDemand({ data }: Props) {
       </div>
 
       {/* Occupation Lists */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           4.2 Skilled Occupation Lists &amp; Your Placement
         </h3>
@@ -106,7 +106,7 @@ export function Section4_SkillDemand({ data }: Props) {
       </div>
 
       {/* State Priority Lists */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           4.3 State-Specific Priority Occupation Lists
         </h3>

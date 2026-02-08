@@ -70,13 +70,13 @@ export function Section10_WorldVisaTimeline() {
     <div className="section page">
       <SectionHeader number="10" title="WorldVisa Immigration Timeline" />
 
-      <p style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '12pt', lineHeight: '1.5', marginTop: 0 }}>
+      <p style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '20pt', lineHeight: '1.5', marginTop: 0 }}>
         Your step-by-step journey to Canadian permanent residency with WorldVisa's comprehensive support.
       </p>
 
       {/* Timeline Phases */}
       {data.phases.map((phase, index) => (
-        <div key={index} style={{ marginBottom: '8pt', pageBreakInside: 'avoid' }}>
+        <div key={index} style={{ marginBottom: '20pt', pageBreakInside: 'avoid' }}>
           <div style={{ borderLeft: '3pt solid #1B2A4A', padding: '6pt 10pt', background: '#FFFFFF', border: '0.5pt solid #E5E7EB', borderLeftWidth: '3pt', borderLeftColor: '#1B2A4A' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4pt', paddingBottom: '4pt', borderBottom: '0.5pt solid #E5E7EB' }}>
               <span style={{ fontSize: '12pt', fontWeight: 700, color: '#111827' }}>{phase.name}</span>

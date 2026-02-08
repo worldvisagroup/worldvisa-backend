@@ -7,7 +7,7 @@ export function Section9_AboutWorldVisa() {
       <SectionHeader number="9" title="About Canada PR & Work Visa with WorldVisa" />
 
       {/* Canada PR Visa Services */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           Canada PR Visa Services
         </h3>
@@ -31,7 +31,7 @@ export function Section9_AboutWorldVisa() {
       </div>
 
       {/* Canada Work Visa Services */}
-      <div style={{ marginBottom: '6pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           Canada Work Visa Services
         </h3>

@@ -58,7 +58,7 @@ export function Section8_RegulatoryAdvisor() {
       <SectionHeader number="8" title={data.sectionTitle} />
 
       {/* Credentials Summary */}
-      <div style={{ borderLeft: '3pt solid #1B2A4A', padding: '8pt 10pt', marginBottom: '12pt', background: '#F8F9FB' }}>
+      <div style={{ borderLeft: '3pt solid #1B2A4A', padding: '8pt 10pt', marginBottom: '20pt', background: '#F8F9FB' }}>
         <div style={{ display: 'flex', gap: '16pt', alignItems: 'center', flexWrap: 'wrap' }}>
           {data.maraNumber && (
             <div>
@@ -86,7 +86,7 @@ export function Section8_RegulatoryAdvisor() {
       </div>
 
       {/* What is MARA */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           {data.whatIsMara.heading}
         </h3>
@@ -100,7 +100,7 @@ export function Section8_RegulatoryAdvisor() {
       </div>
 
       {/* Why Regulated Agents Matter */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           {data.whyRegulatedAgentsMatter.heading}
         </h3>

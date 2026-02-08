@@ -12,7 +12,7 @@ export function Section4_SkillDemand({ data }: Props) {
       <SectionHeader number="4" title="Global Skill Demand Mapping" />
 
       {/* 4.1 Skill Mapping */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '4pt' }}>
           4.1 Mapping Your Core Skills to German Market
         </h3>
@@ -51,7 +51,7 @@ export function Section4_SkillDemand({ data }: Props) {
       </div>
 
       {/* 4.2 Tech Shortage */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '4pt' }}>
           4.2 Germany&apos;s Tech Skill Shortage
         </h3>
@@ -71,7 +71,7 @@ export function Section4_SkillDemand({ data }: Props) {
       </div>
 
       {/* 4.3 Demand by City */}
-      <div style={{ marginBottom: '8pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '4pt' }}>
           4.3 Demand Level by City
         </h3>

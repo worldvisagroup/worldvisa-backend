@@ -29,7 +29,7 @@ export function Section6_Compensation({ data }: Props) {
       <SectionHeader number="6" title="Compensation Benchmarking" />
 
       {/* Salary Ranges by City & Role Level */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           Salary Ranges by City & Role Level
         </h3>
@@ -56,7 +56,7 @@ export function Section6_Compensation({ data }: Props) {
       </div>
 
       {/* City-wise Salary Comparison */}
-      <div style={{ marginBottom: '6pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           City-wise Salary Comparison
         </h3>

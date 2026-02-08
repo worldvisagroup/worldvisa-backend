@@ -12,7 +12,7 @@ export function Section4_NoSponsor({ data }: Props) {
       <SectionHeader number="4" title="You Can Move to WITHOUT a Sponsor / Employer" />
 
       {/* 4.1 Concept & Self-Sponsored Routes */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           4.1 Understanding Sponsor-Free / Self-Sponsored Routes
         </h3>
@@ -54,7 +54,7 @@ export function Section4_NoSponsor({ data }: Props) {
       </div>
 
       {/* 4.2 Matrix */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           4.2 Canada Matrix – No Employer Sponsorship Required
         </h3>
@@ -92,7 +92,7 @@ export function Section4_NoSponsor({ data }: Props) {
       </div>
 
       {/* 4.3 Settlement Pathway */}
-      <div style={{ marginBottom: '6pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           4.3 Long-Term Settlement &amp; Citizenship Pathways
         </h3>

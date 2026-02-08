@@ -9,10 +9,10 @@ const SectionHeader_1 = require("../shared/SectionHeader");
 function Section3_NoJobOffer({ data }) {
     return (react_1.default.createElement("div", { className: "section page" },
         react_1.default.createElement(SectionHeader_1.SectionHeader, { number: "3", title: "You Can Move to WITHOUT a Job Offer" }),
-        react_1.default.createElement("div", { style: { marginBottom: '8pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, "3.1 Concept Overview \u2013 \"Job-Offer-Free\" Migration Pathways"),
             react_1.default.createElement("p", { style: { fontSize: '12pt', color: '#4B5563', lineHeight: 1.5, margin: 0 } }, data.conceptOverview)),
-        react_1.default.createElement("div", { style: { marginBottom: '12pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, "3.2 Canadian Visa Categories & Conditions"),
             data.visaCategories.map((category, index) => (react_1.default.createElement("div", { key: index, style: {
                     borderLeft: '3pt solid #1B2A4A',
@@ -95,7 +95,7 @@ function Section3_NoJobOffer({ data }) {
                         option.disadvantages && option.disadvantages.length > 0 && (react_1.default.createElement(react_1.default.Fragment, null,
                             react_1.default.createElement("p", { style: { fontSize: '12pt', fontWeight: 600, color: '#111827', margin: '2pt 0 1pt 0' } }, "Disadvantages:"),
                             react_1.default.createElement("ul", { style: { margin: '0', paddingLeft: '14pt', fontSize: '12pt', color: '#4B5563', lineHeight: 1.4 } }, option.disadvantages.map((d, dIdx) => (react_1.default.createElement("li", { key: dIdx, style: { marginBottom: '1pt' } }, d))))))))))))))),
-        react_1.default.createElement("div", { style: { marginBottom: '6pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, "3.3 Comparative Summary \u2013 Ease, Timelines, Long-Term PR Options"),
             react_1.default.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: '12pt' } },
                 react_1.default.createElement("thead", null,

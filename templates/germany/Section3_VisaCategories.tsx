@@ -12,7 +12,7 @@ export function Section3_VisaCategories({ data }: Props) {
       <SectionHeader number="3" title="German Visa Categories &amp; Pathways" />
 
       {/* 3.1 Concept Overview */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '4pt' }}>
           3.1 Concept Overview
         </h3>
@@ -22,7 +22,7 @@ export function Section3_VisaCategories({ data }: Props) {
       </div>
 
       {/* 3.2 Opportunity Card */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '4pt' }}>
           3.2 Primary Pathway: {data.opportunityCard.title}
         </h3>
@@ -64,7 +64,7 @@ export function Section3_VisaCategories({ data }: Props) {
       </div>
 
       {/* 3.3 EU Blue Card */}
-      <div style={{ marginBottom: '8pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '4pt' }}>
           3.3 Secondary Pathway: {data.euBlueCard.title}
         </h3>

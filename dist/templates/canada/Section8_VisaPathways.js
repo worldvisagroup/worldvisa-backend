@@ -25,7 +25,7 @@ const tdStyle = {
 function Section8_VisaPathways({ data }) {
     return (react_1.default.createElement("div", { className: "section page" },
         react_1.default.createElement(SectionHeader_1.SectionHeader, { number: "8", title: "Visa Pathways & Migration Strategy (Per Shortlisted Province)" }),
-        react_1.default.createElement("div", { style: { marginBottom: '12pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, "8.1 Primary Visa Routes -- Overview"),
             react_1.default.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: '12pt' } },
                 react_1.default.createElement("thead", null,
@@ -45,7 +45,7 @@ function Section8_VisaPathways({ data }) {
                     react_1.default.createElement("td", { style: tdStyle }, row.prTimeline),
                     react_1.default.createElement("td", { style: tdStyle }, row.cost),
                     react_1.default.createElement("td", { style: { ...tdStyle, fontWeight: 600, color: '#059669' } }, row.recommendation))))))),
-        react_1.default.createElement("div", { style: { marginBottom: '12pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, "8.2 Eligibility Snapshot"),
             react_1.default.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: '12pt' } },
                 react_1.default.createElement("thead", null,
@@ -67,7 +67,7 @@ function Section8_VisaPathways({ data }) {
                                     ? '#DC2626'
                                     : '#D97706',
                         } }, row.status))))))),
-        react_1.default.createElement("div", { style: { marginBottom: '12pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, "8.3 CRS / Scoring Comparisons"),
             data.crsScoring.breakdown && (react_1.default.createElement("div", { style: {
                     borderLeft: '3pt solid #1B2A4A',
@@ -114,7 +114,7 @@ function Section8_VisaPathways({ data }) {
                 } },
                 react_1.default.createElement("div", { style: { fontSize: '12pt', fontWeight: 700, color: '#111827', marginBottom: '2pt' } }, "Best Strategy"),
                 react_1.default.createElement("div", { style: { fontSize: '12pt', color: '#4B5563', lineHeight: '1.5' } }, data.crsScoring.bestStrategy)))),
-        data.statusComparison.length > 0 && (react_1.default.createElement("div", { style: { marginBottom: '8pt' } },
+        data.statusComparison.length > 0 && (react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, "8.4 PR vs Temporary vs Work Permit Routes"),
             react_1.default.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: '12pt' } },
                 react_1.default.createElement("thead", null,

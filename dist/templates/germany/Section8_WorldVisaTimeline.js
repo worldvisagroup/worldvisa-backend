@@ -69,8 +69,8 @@ function Section8_WorldVisaTimeline() {
     const data = STATIC_WORLD_VISA_TIMELINE_DATA;
     return (react_1.default.createElement("div", { className: "section page" },
         react_1.default.createElement(SectionHeader_1.SectionHeader, { number: "8", title: "WorldVisa Immigration Timeline" }),
-        react_1.default.createElement("p", { style: { fontSize: '12pt', color: '#4B5563', marginBottom: '12pt', lineHeight: '1.5', marginTop: 0 } }, "Your step-by-step journey to German permanent residency with WorldVisa's comprehensive support."),
-        data.phases.map((phase, index) => (react_1.default.createElement("div", { key: index, style: { marginBottom: '8pt', pageBreakInside: 'avoid' } },
+        react_1.default.createElement("p", { style: { fontSize: '12pt', color: '#4B5563', marginBottom: '20pt', lineHeight: '1.5', marginTop: 0 } }, "Your step-by-step journey to German permanent residency with WorldVisa's comprehensive support."),
+        data.phases.map((phase, index) => (react_1.default.createElement("div", { key: index, style: { marginBottom: '20pt', pageBreakInside: 'avoid' } },
             react_1.default.createElement("div", { style: { borderLeft: '3pt solid #1B2A4A', padding: '6pt 10pt', background: '#FFFFFF', border: '0.5pt solid #E5E7EB', borderLeftWidth: '3pt', borderLeftColor: '#1B2A4A' } },
                 react_1.default.createElement("div", { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4pt', paddingBottom: '4pt', borderBottom: '0.5pt solid #E5E7EB' } },
                     react_1.default.createElement("span", { style: { fontSize: '12pt', fontWeight: 700, color: '#111827' } }, phase.name),

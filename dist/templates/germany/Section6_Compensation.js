@@ -24,7 +24,7 @@ function Section6_Compensation({ data }) {
     };
     return (react_1.default.createElement("div", { className: "section page" },
         react_1.default.createElement(SectionHeader_1.SectionHeader, { number: "6", title: "Compensation Benchmarking" }),
-        react_1.default.createElement("div", { style: { marginBottom: '12pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, "Salary Ranges by City & Role Level"),
             react_1.default.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', border: '0.5pt solid #E5E7EB' } },
                 react_1.default.createElement("thead", null,
@@ -38,7 +38,7 @@ function Section6_Compensation({ data }) {
                     react_1.default.createElement("td", { style: tdStyle }, salary.location),
                     react_1.default.createElement("td", { style: tdStyle }, salary.eurAnnual),
                     react_1.default.createElement("td", { style: tdStyle }, salary.inrEquivalent))))))),
-        react_1.default.createElement("div", { style: { marginBottom: '6pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, "City-wise Salary Comparison"),
             react_1.default.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', border: '0.5pt solid #E5E7EB' } },
                 react_1.default.createElement("thead", null,

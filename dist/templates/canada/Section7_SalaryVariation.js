@@ -24,7 +24,7 @@ const tdStyle = {
 function Section7_SalaryVariation({ data }) {
     return (react_1.default.createElement("div", { className: "section page" },
         react_1.default.createElement(SectionHeader_1.SectionHeader, { number: "7", title: "City-wise Salary Variation (Toronto vs Vancouver vs Montreal)" }),
-        react_1.default.createElement("div", { style: { marginBottom: '12pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, "Salary Comparison"),
             data.cities.map((city, index) => (react_1.default.createElement("div", { key: index, style: { marginBottom: '8pt' } },
                 data.cities.length > 1 && (react_1.default.createElement("div", { style: { fontSize: '12pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '3pt' } }, city.city)),
@@ -42,7 +42,7 @@ function Section7_SalaryVariation({ data }) {
                         react_1.default.createElement("td", { style: tdStyle }, factor.vancouver),
                         react_1.default.createElement("td", { style: tdStyle }, factor.montreal),
                         react_1.default.createElement("td", { style: { ...tdStyle, fontWeight: 600, color: '#059669' } }, factor.winner)))))))))),
-        react_1.default.createElement("div", { style: { marginBottom: '8pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, "Recommendation Summary"),
             react_1.default.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: '12pt' } },
                 react_1.default.createElement("thead", null,

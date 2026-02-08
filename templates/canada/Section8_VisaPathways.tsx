@@ -30,7 +30,7 @@ export function Section8_VisaPathways({ data }: Props) {
       <SectionHeader number="8" title="Visa Pathways & Migration Strategy (Per Shortlisted Province)" />
 
       {/* 8.1 Visa Routes Overview */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           8.1 Primary Visa Routes -- Overview
         </h3>
@@ -63,7 +63,7 @@ export function Section8_VisaPathways({ data }: Props) {
       </div>
 
       {/* 8.2 Eligibility Snapshot */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           8.2 Eligibility Snapshot
         </h3>
@@ -100,7 +100,7 @@ export function Section8_VisaPathways({ data }: Props) {
       </div>
 
       {/* 8.3 CRS Scoring */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           8.3 CRS / Scoring Comparisons
         </h3>
@@ -200,7 +200,7 @@ export function Section8_VisaPathways({ data }: Props) {
 
       {/* 8.4 Status Comparison */}
       {data.statusComparison.length > 0 && (
-        <div style={{ marginBottom: '8pt' }}>
+        <div style={{ marginBottom: '20pt' }}>
           <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
             8.4 PR vs Temporary vs Work Permit Routes
           </h3>

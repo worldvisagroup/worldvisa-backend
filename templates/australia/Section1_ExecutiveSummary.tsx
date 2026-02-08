@@ -11,13 +11,13 @@ export function Section1_ExecutiveSummary({ data }: Props) {
     <div className="section page">
       <SectionHeader number="1" title="Executive Summary" />
 
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <p style={{ fontSize: '12pt', color: '#4B5563', lineHeight: '1.6', margin: 0 }}>
           {data.purpose}
         </p>
       </div>
 
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           1.1 Top Visa Pathways
         </h3>
@@ -55,7 +55,7 @@ export function Section1_ExecutiveSummary({ data }: Props) {
 
       {/* Why Australia */}
       {data.whyAustralia && data.whyAustralia.length > 0 && (
-        <div style={{ marginBottom: '12pt' }}>
+        <div style={{ marginBottom: '20pt' }}>
           <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
             1.2 Why Australia?
           </h3>
@@ -72,7 +72,7 @@ export function Section1_ExecutiveSummary({ data }: Props) {
 
       {/* Key Highlights */}
       {data.keyHighlights && data.keyHighlights.length > 0 && (
-        <div style={{ marginBottom: '12pt' }}>
+        <div style={{ marginBottom: '20pt' }}>
           <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
             1.3 Key Highlights
           </h3>
@@ -90,7 +90,7 @@ export function Section1_ExecutiveSummary({ data }: Props) {
 
       {/* Profile Strengths */}
       {data.profileStrengths && data.profileStrengths.length > 0 && (
-        <div style={{ marginBottom: '12pt' }}>
+        <div style={{ marginBottom: '20pt' }}>
           <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
             1.4 Profile Strengths
           </h3>
@@ -107,7 +107,7 @@ export function Section1_ExecutiveSummary({ data }: Props) {
 
       {/* Market Trends */}
       {data.marketTrends && (
-        <div style={{ marginBottom: '12pt' }}>
+        <div style={{ marginBottom: '20pt' }}>
           <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
             1.5 Market Trends
           </h3>

@@ -25,7 +25,7 @@ function Section4_SkillDemand({ data }) {
     };
     return (react_1.default.createElement("div", { className: "section page" },
         react_1.default.createElement(SectionHeader_1.SectionHeader, { number: "4", title: "Global Skill Demand Mapping - Where Your Skills Are in Demand" }),
-        react_1.default.createElement("div", { style: { marginBottom: '12pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, "4.1 Core Skills to Occupation Codes"),
             react_1.default.createElement("p", { style: { fontSize: '12pt', color: '#4B5563', margin: '0 0 6pt 0' } },
                 react_1.default.createElement("strong", { style: { color: '#2563EB' } }, "Primary Occupation Code:"),
@@ -51,7 +51,7 @@ function Section4_SkillDemand({ data }) {
                                 border: `1pt solid ${getDemandColor(row.demandLevel)}`,
                                 borderRadius: '2pt'
                             } }, row.demandLevel)))))))),
-        react_1.default.createElement("div", { style: { marginBottom: '12pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, "4.2 Skilled Occupation Lists & Your Placement"),
             data.occupationLists.map((list, index) => (react_1.default.createElement("div", { key: index, style: {
                     borderLeft: '3pt solid #1B2A4A',
@@ -62,7 +62,7 @@ function Section4_SkillDemand({ data }) {
                 react_1.default.createElement("p", { style: { fontSize: '12pt', fontWeight: 600, color: '#111827', margin: '0 0 4pt 0' } }, list.listName),
                 react_1.default.createElement("ul", { style: { fontSize: '12pt', color: '#4B5563', margin: 0, paddingLeft: '14pt' } }, list.occupations.map((occ, occIndex) => (react_1.default.createElement("li", { key: occIndex, style: { marginBottom: '2pt', lineHeight: '1.4' } },
                     react_1.default.createElement("strong", null, occ))))))))),
-        react_1.default.createElement("div", { style: { marginBottom: '12pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, "4.3 State-Specific Priority Occupation Lists"),
             react_1.default.createElement("table", { style: { width: '100%', borderCollapse: 'collapse', fontSize: '12pt' } },
                 react_1.default.createElement("thead", null,

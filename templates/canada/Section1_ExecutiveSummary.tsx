@@ -11,21 +11,21 @@ export function Section1_ExecutiveSummary({ data }: Props) {
     <div className="section page">
       <SectionHeader number="1" title="Executive Summary" />
 
-      <div style={{ marginBottom: '8pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           1.1 Purpose of This Report
         </h3>
         <p style={{ fontSize: '12pt', color: '#4B5563', lineHeight: 1.5, margin: 0 }}>{data.purpose}</p>
       </div>
 
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           1.2 Why Canada
         </h3>
         <p style={{ fontSize: '12pt', color: '#4B5563', lineHeight: 1.5, margin: 0 }}>{data.whyCanada}</p>
       </div>
 
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           1.3 Top Recommended Canadian Provinces
         </h3>
@@ -65,7 +65,7 @@ export function Section1_ExecutiveSummary({ data }: Props) {
         </table>
       </div>
 
-      <div style={{ marginBottom: '6pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           1.4 High-Level Risk &amp; Reward Overview
         </h3>

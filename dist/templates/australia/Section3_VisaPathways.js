@@ -9,10 +9,10 @@ const SectionHeader_1 = require("./shared/SectionHeader");
 function Section3_VisaPathways({ data }) {
     return (react_1.default.createElement("div", { className: "section page" },
         react_1.default.createElement(SectionHeader_1.SectionHeader, { number: "3", title: "Your Key Australian Skilled Migration Pathways" }),
-        react_1.default.createElement("div", { style: { marginBottom: '12pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, "3.1 Concept Overview"),
             react_1.default.createElement("p", { style: { fontSize: '12pt', color: '#4B5563', lineHeight: '1.6', margin: 0 } }, data.conceptOverview)),
-        react_1.default.createElement("div", { style: { marginBottom: '12pt' } },
+        react_1.default.createElement("div", { style: { marginBottom: '20pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } }, "3.2 Visa Routes"),
             data.pathways.map((pathway, index) => (react_1.default.createElement("div", { key: index, style: {
                     borderLeft: '3pt solid #1B2A4A',

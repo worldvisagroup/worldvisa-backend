@@ -13,7 +13,7 @@ function Section5_JobOpportunities({ data }) {
         react_1.default.createElement(SectionHeader_1.SectionHeader, { number: "5", title: "Job Opportunities by Role & City" }),
         cityEntries.map(([cityKey, city], cityIndex) => {
             const sectionNumber = cityIndex + 1;
-            return (react_1.default.createElement("div", { key: cityKey, style: { marginBottom: '12pt', pageBreakInside: 'avoid' } },
+            return (react_1.default.createElement("div", { key: cityKey, style: { marginBottom: '20pt', pageBreakInside: 'avoid' } },
                 react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } },
                     "5.",
                     sectionNumber,

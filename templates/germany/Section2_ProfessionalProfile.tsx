@@ -12,7 +12,7 @@ export function Section2_ProfessionalProfile({ data }: Props) {
       <SectionHeader number="2" title="Your Professional Profile" />
 
       {/* 2.1 Core Skills */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '4pt' }}>
           2.1 Core Skills &amp; Occupation Mapping (to German Classifications)
         </h3>
@@ -53,7 +53,7 @@ export function Section2_ProfessionalProfile({ data }: Props) {
       </div>
 
       {/* 2.2 Experience */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '4pt' }}>
           2.2 Years of Experience &amp; Seniority Level
         </h3>
@@ -76,7 +76,7 @@ export function Section2_ProfessionalProfile({ data }: Props) {
       </div>
 
       {/* 2.3 Language & Education */}
-      <div style={{ marginBottom: '8pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '4pt' }}>
           2.3 Language Proficiency &amp; Education Level
         </h3>

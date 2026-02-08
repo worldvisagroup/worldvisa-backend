@@ -11,13 +11,13 @@ export function Section5_TopEmployers({ data }: Props) {
     <div className="section page">
       <SectionHeader number="5" title="Top 20 Target Employers (by Sector, Australia)" />
 
-      <p style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '12pt', lineHeight: '1.5' }}>
+      <p style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '20pt', lineHeight: '1.5' }}>
         Based on your professional background, these companies represent the best opportunities
         for your skills and experience.
       </p>
 
       {data.tiers.map((tier, tierIndex) => (
-        <div key={tierIndex} style={{ marginBottom: '12pt', pageBreakInside: 'avoid' }}>
+        <div key={tierIndex} style={{ marginBottom: '20pt', pageBreakInside: 'avoid' }}>
           <div style={{ borderLeft: '3pt solid #1B2A4A', padding: '6pt 10pt', marginBottom: '6pt', background: '#F8F9FB' }}>
             <div style={{ fontSize: '12pt', fontWeight: 700, color: '#111827' }}>{tier.tierName}</div>
             <div style={{ fontSize: '10pt', color: '#9CA3AF', marginTop: '2pt' }}>{tier.tierDescription}</div>

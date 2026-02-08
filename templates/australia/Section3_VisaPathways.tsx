@@ -12,7 +12,7 @@ export function Section3_VisaPathways({ data }: Props) {
       <SectionHeader number="3" title="Your Key Australian Skilled Migration Pathways" />
 
       {/* Concept Overview */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           3.1 Concept Overview
         </h3>
@@ -22,7 +22,7 @@ export function Section3_VisaPathways({ data }: Props) {
       </div>
 
       {/* Visa Pathways */}
-      <div style={{ marginBottom: '12pt' }}>
+      <div style={{ marginBottom: '20pt' }}>
         <h3 style={{ fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 }}>
           3.2 Visa Routes
         </h3>
