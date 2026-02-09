@@ -20,7 +20,6 @@ const STATIC_REGULATORY_ADVISOR_DATA = {
         heading: "What is MARA?",
         items: [
             "MARA: Migration Agents Registration Authority (Australia's regulatory body)",
-            "RCIC: Regulated Canadian Immigration Consultant (for Canada; not applicable here)",
             "For Australia: MARA-registered migration agents are mandatory for most visa services"
         ]
     },
@@ -28,7 +27,7 @@ const STATIC_REGULATORY_ADVISOR_DATA = {
         heading: "Why Regulated Agents Matter",
         reasons: [
             { title: "Legal Authority", description: "Only MARA-registered agents can legally represent you in Australian visa applications" },
-            { title: "Accountability", description: "MARA enforces code of conduct; complaints go to MARA (recourse if poor service)" },
+            { title: "Accountability", description: "MARA enforces code of conduct" },
             { title: "Professional Standards", description: "Agents must have insurance, professional indemnity, ongoing training" },
             { title: "Error Prevention", description: "Professional agents catch errors that could lead to visa rejection" },
             { title: "Knowledge", description: "Agents stay current on policy changes, processing times, state requirements" },

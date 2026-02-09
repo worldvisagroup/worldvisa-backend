@@ -22,7 +22,7 @@ const STATIC_THANK_YOU_DATA = {
         "Post-Landing & Settlement Services"
     ],
     contactInfo: {
-        email: "contact@worldvisa.com",
+        email: "enquiries@worldvisa.in",
         phone: "+91 7022090909",
         website: "https://worldvisagroup.com",
         office: "Manipal Center, Dickenson Rd, Bengaluru, Karnataka 560042"
