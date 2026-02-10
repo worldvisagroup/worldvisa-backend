@@ -73,9 +73,15 @@ export interface VisaPathwayDetail {
     prPathway?: string;
     keyAdvantage?: string;
 }
+export interface VisaPathwayCategoryData {
+    description?: string;
+    pathways: VisaPathwayDetail[];
+}
 export interface VisaPathwaysData {
     conceptOverview: string;
-    pathways: VisaPathwayDetail[];
+    withJobOffer: VisaPathwayCategoryData;
+    withoutJobOffer: VisaPathwayCategoryData;
+    recommended: VisaPathwayCategoryData;
 }
 export interface SkillMappingRow {
     skill: string;

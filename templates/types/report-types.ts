@@ -99,11 +99,17 @@ export interface VisaPathwayDetail {
   keyAdvantage?: string;
 }
 
-export interface VisaPathwaysData {
-  conceptOverview: string;
+export interface VisaPathwayCategoryData {
+  description?: string; // Optional contextual intro for this category
   pathways: VisaPathwayDetail[];
 }
 
+export interface VisaPathwaysData {
+  conceptOverview: string; // Overall points system explanation
+  withJobOffer: VisaPathwayCategoryData; // Employer-sponsored pathways
+  withoutJobOffer: VisaPathwayCategoryData; // Independent pathways
+  recommended: VisaPathwayCategoryData; // Age-appropriate recommended pathways
+}
 // ============================================================================
 // Section 4: Skill Demand Mapping
 // ============================================================================
