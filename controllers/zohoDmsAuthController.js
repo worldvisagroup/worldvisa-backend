@@ -282,37 +282,25 @@ exports.login = async (req, res, next) => {
           Date.now() + expiryDays * 24 * 60 * 60 * 1000,
         );
 
-        let session;
-        try {
-          session = await Session.create({
-            sessionId,
-            userId: user._id.toString(),
-            userType: "admin",
-            role: user.role,
-            csrfToken,
-            ipAddress: extractClientIP(req),
-            userAgent: req.headers["user-agent"] || "unknown",
-            expiresAt,
-          });
-        } catch (error) {
-          Sentry.logger.error('Admin session creation failed', {
-            userId: user._id.toString(),
-            error: error.message
-          });
-          return res.status(500).json({
-            status: 'error',
-            message: 'Failed to create session. Please try again.'
-          });
-        }
+        await Session.create({
+          sessionId,
+          userId: user._id.toString(),
+          userType: "admin",
+          role: user.role,
+          csrfToken,
+          ipAddress: extractClientIP(req),
+          userAgent: req.headers["user-agent"] || "unknown",
+          expiresAt,
+        });
 
-        // Detect if SERVER is running on localhost (not client origin)
-        const host = req.get('host') || '';
-        const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+        // Detect if request is from localhost
+        const origin = req.headers.origin || req.headers.referer || '';
+        const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
 
         // Build cookie options - auto-adjust for localhost vs production
         const cookieOptions = {
           httpOnly: true,
-          secure: !isLocalhost,  // false for localhost server, true for production server
+          secure: !isLocalhost,  // false for localhost, true for production
           sameSite: isLocalhost ? 'lax' : 'none',  // lax for localhost, none for production
           maxAge: expiryDays * 24 * 60 * 60 * 1000
         };
@@ -323,9 +311,8 @@ exports.login = async (req, res, next) => {
         }
 
         console.log("================================");
-        console.log("🍪 Session created successfully");
+        console.log("🍪 About to set cookie");
         console.log("🍪 Session ID:", sessionId);
-        console.log("🍪 DB Session _id:", session._id);
         console.log(
           "🍪 Cookie name:",
           process.env.SESSION_COOKIE_NAME || "worldvisa_session",
@@ -380,8 +367,8 @@ exports.logout = async (req, res) => {
         }
 
         // Build clear cookie options
-        const host = req.get('host') || '';
-        const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+        const origin = req.headers.origin || req.headers.referer || '';
+        const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
 
         const clearCookieOptions = {};
         if (!isLocalhost && process.env.COOKIE_DOMAIN) {
