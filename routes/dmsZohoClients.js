@@ -4,6 +4,7 @@ const { protectClient } = require('../controllers/dmsZohoClientController'); // 
 const dmsZohoDocumentsController = require("../controllers/dmsZohoDocumentsController");
 const { getVisaApplication } = require('../controllers/visaApplicationController');
 const { protect, addNotificationByClient } = require('../controllers/zohoDmsAuthController');
+const validateSession = require('../middleware/validateSession');
 const multer = require('multer');
 const router = express.Router();
 
@@ -14,6 +15,8 @@ router.get('/all', protect, dmsZohoClientController.getAllClients);
 
 router.post('/signup', protect, dmsZohoClientController.signup);
 router.post('/login', dmsZohoClientController.login);
+router.post('/logout', validateSession, dmsZohoClientController.logout);
+router.get('/validate-session', validateSession, dmsZohoClientController.validateSessionEndpoint);
 
 router.get('/user-exists/:lead_id', dmsZohoClientController.userExistsWithLeadId);
 

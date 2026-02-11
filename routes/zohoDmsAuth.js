@@ -1,11 +1,14 @@
 const express = require('express');
 const zohoDmsAuthController = require('../controllers/zohoDmsAuthController');
 const { resetPasswordByLeadId, getAllClients } = require('../controllers/dmsZohoClientController');
+const validateSession = require('../middleware/validateSession');
 
 const router = express.Router();
 
 router.post('/signup', zohoDmsAuthController.signup);
 router.post('/login', zohoDmsAuthController.login);
+router.post('/logout', validateSession, zohoDmsAuthController.logout);
+router.get('/validate-session', validateSession, zohoDmsAuthController.validateSessionEndpoint);
 router.get("/all", zohoDmsAuthController.getAllUsers);
 router.get("/notifications", zohoDmsAuthController.protect, zohoDmsAuthController.getAllNotifications);
 router.delete("/remove", zohoDmsAuthController.protect, zohoDmsAuthController.deleteUser);

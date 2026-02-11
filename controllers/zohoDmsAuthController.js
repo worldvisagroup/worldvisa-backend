@@ -1,10 +1,13 @@
 require("dotenv").config();
 
+const Sentry = require("@sentry/node");
 const { promisify } = require('util');
 const jwt = require('jsonwebtoken');
 const ZohoDmsUser = require('../models/zohoDmsUser');
 const { addNotificationAndEmit } = require("./helper/service/notifications");
 const DmsZohoClient = require("../models/dmsZohoClient");
+const Session = require('../models/session');
+const { generateSessionId, generateCSRFToken, extractClientIP } = require('../utils/session');
 
 exports.getAllUsers = async (req, res, next) => {
   try {
@@ -156,134 +159,217 @@ const createSendToken = (user, statusCode, res) => {
 };
 
 exports.signup = async (req, res, next) => {
-  try {
-    const { username, password, role } = req.body;
+  return Sentry.startSpan({ name: 'auth.signup.admin', op: 'auth' }, async () => {
+    try {
+      const { username, password, role } = req.body;
 
-    // Check if user already exists
-    const existingUser = await ZohoDmsUser.findOne({ username: username.toLowerCase() });
-    if (existingUser) {
-      return res.status(400).json({
-        status: 'fail',
-        message: 'Username already exists',
+      const existingUser = await ZohoDmsUser.findOne({ username: username.toLowerCase() });
+      if (existingUser) {
+        Sentry.logger.warn('Admin signup failed', { userType: 'admin', reason: 'validation_or_duplicate' });
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Username already exists',
+        });
+      }
+
+      if (!username || !password || !role) {
+        Sentry.logger.warn('Admin signup failed', { reason: 'validation_or_duplicate' });
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Username, password, and role are required',
+        });
+      }
+
+      const validRoles = ['master_admin', 'supervisor', 'team_leader', 'admin'];
+      if (!validRoles.includes(role)) {
+        Sentry.logger.warn('Admin signup failed', { reason: 'validation_or_duplicate' });
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Invalid role. Must be one of: master_admin, supervisor, team_leader, admin',
+        });
+      }
+
+      const newUser = await ZohoDmsUser.create({
+        username: username.toLowerCase(),
+        password: password,
+        passwordVal: password,
+        role: role
       });
-    }
 
-    // Validate required fields
-    if (!username || !password || !role) {
-      return res.status(400).json({
-        status: 'fail',
-        message: 'Username, password, and role are required',
-      });
-    }
-
-    // Validate role
-    const validRoles = ['master_admin', 'supervisor', 'team_leader', 'admin'];
-    if (!validRoles.includes(role)) {
-      return res.status(400).json({
-        status: 'fail',
-        message: 'Invalid role. Must be one of: master_admin, supervisor, team_leader, admin',
-      });
-    }
-
-    // Create new user
-    const newUser = await ZohoDmsUser.create({
-      username: username.toLowerCase(),
-      password: password,
-      passwordVal: password,
-      role: role
-    });
-
-    // Return success without token
-    res.status(201).json({
-      status: 'success',
-      message: 'User created successfully',
-      data: {
-        user: {
-          _id: newUser._id,
-          username: newUser.username,
-          role: newUser.role,
+      Sentry.logger.info('Admin signup success', { userType: 'admin', userId: newUser._id.toString() });
+      res.status(201).json({
+        status: 'success',
+        message: 'User created successfully',
+        data: {
+          user: {
+            _id: newUser._id,
+            username: newUser.username,
+            role: newUser.role,
+          },
         },
-      },
-    });
-  } catch (error) {
-    res.status(400).json({
-      status: 'fail',
-      message: error.message,
-    });
-  }
+      });
+    } catch (error) {
+      Sentry.logger.warn('Admin signup failed', { reason: 'validation_or_duplicate' });
+      res.status(400).json({
+        status: 'fail',
+        message: error.message,
+      });
+    }
+  });
 };
 
 exports.login = async (req, res, next) => {
-  try {
-    const { username, password } = req.body;
+  return Sentry.startSpan({ name: 'auth.login.admin', op: 'auth' }, async () => {
+    try {
+      const { username, password } = req.body;
 
-    // 1) Check if username and password exist
-    if (!username || !password) {
-      return res.status(400).json({
+      if (!username || !password) {
+        Sentry.logger.warn('Admin login failed', { reason: 'missing_credentials' });
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Please provide username and password!',
+        });
+      }
+
+      const user = await ZohoDmsUser.findOne({ username }).select('+password');
+
+      if (!user || !(await user.correctPassword(password, user.password))) {
+        Sentry.logger.warn('Admin login failed', { userType: 'admin', reason: 'invalid_credentials' });
+        return res.status(401).json({
+          status: 'fail',
+          message: 'Incorrect username or password',
+        });
+      }
+
+      const sessionId = generateSessionId();
+      const csrfToken = generateCSRFToken();
+      const expiryDays = parseInt(process.env.SESSION_EXPIRY_DAYS) || 7;
+      const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
+
+      await Session.create({
+        sessionId,
+        userId: user._id.toString(),
+        userType: 'admin',
+        role: user.role,
+        csrfToken,
+        ipAddress: extractClientIP(req),
+        userAgent: req.headers['user-agent'] || 'unknown',
+        expiresAt
+      });
+
+      res.cookie(process.env.SESSION_COOKIE_NAME || 'worldvisa_session', sessionId, {
+        httpOnly: true,
+        secure: process.env.COOKIE_SECURE === 'true',
+        sameSite: process.env.COOKIE_SAME_SITE || 'strict',
+        maxAge: expiryDays * 24 * 60 * 60 * 1000,
+        domain: process.env.COOKIE_DOMAIN
+      });
+
+      Sentry.logger.info('Admin login success', { userType: 'admin', userId: user._id.toString() });
+      res.status(200).json({
+        status: 'success',
+        csrfToken,
+        data: {
+          user: {
+            _id: user._id,
+            username: user.username,
+            role: user.role,
+          },
+        },
+      });
+    } catch (error) {
+      res.status(400).json({
         status: 'fail',
-        message: 'Please provide username and password!',
+        message: error.message,
       });
     }
+  });
+};
 
-    // 2) Check if user exists && password is correct
-    const user = await ZohoDmsUser.findOne({ username }).select('+password');
+exports.logout = async (req, res) => {
+  return Sentry.startSpan({ name: 'auth.logout.admin', op: 'auth' }, async () => {
+    try {
+      if (req.session) {
+        await Session.deleteOne({ sessionId: req.session.sessionId });
+      }
 
-    if (!user || !(await user.correctPassword(password, user.password))) {
-      return res.status(401).json({
-        status: 'fail',
-        message: 'Incorrect username or password',
+      res.clearCookie(process.env.SESSION_COOKIE_NAME || 'worldvisa_session', {
+        domain: process.env.COOKIE_DOMAIN
+      });
+
+      Sentry.logger.info('Admin logout', { userType: 'admin', userId: req.session?.userId });
+      res.status(200).json({
+        status: 'success',
+        message: 'Logged out successfully'
+      });
+    } catch (error) {
+      Sentry.logger.error('Admin logout error', { message: error.message });
+      res.status(500).json({
+        status: 'error',
+        message: error.message
       });
     }
+  });
+};
 
-    // 3) If everything ok, send token to client
-    createSendToken(user, 200, res);
-  } catch (error) {
-    res.status(400).json({
-      status: 'fail',
-      message: error.message,
+exports.validateSessionEndpoint = async (req, res) => {
+  return Sentry.startSpan({ name: 'auth.validateSession.admin', op: 'auth' }, async () => {
+    Sentry.logger.info('Admin session validated', { userId: req.user?.id });
+    res.status(200).json({
+      status: 'success',
+      user: req.user,
+      session: {
+        expiresAt: req.session.expiresAt,
+        lastAccessedAt: req.session.lastAccessedAt
+      }
     });
-  }
+  });
 };
 
 exports.protect = async (req, res, next) => {
-  try {
-    // 1) Getting token and check if it's there
-    let token;
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith('Bearer')
-    ) {
-      token = req.headers.authorization.split(' ')[1];
-    }
+  return Sentry.startSpan({ name: 'auth.protect.admin', op: 'auth' }, async () => {
+    try {
+      if (req.session && req.user) {
+        return next();
+      }
 
-    if (!token) {
-      return res.status(401).json({
+      let token;
+      if (
+        req.headers.authorization &&
+        req.headers.authorization.startsWith('Bearer')
+      ) {
+        token = req.headers.authorization.split(' ')[1];
+      }
+
+      if (!token) {
+        Sentry.logger.warn('Admin protect failed', { reason: 'unauthorized_or_invalid_token' });
+        return res.status(401).json({
+          status: 'fail',
+          message: 'You are not logged in! Please log in to get access.',
+        });
+      }
+
+      const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+
+      const currentUser = await ZohoDmsUser.findById(decoded.id);
+      if (!currentUser) {
+        Sentry.logger.warn('Admin protect failed', { reason: 'unauthorized_or_invalid_token' });
+        return res.status(401).json({
+          status: 'fail',
+          message: 'The user belonging to this token does no longer exist.',
+        });
+      }
+
+      req.user = currentUser;
+      next();
+    } catch (error) {
+      Sentry.logger.warn('Admin protect failed', { reason: 'unauthorized_or_invalid_token' });
+      res.status(401).json({
         status: 'fail',
-        message: 'You are not logged in! Please log in to get access.',
+        message: 'Invalid token. Please log in again.',
       });
     }
-
-    // 2) Verification token
-    const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
-
-    // 3) Check if user still exists
-    const currentUser = await ZohoDmsUser.findById(decoded.id);
-    if (!currentUser) {
-      return res.status(401).json({
-        status: 'fail',
-        message: 'The user belonging to this token does no longer exist.',
-      });
-    }
-
-    // GRANT ACCESS TO PROTECTED ROUTE
-    req.user = currentUser;
-    next();
-  } catch (error) {
-    res.status(401).json({
-      status: 'fail',
-      message: 'Invalid token. Please log in again.',
-    });
-  }
+  });
 };
 
 
@@ -307,7 +393,6 @@ exports.getAllNotifications = async (req, res, next) => {
     // Lazy require to avoid import issues at the top
     const ZohoDmsNotification = require('../models/zohoDmsNotification');
 
-    // Fetch notifications for the logged-in user, sorted by newest first, paginated
     const [notifications, totalRecords] = await Promise.all([
       ZohoDmsNotification.find({ user: req.user._id })
         .sort({ createdAt: -1 })

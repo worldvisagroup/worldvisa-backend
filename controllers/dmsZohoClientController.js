@@ -1,8 +1,12 @@
+const Sentry = require("@sentry/node");
 const jwt = require('jsonwebtoken');
+const { promisify } = require('util');
 const DmsZohoClient = require('../models/dmsZohoClient');
 const DmsZohoDocument = require('../models/dmsZohoDocument');
 const { deleteFileFromWorkDrive, renameWorkDriveFile } = require('../utils/dmsZohoWorkDrive');
 const bcrypt = require('bcryptjs');
+const Session = require('../models/session');
+const { generateSessionId, generateCSRFToken, extractClientIP } = require('../utils/session');
 
 const signToken = (id, lead_id, email) => {
   return jwt.sign({ id, lead_id, email, role: 'client' }, process.env.JWT_SECRET, {
@@ -12,95 +16,163 @@ const signToken = (id, lead_id, email) => {
 
 
 exports.signup = async (req, res) => {
-  try {
-    const { name, email, phone, lead_id, password, lead_owner, record_type } = req.body;
+  return Sentry.startSpan({ name: 'auth.signup.client', op: 'auth' }, async () => {
+    try {
+      const { name, email, phone, lead_id, password, lead_owner, record_type } = req.body;
 
-    if (!name || !email || !phone || !lead_id || !password || !lead_owner || !record_type) {
-      return res.status(400).json({
-        status: 'fail',
-        message: 'Please provide name, email, phone, lead_id,lead_owner, record_type and password',
+      if (!name || !email || !phone || !lead_id || !password || !lead_owner || !record_type) {
+        Sentry.logger.warn('Client signup failed', { reason: 'validation_or_duplicate' });
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Please provide name, email, phone, lead_id,lead_owner, record_type and password',
+        });
+      }
+
+      const newClient = await DmsZohoClient.create({
+        name,
+        email,
+        phone: phone.replace(/[\s+]/g, ''),
+        lead_id,
+        password,
+        lead_owner,
+        record_type,
+        password_value: password
+      });
+
+      newClient.password = undefined;
+
+      Sentry.logger.info('Client signup success', { userType: 'client', lead_id: newClient.lead_id });
+      res.status(201).json({
+        status: 'success',
+        data: {
+          client: newClient,
+        },
+      });
+    } catch (error) {
+      Sentry.logger.error('Client signup error', { message: error.message });
+      res.status(500).json({
+        status: 'error',
+        message: error.message || 'Something went wrong during signup',
       });
     }
-
-    const newClient = await DmsZohoClient.create({
-      name,
-      email,
-      phone: phone.replace(/[\s+]/g, ''), // Removes spaces and plus symbols
-      lead_id,
-      password, // Use custom password provided by the user
-      lead_owner,
-      record_type,
-      password_value: password
-    });
-
-    // Remove password from output
-    newClient.password = undefined;
-
-    res.status(201).json({
-      status: 'success',
-      data: {
-        client: newClient,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      status: 'error',
-      message: error.message || 'Something went wrong during signup',
-    });
-  }
+  });
 };
 
 exports.login = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+  return Sentry.startSpan({ name: 'auth.login.client', op: 'auth' }, async () => {
+    try {
+      const { email, password } = req.body;
 
-    // 1) Check if email and password exist
-    if (!email || !password) {
-      return res.status(400).json({
-        status: 'fail',
-        message: 'Please provide email and password',
+      if (!email || !password) {
+        Sentry.logger.warn('Client login failed', { reason: 'missing_credentials' });
+        return res.status(400).json({
+          status: 'fail',
+          message: 'Please provide email and password',
+        });
+      }
+
+      const client = await DmsZohoClient.findOne({ email }).select('+password');
+
+      if (!client) {
+        Sentry.logger.warn('Client login failed', { userType: 'client', reason: 'invalid_credentials' });
+        return res.status(401).json({
+          status: 'fail',
+          message: 'Account not existing. Contact your visa executive.',
+        });
+      }
+
+      if (!(await client.correctPassword(password, client.password))) {
+        Sentry.logger.warn('Client login failed', { userType: 'client', reason: 'invalid_credentials' });
+        return res.status(401).json({
+          status: 'fail',
+          message: 'Password is incorrect',
+        });
+      }
+
+      const sessionId = generateSessionId();
+      const csrfToken = generateCSRFToken();
+      const expiryDays = parseInt(process.env.SESSION_EXPIRY_DAYS) || 7;
+      const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
+
+      await Session.create({
+        sessionId,
+        userId: client._id.toString(),
+        userType: 'client',
+        role: 'client',
+        csrfToken,
+        ipAddress: extractClientIP(req),
+        userAgent: req.headers['user-agent'] || 'unknown',
+        expiresAt
+      });
+
+      res.cookie(process.env.SESSION_COOKIE_NAME || 'worldvisa_session', sessionId, {
+        httpOnly: true,
+        secure: process.env.COOKIE_SECURE === 'true',
+        sameSite: process.env.COOKIE_SAME_SITE || 'strict',
+        maxAge: expiryDays * 24 * 60 * 60 * 1000,
+        domain: process.env.COOKIE_DOMAIN
+      });
+
+      Sentry.logger.info('Client login success', { userType: 'client', lead_id: client.lead_id });
+      res.status(200).json({
+        status: 'success',
+        csrfToken,
+        lead_id: client.lead_id,
+        role: 'client',
+        email: client.email,
+        name: client.name,
+        dms_record_link: `https://dms.worldvisagroup.com/admin/applications/${client.lead_id}`,
+        lead_owner: client?.lead_owner,
+        record_type: client?.record_type,
+        password_value: client?.password_value
+      });
+    } catch (error) {
+      res.status(500).json({
+        status: 'error',
+        message: error.message || 'Something went wrong during login',
       });
     }
+  });
+};
 
-    // 2) Check if client exists
-    const client = await DmsZohoClient.findOne({ email }).select('+password');
+exports.logout = async (req, res) => {
+  return Sentry.startSpan({ name: 'auth.logout.client', op: 'auth' }, async () => {
+    try {
+      if (req.session) {
+        await Session.deleteOne({ sessionId: req.session.sessionId });
+      }
 
-    if (!client) {
-      return res.status(401).json({
-        status: 'fail',
-        message: 'Account not existing. Contact your visa executive.',
+      res.clearCookie(process.env.SESSION_COOKIE_NAME || 'worldvisa_session', {
+        domain: process.env.COOKIE_DOMAIN
+      });
+
+      Sentry.logger.info('Client logout', { userType: 'client', userId: req.session?.userId });
+      res.status(200).json({
+        status: 'success',
+        message: 'Logged out successfully'
+      });
+    } catch (error) {
+      Sentry.logger.error('Client logout error', { message: error.message });
+      res.status(500).json({
+        status: 'error',
+        message: error.message
       });
     }
+  });
+};
 
-    // 3) Check if password is correct
-    if (!(await client.correctPassword(password, client.password))) {
-      return res.status(401).json({
-        status: 'fail',
-        message: 'Password is incorrect',
-      });
-    }
-
-    // 4) If everything is ok, send token to client
-    const token = signToken(client._id, client.lead_id, client.email);
-
+exports.validateSessionEndpoint = async (req, res) => {
+  return Sentry.startSpan({ name: 'auth.validateSession.client', op: 'auth' }, async () => {
+    Sentry.logger.info('Client session validated', { userId: req.user?.id });
     res.status(200).json({
       status: 'success',
-      token,
-      lead_id: client.lead_id,
-      role: 'client',
-      email: client.email,
-      name: client.name,
-      dms_record_link: `https://dms.worldvisagroup.com/admin/applications/${client.lead_id}`,
-      lead_owner: client?.lead_owner,
-      record_type: client?.record_type,
-      password_value: client?.password_value
+      user: req.user,
+      session: {
+        expiresAt: req.session.expiresAt,
+        lastAccessedAt: req.session.lastAccessedAt
+      }
     });
-  } catch (error) {
-    res.status(500).json({
-      status: 'error',
-      message: error.message || 'Something went wrong during login',
-    });
-  }
+  });
 };
 
 exports.userExistsWithLeadId = async (req, res) => {
@@ -241,48 +313,50 @@ exports.updateAllPasswordsToPhone = async (req, res) => {
   }
 };
 
-
-const { promisify } = require('util');
-
 exports.protectClient = async (req, res, next) => {
-  try {
-    // 1) Getting token and check if it's there
-    let token;
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith('Bearer')
-    ) {
-      token = req.headers.authorization.split(' ')[1];
-    }
+  return Sentry.startSpan({ name: 'auth.protect.client', op: 'auth' }, async () => {
+    try {
+      if (req.session && req.user) {
+        return next();
+      }
 
-    if (!token) {
-      return res.status(401).json({
+      let token;
+      if (
+        req.headers.authorization &&
+        req.headers.authorization.startsWith('Bearer')
+      ) {
+        token = req.headers.authorization.split(' ')[1];
+      }
+
+      if (!token) {
+        Sentry.logger.warn('Client protect failed', { reason: 'unauthorized_or_invalid_token' });
+        return res.status(401).json({
+          status: 'fail',
+          message: 'You are not logged in! Please log in to get access.',
+        });
+      }
+
+      const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+
+      const currentClient = await DmsZohoClient.findById(decoded.id);
+      if (!currentClient) {
+        Sentry.logger.warn('Client protect failed', { reason: 'unauthorized_or_invalid_token' });
+        return res.status(401).json({
+          status: 'fail',
+          message: 'The client belonging to this token does no longer exist.',
+        });
+      }
+
+      req.user = currentClient;
+      next();
+    } catch (error) {
+      Sentry.logger.warn('Client protect failed', { reason: 'unauthorized_or_invalid_token' });
+      res.status(401).json({
         status: 'fail',
-        message: 'You are not logged in! Please log in to get access.',
+        message: 'Invalid token. Please log in again.',
       });
     }
-
-    // 2) Verification token
-    const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
-
-    // 3) Check if client still exists
-    const currentClient = await DmsZohoClient.findById(decoded.id);
-    if (!currentClient) {
-      return res.status(401).json({
-        status: 'fail',
-        message: 'The client belonging to this token does no longer exist.',
-      });
-    }
-
-    // GRANT ACCESS TO PROTECTED ROUTE
-    req.user = currentClient;
-    next();
-  } catch (error) {
-    res.status(401).json({
-      status: 'fail',
-      message: 'Invalid token. Please log in again.',
-    });
-  }
+  });
 };
 
 exports.getClientDocuments = async (req, res) => {
