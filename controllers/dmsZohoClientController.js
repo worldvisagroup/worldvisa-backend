@@ -113,10 +113,12 @@ exports.login = async (req, res) => {
         maxAge: expiryDays * 24 * 60 * 60 * 1000
       };
 
+      cookieOptions.domain = process.env.COOKIE_DOMAIN;
+
       // Only set domain if defined (not set for localhost)
-      if (process.env.COOKIE_DOMAIN) {
-        cookieOptions.domain = process.env.COOKIE_DOMAIN;
-      }
+      // if (process.env.COOKIE_DOMAIN) {
+      //   cookieOptions.domain = process.env.COOKIE_DOMAIN;
+      // }
 
       res.cookie(process.env.SESSION_COOKIE_NAME || 'worldvisa_session', sessionId, cookieOptions);
 
@@ -151,9 +153,11 @@ exports.logout = async (req, res) => {
 
       // Build clear cookie options
       const clearCookieOptions = {};
-      if (process.env.COOKIE_DOMAIN) {
-        clearCookieOptions.domain = process.env.COOKIE_DOMAIN;
-      }
+      clearCookieOptions.domain = process.env.COOKIE_DOMAIN;
+      
+      // if (process.env.COOKIE_DOMAIN) {
+      //   clearCookieOptions.domain = process.env.COOKIE_DOMAIN;
+      // }
 
       res.clearCookie(process.env.SESSION_COOKIE_NAME || 'worldvisa_session', clearCookieOptions);
 
