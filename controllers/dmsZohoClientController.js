@@ -94,25 +94,38 @@ exports.login = async (req, res) => {
       const expiryDays = parseInt(process.env.SESSION_EXPIRY_DAYS) || 7;
       const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
 
-      await Session.create({
-        sessionId,
-        userId: client._id.toString(),
-        userType: 'client',
-        role: 'client',
-        csrfToken,
-        ipAddress: extractClientIP(req),
-        userAgent: req.headers['user-agent'] || 'unknown',
-        expiresAt
-      });
+      let session;
+      try {
+        session = await Session.create({
+          sessionId,
+          userId: client._id.toString(),
+          userType: 'client',
+          role: 'client',
+          csrfToken,
+          ipAddress: extractClientIP(req),
+          userAgent: req.headers['user-agent'] || 'unknown',
+          expiresAt
+        });
+      } catch (error) {
+        Sentry.logger.error('Client session creation failed', {
+          userId: client._id.toString(),
+          lead_id: client.lead_id,
+          error: error.message
+        });
+        return res.status(500).json({
+          status: 'error',
+          message: 'Failed to create session. Please try again.'
+        });
+      }
 
-      // Detect if request is from localhost
-      const origin = req.headers.origin || req.headers.referer || '';
-      const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+      // Detect if SERVER is running on localhost (not client origin)
+      const host = req.get('host') || '';
+      const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
 
       // Build cookie options - auto-adjust for localhost vs production
       const cookieOptions = {
         httpOnly: true,
-        secure: !isLocalhost,  // false for localhost, true for production
+        secure: !isLocalhost,  // false for localhost server, true for production server
         sameSite: isLocalhost ? 'lax' : 'none',  // lax for localhost, none for production
         maxAge: expiryDays * 24 * 60 * 60 * 1000
       };
@@ -124,7 +137,12 @@ exports.login = async (req, res) => {
 
       res.cookie(process.env.SESSION_COOKIE_NAME || 'worldvisa_session', sessionId, cookieOptions);
 
-      Sentry.logger.info('Client login success', { userType: 'client', lead_id: client.lead_id });
+      Sentry.logger.info('Client session created successfully', {
+        userId: client._id.toString(),
+        lead_id: client.lead_id,
+        sessionId,
+        cookieName: process.env.SESSION_COOKIE_NAME || 'worldvisa_session'
+      });
       res.status(200).json({
         status: 'success',
         csrfToken,
@@ -154,8 +172,8 @@ exports.logout = async (req, res) => {
       }
 
       // Build clear cookie options
-      const origin = req.headers.origin || req.headers.referer || '';
-      const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+      const host = req.get('host') || '';
+      const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
 
       const clearCookieOptions = {};
       if (!isLocalhost && process.env.COOKIE_DOMAIN) {
