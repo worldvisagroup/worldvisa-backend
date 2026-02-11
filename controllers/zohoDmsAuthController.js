@@ -295,7 +295,10 @@ exports.login = async (req, res, next) => {
 
         // Detect if request is from localhost
         const origin = req.headers.origin || req.headers.referer || '';
-        const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+        const host = req.get('host') || '';
+        // Check origin/referer first, fallback to host if headers missing
+        const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1') ||
+                            host.includes('localhost') || host.includes('127.0.0.1');
 
         // Build cookie options - auto-adjust for localhost vs production
         const cookieOptions = {
@@ -311,7 +314,11 @@ exports.login = async (req, res, next) => {
         }
 
         console.log("================================");
-        console.log("🍪 About to set cookie");
+        console.log("🍪 ADMIN LOGIN - About to set cookie");
+        console.log("🍪 Origin:", req.headers.origin);
+        console.log("🍪 Referer:", req.headers.referer);
+        console.log("🍪 Host:", host);
+        console.log("🍪 Is Localhost:", isLocalhost);
         console.log("🍪 Session ID:", sessionId);
         console.log(
           "🍪 Cookie name:",
@@ -322,8 +329,6 @@ exports.login = async (req, res, next) => {
           JSON.stringify(cookieOptions, null, 2),
         );
         console.log("🍪 ENV - COOKIE_DOMAIN:", process.env.COOKIE_DOMAIN);
-        console.log("🍪 ENV - COOKIE_SECURE:", process.env.COOKIE_SECURE);
-        console.log("🍪 ENV - COOKIE_SAME_SITE:", process.env.COOKIE_SAME_SITE);
         console.log("================================");
 
         res.cookie(

@@ -107,7 +107,10 @@ exports.login = async (req, res) => {
 
       // Detect if request is from localhost
       const origin = req.headers.origin || req.headers.referer || '';
-      const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+      const host = req.get('host') || '';
+      // Check origin/referer first, fallback to host if headers missing
+      const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1') ||
+                          host.includes('localhost') || host.includes('127.0.0.1');
 
       // Build cookie options - auto-adjust for localhost vs production
       const cookieOptions = {
@@ -121,6 +124,18 @@ exports.login = async (req, res) => {
       if (!isLocalhost && process.env.COOKIE_DOMAIN) {
         cookieOptions.domain = process.env.COOKIE_DOMAIN;
       }
+
+      console.log('================================');
+      console.log('🍪 CLIENT LOGIN - About to set cookie');
+      console.log('🍪 Origin:', req.headers.origin);
+      console.log('🍪 Referer:', req.headers.referer);
+      console.log('🍪 Host:', host);
+      console.log('🍪 Is Localhost:', isLocalhost);
+      console.log('🍪 Session ID:', sessionId);
+      console.log('🍪 Cookie name:', process.env.SESSION_COOKIE_NAME || 'worldvisa_session');
+      console.log('🍪 Cookie options:', JSON.stringify(cookieOptions, null, 2));
+      console.log('🍪 ENV - COOKIE_DOMAIN:', process.env.COOKIE_DOMAIN);
+      console.log('================================');
 
       res.cookie(process.env.SESSION_COOKIE_NAME || 'worldvisa_session', sessionId, cookieOptions);
 
