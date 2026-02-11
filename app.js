@@ -255,6 +255,7 @@ app.use(cors({
   origin: [
     'https://worldvisagroup.com',
     'https://dms.worldvisagroup.com',
+    'https://worldvisa-om68jhvi8-world-visas-projects.vercel.app',
     'https://new.worldvisagroup.com',
     'https://admin.worldvisa-api.cloud',
     'https://backend.worldvisa-api.cloud',
