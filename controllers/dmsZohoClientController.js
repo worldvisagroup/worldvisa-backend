@@ -105,9 +105,9 @@ exports.login = async (req, res) => {
         expiresAt
       });
 
-      // Detect if SERVER is running on localhost (not client origin)
-      const host = req.get('host') || '';
-      const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1');
+      // Detect if request is from localhost
+      const origin = req.headers.origin || req.headers.referer || '';
+      const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
 
       // Build cookie options - auto-adjust for localhost vs production
       const cookieOptions = {
