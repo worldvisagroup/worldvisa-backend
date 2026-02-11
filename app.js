@@ -1,5 +1,3 @@
-require("./instrument.js");
-const Sentry = require("@sentry/node");
 const express = require("express");
 const app = express();
 const axios = require("axios");
@@ -9,10 +7,6 @@ const helmet = require('helmet');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const logger = require('./utils/logger');
-const cookieParser = require('cookie-parser');
-const validateSession = require('./middleware/validateSession');
-const csrfProtection = require('./middleware/csrfProtection');
-const { extractClientIP } = require('./utils/session');
 
 const server = http.createServer(app);
 const { Server } = require("socket.io");
@@ -67,9 +61,6 @@ const mcubeApiKeyMiddleware = helperFunctions.mcubeApiKeyMiddleware;
 const mongoose = require("mongoose");
 const fetchToken = helperFunctions.fetchToken;
 const { getRedisStatus } = require("./services/redis");
-
-// Sentry error handler
-Sentry.setupExpressErrorHandler(app);
 
 process.on('uncaughtException', (error) => {
   logger.error('Uncaught Exception - Application will exit', {
@@ -243,19 +234,10 @@ app.use(express.json({ limit: '10mb' })); // Large payload for report data
 app.use(compression());
 app.use(express.urlencoded({ extended: true }));
 
-// Trust proxy for containerized deployment (Dokploy, Traefik, etc.)
-if (process.env.TRUST_PROXY === 'true') {
-  app.set('trust proxy', 1);
-}
-
-// Cookie parser for session management
-app.use(cookieParser(process.env.SESSION_SECRET));
-
 app.use(cors({
   origin: [
     'https://worldvisagroup.com',
     'https://dms.worldvisagroup.com',
-    'https://worldvisa-om68jhvi8-world-visas-projects.vercel.app',
     'https://new.worldvisagroup.com',
     'https://admin.worldvisa-api.cloud',
     'https://backend.worldvisa-api.cloud',
@@ -267,6 +249,11 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'api-key', 'x-api-token', 'x-api-key', 'drafts', 'x-user-role'],
   credentials: true
 }));
+
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  next();
+});
 
 app.options('*', (req, res) => {
   res.status(200).end();
@@ -367,7 +354,7 @@ const RATE_LIMIT_WINDOW = 60000;
 const RATE_LIMIT_MAX_REQUESTS = 20;
 
 app.use('/api/ai/*', (req, res, next) => {
-  const clientIP = extractClientIP(req); // Use proper IP extraction for rate limiting
+  const clientIP = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || 'unknown';
   const now = Date.now();
   const windowStart = now - RATE_LIMIT_WINDOW;
 

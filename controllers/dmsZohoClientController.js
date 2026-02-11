@@ -1,12 +1,8 @@
-const Sentry = require("@sentry/node");
 const jwt = require('jsonwebtoken');
-const { promisify } = require('util');
 const DmsZohoClient = require('../models/dmsZohoClient');
 const DmsZohoDocument = require('../models/dmsZohoDocument');
 const { deleteFileFromWorkDrive, renameWorkDriveFile } = require('../utils/dmsZohoWorkDrive');
 const bcrypt = require('bcryptjs');
-const Session = require('../models/session');
-const { generateSessionId, generateCSRFToken, extractClientIP } = require('../utils/session');
 
 const signToken = (id, lead_id, email) => {
   return jwt.sign({ id, lead_id, email, role: 'client' }, process.env.JWT_SECRET, {
@@ -16,196 +12,95 @@ const signToken = (id, lead_id, email) => {
 
 
 exports.signup = async (req, res) => {
-  return Sentry.startSpan({ name: 'auth.signup.client', op: 'auth' }, async () => {
-    try {
-      const { name, email, phone, lead_id, password, lead_owner, record_type } = req.body;
+  try {
+    const { name, email, phone, lead_id, password, lead_owner, record_type } = req.body;
 
-      if (!name || !email || !phone || !lead_id || !password || !lead_owner || !record_type) {
-        Sentry.logger.warn('Client signup failed', { reason: 'validation_or_duplicate' });
-        return res.status(400).json({
-          status: 'fail',
-          message: 'Please provide name, email, phone, lead_id,lead_owner, record_type and password',
-        });
-      }
-
-      const newClient = await DmsZohoClient.create({
-        name,
-        email,
-        phone: phone.replace(/[\s+]/g, ''),
-        lead_id,
-        password,
-        lead_owner,
-        record_type,
-        password_value: password
-      });
-
-      newClient.password = undefined;
-
-      Sentry.logger.info('Client signup success', { userType: 'client', lead_id: newClient.lead_id });
-      res.status(201).json({
-        status: 'success',
-        data: {
-          client: newClient,
-        },
-      });
-    } catch (error) {
-      Sentry.logger.error('Client signup error', { message: error.message });
-      res.status(500).json({
-        status: 'error',
-        message: error.message || 'Something went wrong during signup',
+    if (!name || !email || !phone || !lead_id || !password || !lead_owner || !record_type) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Please provide name, email, phone, lead_id,lead_owner, record_type and password',
       });
     }
-  });
+
+    const newClient = await DmsZohoClient.create({
+      name,
+      email,
+      phone: phone.replace(/[\s+]/g, ''), // Removes spaces and plus symbols
+      lead_id,
+      password, // Use custom password provided by the user
+      lead_owner,
+      record_type,
+      password_value: password
+    });
+
+    // Remove password from output
+    newClient.password = undefined;
+
+    res.status(201).json({
+      status: 'success',
+      data: {
+        client: newClient,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message || 'Something went wrong during signup',
+    });
+  }
 };
 
 exports.login = async (req, res) => {
-  return Sentry.startSpan({ name: 'auth.login.client', op: 'auth' }, async () => {
-    try {
-      const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-      if (!email || !password) {
-        Sentry.logger.warn('Client login failed', { reason: 'missing_credentials' });
-        return res.status(400).json({
-          status: 'fail',
-          message: 'Please provide email and password',
-        });
-      }
-
-      const client = await DmsZohoClient.findOne({ email }).select('+password');
-
-      if (!client) {
-        Sentry.logger.warn('Client login failed', { userType: 'client', reason: 'invalid_credentials' });
-        return res.status(401).json({
-          status: 'fail',
-          message: 'Account not existing. Contact your visa executive.',
-        });
-      }
-
-      if (!(await client.correctPassword(password, client.password))) {
-        Sentry.logger.warn('Client login failed', { userType: 'client', reason: 'invalid_credentials' });
-        return res.status(401).json({
-          status: 'fail',
-          message: 'Password is incorrect',
-        });
-      }
-
-      const sessionId = generateSessionId();
-      const csrfToken = generateCSRFToken();
-      const expiryDays = parseInt(process.env.SESSION_EXPIRY_DAYS) || 7;
-      const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
-
-      await Session.create({
-        sessionId,
-        userId: client._id.toString(),
-        userType: 'client',
-        role: 'client',
-        csrfToken,
-        ipAddress: extractClientIP(req),
-        userAgent: req.headers['user-agent'] || 'unknown',
-        expiresAt
-      });
-
-      // Detect if request is from localhost
-      const origin = req.headers.origin || req.headers.referer || '';
-      const host = req.get('host') || '';
-      // Check origin/referer first, fallback to host if headers missing
-      const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1') ||
-                          host.includes('localhost') || host.includes('127.0.0.1');
-
-      // Build cookie options - auto-adjust for localhost vs production
-      const cookieOptions = {
-        httpOnly: true,
-        secure: !isLocalhost,  // false for localhost server, true for production server
-        sameSite: isLocalhost ? 'lax' : 'none',  // lax for localhost, none for production
-        maxAge: expiryDays * 24 * 60 * 60 * 1000
-      };
-
-      // Only set domain for production (not localhost)
-      if (!isLocalhost && process.env.COOKIE_DOMAIN) {
-        cookieOptions.domain = process.env.COOKIE_DOMAIN;
-      }
-
-      console.log('================================');
-      console.log('🍪 CLIENT LOGIN - About to set cookie');
-      console.log('🍪 Origin:', req.headers.origin);
-      console.log('🍪 Referer:', req.headers.referer);
-      console.log('🍪 Host:', host);
-      console.log('🍪 Is Localhost:', isLocalhost);
-      console.log('🍪 Session ID:', sessionId);
-      console.log('🍪 Cookie name:', process.env.SESSION_COOKIE_NAME || 'worldvisa_session');
-      console.log('🍪 Cookie options:', JSON.stringify(cookieOptions, null, 2));
-      console.log('🍪 ENV - COOKIE_DOMAIN:', process.env.COOKIE_DOMAIN);
-      console.log('================================');
-
-      res.cookie(process.env.SESSION_COOKIE_NAME || 'worldvisa_session', sessionId, cookieOptions);
-
-      Sentry.logger.info('Client login success', { userType: 'client', lead_id: client.lead_id });
-      res.status(200).json({
-        status: 'success',
-        csrfToken,
-        lead_id: client.lead_id,
-        role: 'client',
-        email: client.email,
-        name: client.name,
-        dms_record_link: `https://dms.worldvisagroup.com/admin/applications/${client.lead_id}`,
-        lead_owner: client?.lead_owner,
-        record_type: client?.record_type,
-        password_value: client?.password_value
-      });
-    } catch (error) {
-      res.status(500).json({
-        status: 'error',
-        message: error.message || 'Something went wrong during login',
+    // 1) Check if email and password exist
+    if (!email || !password) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Please provide email and password',
       });
     }
-  });
-};
 
-exports.logout = async (req, res) => {
-  return Sentry.startSpan({ name: 'auth.logout.client', op: 'auth' }, async () => {
-    try {
-      if (req.session) {
-        await Session.deleteOne({ sessionId: req.session.sessionId });
-      }
+    // 2) Check if client exists
+    const client = await DmsZohoClient.findOne({ email }).select('+password');
 
-      // Build clear cookie options
-      const origin = req.headers.origin || req.headers.referer || '';
-      const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
-
-      const clearCookieOptions = {};
-      if (!isLocalhost && process.env.COOKIE_DOMAIN) {
-        clearCookieOptions.domain = process.env.COOKIE_DOMAIN;
-      }
-
-      res.clearCookie(process.env.SESSION_COOKIE_NAME || 'worldvisa_session', clearCookieOptions);
-
-      Sentry.logger.info('Client logout', { userType: 'client', userId: req.session?.userId });
-      res.status(200).json({
-        status: 'success',
-        message: 'Logged out successfully'
-      });
-    } catch (error) {
-      Sentry.logger.error('Client logout error', { message: error.message });
-      res.status(500).json({
-        status: 'error',
-        message: error.message
+    if (!client) {
+      return res.status(401).json({
+        status: 'fail',
+        message: 'Account not existing. Contact your visa executive.',
       });
     }
-  });
-};
 
-exports.validateSessionEndpoint = async (req, res) => {
-  return Sentry.startSpan({ name: 'auth.validateSession.client', op: 'auth' }, async () => {
-    Sentry.logger.info('Client session validated', { userId: req.user?.id });
+    // 3) Check if password is correct
+    if (!(await client.correctPassword(password, client.password))) {
+      return res.status(401).json({
+        status: 'fail',
+        message: 'Password is incorrect',
+      });
+    }
+
+    // 4) If everything is ok, send token to client
+    const token = signToken(client._id, client.lead_id, client.email);
+
     res.status(200).json({
       status: 'success',
-      user: req.user,
-      session: {
-        expiresAt: req.session.expiresAt,
-        lastAccessedAt: req.session.lastAccessedAt
-      }
+      token,
+      lead_id: client.lead_id,
+      role: 'client',
+      email: client.email,
+      name: client.name,
+      dms_record_link: `https://dms.worldvisagroup.com/admin/applications/${client.lead_id}`,
+      lead_owner: client?.lead_owner,
+      record_type: client?.record_type,
+      password_value: client?.password_value
     });
-  });
+  } catch (error) {
+    res.status(500).json({
+      status: 'error',
+      message: error.message || 'Something went wrong during login',
+    });
+  }
 };
 
 exports.userExistsWithLeadId = async (req, res) => {
@@ -346,50 +241,48 @@ exports.updateAllPasswordsToPhone = async (req, res) => {
   }
 };
 
+
+const { promisify } = require('util');
+
 exports.protectClient = async (req, res, next) => {
-  return Sentry.startSpan({ name: 'auth.protect.client', op: 'auth' }, async () => {
-    try {
-      if (req.session && req.user) {
-        return next();
-      }
+  try {
+    // 1) Getting token and check if it's there
+    let token;
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith('Bearer')
+    ) {
+      token = req.headers.authorization.split(' ')[1];
+    }
 
-      let token;
-      if (
-        req.headers.authorization &&
-        req.headers.authorization.startsWith('Bearer')
-      ) {
-        token = req.headers.authorization.split(' ')[1];
-      }
-
-      if (!token) {
-        Sentry.logger.warn('Client protect failed', { reason: 'unauthorized_or_invalid_token' });
-        return res.status(401).json({
-          status: 'fail',
-          message: 'You are not logged in! Please log in to get access.',
-        });
-      }
-
-      const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
-
-      const currentClient = await DmsZohoClient.findById(decoded.id);
-      if (!currentClient) {
-        Sentry.logger.warn('Client protect failed', { reason: 'unauthorized_or_invalid_token' });
-        return res.status(401).json({
-          status: 'fail',
-          message: 'The client belonging to this token does no longer exist.',
-        });
-      }
-
-      req.user = currentClient;
-      next();
-    } catch (error) {
-      Sentry.logger.warn('Client protect failed', { reason: 'unauthorized_or_invalid_token' });
-      res.status(401).json({
+    if (!token) {
+      return res.status(401).json({
         status: 'fail',
-        message: 'Invalid token. Please log in again.',
+        message: 'You are not logged in! Please log in to get access.',
       });
     }
-  });
+
+    // 2) Verification token
+    const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+
+    // 3) Check if client still exists
+    const currentClient = await DmsZohoClient.findById(decoded.id);
+    if (!currentClient) {
+      return res.status(401).json({
+        status: 'fail',
+        message: 'The client belonging to this token does no longer exist.',
+      });
+    }
+
+    // GRANT ACCESS TO PROTECTED ROUTE
+    req.user = currentClient;
+    next();
+  } catch (error) {
+    res.status(401).json({
+      status: 'fail',
+      message: 'Invalid token. Please log in again.',
+    });
+  }
 };
 
 exports.getClientDocuments = async (req, res) => {
