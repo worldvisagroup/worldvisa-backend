@@ -257,13 +257,20 @@ exports.login = async (req, res, next) => {
         expiresAt
       });
 
-      res.cookie(process.env.SESSION_COOKIE_NAME || 'worldvisa_session', sessionId, {
+      // Build cookie options
+      const cookieOptions = {
         httpOnly: true,
         secure: process.env.COOKIE_SECURE === 'true',
         sameSite: process.env.COOKIE_SAME_SITE || 'strict',
-        maxAge: expiryDays * 24 * 60 * 60 * 1000,
-        domain: process.env.COOKIE_DOMAIN
-      });
+        maxAge: expiryDays * 24 * 60 * 60 * 1000
+      };
+
+      // Only set domain if defined (not set for localhost)
+      if (process.env.COOKIE_DOMAIN) {
+        cookieOptions.domain = process.env.COOKIE_DOMAIN;
+      }
+
+      res.cookie(process.env.SESSION_COOKIE_NAME || 'worldvisa_session', sessionId, cookieOptions);
 
       Sentry.logger.info('Admin login success', { userType: 'admin', userId: user._id.toString() });
       res.status(200).json({
@@ -293,9 +300,13 @@ exports.logout = async (req, res) => {
         await Session.deleteOne({ sessionId: req.session.sessionId });
       }
 
-      res.clearCookie(process.env.SESSION_COOKIE_NAME || 'worldvisa_session', {
-        domain: process.env.COOKIE_DOMAIN
-      });
+      // Build clear cookie options
+      const clearCookieOptions = {};
+      if (process.env.COOKIE_DOMAIN) {
+        clearCookieOptions.domain = process.env.COOKIE_DOMAIN;
+      }
+
+      res.clearCookie(process.env.SESSION_COOKIE_NAME || 'worldvisa_session', clearCookieOptions);
 
       Sentry.logger.info('Admin logout', { userType: 'admin', userId: req.session?.userId });
       res.status(200).json({
