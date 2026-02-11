@@ -105,20 +105,22 @@ exports.login = async (req, res) => {
         expiresAt
       });
 
-      // Build cookie options
+      // Detect if request is from localhost
+      const origin = req.headers.origin || req.headers.referer || '';
+      const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+
+      // Build cookie options - auto-adjust for localhost vs production
       const cookieOptions = {
         httpOnly: true,
-        secure: process.env.COOKIE_SECURE === 'true',
-        sameSite: process.env.COOKIE_SAME_SITE || 'strict',
+        secure: !isLocalhost,  // false for localhost, true for production
+        sameSite: isLocalhost ? 'lax' : 'none',  // lax for localhost, none for production
         maxAge: expiryDays * 24 * 60 * 60 * 1000
       };
 
-      cookieOptions.domain = process.env.COOKIE_DOMAIN;
-
-      // Only set domain if defined (not set for localhost)
-      // if (process.env.COOKIE_DOMAIN) {
-      //   cookieOptions.domain = process.env.COOKIE_DOMAIN;
-      // }
+      // Only set domain for production (not localhost)
+      if (!isLocalhost && process.env.COOKIE_DOMAIN) {
+        cookieOptions.domain = process.env.COOKIE_DOMAIN;
+      }
 
       res.cookie(process.env.SESSION_COOKIE_NAME || 'worldvisa_session', sessionId, cookieOptions);
 
@@ -152,12 +154,13 @@ exports.logout = async (req, res) => {
       }
 
       // Build clear cookie options
+      const origin = req.headers.origin || req.headers.referer || '';
+      const isLocalhost = origin.includes('localhost') || origin.includes('127.0.0.1');
+
       const clearCookieOptions = {};
-      clearCookieOptions.domain = process.env.COOKIE_DOMAIN;
-      
-      // if (process.env.COOKIE_DOMAIN) {
-      //   clearCookieOptions.domain = process.env.COOKIE_DOMAIN;
-      // }
+      if (!isLocalhost && process.env.COOKIE_DOMAIN) {
+        clearCookieOptions.domain = process.env.COOKIE_DOMAIN;
+      }
 
       res.clearCookie(process.env.SESSION_COOKIE_NAME || 'worldvisa_session', clearCookieOptions);
 
