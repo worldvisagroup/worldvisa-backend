@@ -623,17 +623,13 @@ exports.getQualityCheckApplications = async (req, res) => {
 
     // Build conditional WHERE clause based on role
     const conditions = [];
-    let hasWhereClause = false;
+
+    // Always filter out records where Quality_Check_From is null
+    conditions.push(`Quality_Check_From is not null`);
 
     // Filter by username for all roles except master_admin
     if (role !== 'master_admin') {
-      conditions.push(`Quality_Check_From like ${username}`);
-      hasWhereClause = true;
-    }
-
-    // If no WHERE clause (master_admin), add default
-    if (!hasWhereClause) {
-      conditions.push(`id is not null`);
+      conditions.push(`Quality_Check_From like '${username}'`);
     }
 
     // Build WHERE clause
@@ -645,8 +641,8 @@ exports.getQualityCheckApplications = async (req, res) => {
     const selectSpouseQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Main_Applicant, Record_Type from Spouse_Skill_Assessment${whereClause} order by Created_Time desc limit ${limit} offset ${offset}`;
 
     // Build count queries for pagination metadata
-    const countQuery = `select count(*) as count from Visa_Applications${whereClause}`;
-    const countSpouseQuery = `select count(*) as count from Spouse_Skill_Assessment${whereClause}`;
+    const countQuery = `select COUNT(id) as count from Visa_Applications${whereClause}`;
+    const countSpouseQuery = `select COUNT(id) as count from Spouse_Skill_Assessment${whereClause}`;
 
     // Execute all queries in parallel
     const [response, spouseResponse, countResponse, countSpouseResponse] = await Promise.all([
@@ -682,8 +678,12 @@ exports.getQualityCheckApplications = async (req, res) => {
     });
 
   } catch (error) {
-    console.log("Error: ", error);
-    return res.status(500).json({ success: false, message: 'Failed to get applications of quality check.' });
+    console.error("Error in getQualityCheckApplications: ", error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to get applications of quality check.',
+      error: error.message || error.toString()
+    });
   }
 }
 
