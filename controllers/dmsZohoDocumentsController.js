@@ -2159,9 +2159,18 @@ exports.downloadAllFiles = async (req, res) => {
 
     // Get the download link for all files in a zip
     let downloadedZip;
+    let downloadLink;
     try {
       downloadedZip = await downloadAllFilesInZip(document.workdrive_parent_id);
-      if (!downloadedZip || !downloadedZip.download_link) {
+
+      // Extract download link from various possible response structures
+      downloadLink =
+        downloadedZip?.download_link ||
+        downloadedZip?.data?.attributes?.download_link ||
+        downloadedZip?.data?.attributes?.link;
+
+      if (!downloadLink) {
+        console.error('Unexpected response structure:', downloadedZip);
         return res.status(500).json({
           status: 'error',
           message: 'Failed to get download link from WorkDrive.',
@@ -2196,9 +2205,9 @@ exports.downloadAllFiles = async (req, res) => {
     // Stream the file from Zoho to the client
     try {
       const axios = require('axios');
-      const response = await axios.get(downloadedZip.download_link, {
+      const response = await axios.get(downloadLink, {
         headers: {
-          Authorization: `Zoho - oauthtoken ${accessToken} `,
+          Authorization: `Zoho-oauthtoken ${accessToken}`,
         },
         responseType: 'stream',
       });
@@ -2213,7 +2222,7 @@ exports.downloadAllFiles = async (req, res) => {
         }
       }
 
-      res.setHeader('Content-Disposition', `attachment; filename = "${filename}"`);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
       res.setHeader('Content-Type', response.headers['content-type'] || 'application/octet-stream');
 
       response.data.pipe(res);
