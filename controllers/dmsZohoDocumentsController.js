@@ -607,6 +607,11 @@ exports.getQualityCheckApplications = async (req, res) => {
     const username = req.user.username;
     const role = req.user.role;
 
+    // Extract pagination parameters
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 10;
+    const offset = (page - 1) * limit;
+
     if (!username) {
       return res.status(400).json({
         code: 'INVALID_QUERY',
@@ -634,24 +639,47 @@ exports.getQualityCheckApplications = async (req, res) => {
     // Build WHERE clause
     const whereClause = ` where ${conditions.join(' and ')}`;
 
-    const selectQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Record_Type from Visa_Applications${whereClause}`;
+    // Build queries with pagination and sorting (latest first)
+    const selectQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Record_Type from Visa_Applications${whereClause} order by Created_Time desc limit ${limit} offset ${offset}`;
 
-    const response = await zohoRequest('coql', 'POST', { select_query: selectQuery });
+    const selectSpouseQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Main_Applicant, Record_Type from Spouse_Skill_Assessment${whereClause} order by Created_Time desc limit ${limit} offset ${offset}`;
 
-    const selectSpouseQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Main_Applicant, Record_Type from Spouse_Skill_Assessment${whereClause}`;
+    // Build count queries for pagination metadata
+    const countQuery = `select count(*) as count from Visa_Applications${whereClause}`;
+    const countSpouseQuery = `select count(*) as count from Spouse_Skill_Assessment${whereClause}`;
 
-    const spouseResponse = await zohoRequest('coql', 'POST', { select_query: selectSpouseQuery });
+    // Execute all queries in parallel
+    const [response, spouseResponse, countResponse, countSpouseResponse] = await Promise.all([
+      zohoRequest('coql', 'POST', { select_query: selectQuery }),
+      zohoRequest('coql', 'POST', { select_query: selectSpouseQuery }),
+      zohoRequest('coql', 'POST', { select_query: countQuery }),
+      zohoRequest('coql', 'POST', { select_query: countSpouseQuery })
+    ]);
 
+    // Merge and sort data by Created_Time (latest first)
     const data = [
       ...(response.data || []),
       ...(spouseResponse.data || [])
-    ];
+    ].sort((a, b) => new Date(b.Created_Time) - new Date(a.Created_Time));
 
-    if (data.length === 0) {
-      return res.status(200).json({ success: true, data: [] });
-    }
+    // Calculate total records
+    const visaCount = countResponse.data?.[0]?.count || 0;
+    const spouseCount = countSpouseResponse.data?.[0]?.count || 0;
+    const totalRecords = visaCount + spouseCount;
+    const totalPages = Math.ceil(totalRecords / limit);
 
-    return res.status(200).json({ success: true, data: data });
+    return res.status(200).json({
+      success: true,
+      data: data,
+      pagination: {
+        currentPage: page,
+        pageSize: limit,
+        totalRecords: totalRecords,
+        totalPages: totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1
+      }
+    });
 
   } catch (error) {
     console.log("Error: ", error);

@@ -92,14 +92,15 @@ const categorizeApplications = (applications) => {
 
 /**
  * Builds a COQL query for Stage 1 Visa Applications
+ * Filters by Active state, Australia country, Permanent Residency, and Stage 1 stages
  * @returns {string} - COQL query string
  */
 const buildVisaStage1Query = () => {
-  // Build query manually (matching EXACT pattern from visaApplicationController.js lines 54-93)
   const stagesStr = STAGE_1_STAGES.map(s => `'${s}'`).join(', ');
 
-  // IMPORTANT: Match the exact pattern - start with basic WHERE, then add filters with 'and'
-  const query = `select id, Name, Deadline_For_Lodgment, Application_Stage from ${MODULE_VISA_APPLICATION} where id is not null and ((((Application_State = '${APPLICATION_STATE_ACTIVE}') and (Qualified_Country = '${QUALIFIED_COUNTRY_AUSTRALIA}')) and (Service_Finalized = '${SERVICE_FINALIZED_PERMANENT_RESIDENCY}')) and (Application_Stage in (${stagesStr})))`;
+  // Filter by Application_State, Qualified_Country, Service_Finalized, and Application_Stage
+  // Order by Deadline_For_Lodgment desc to prioritize recent deadlines
+  const query = `select id, Name, Deadline_For_Lodgment, Application_Stage from ${MODULE_VISA_APPLICATION} where id is not null and ((((Application_State = '${APPLICATION_STATE_ACTIVE}') and (Qualified_Country = '${QUALIFIED_COUNTRY_AUSTRALIA}')) and (Service_Finalized = '${SERVICE_FINALIZED_PERMANENT_RESIDENCY}')) and (Application_Stage in (${stagesStr}))) order by Deadline_For_Lodgment desc limit 1000`;
 
   return query;
 };

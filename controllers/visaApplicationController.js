@@ -87,7 +87,7 @@ async function getFilteredVisaApplications(username, role, page = 1, limit = 10,
     coreFilters += ` and (Application_Stage in ('${stages}'))`;
   } else {
     // Default stages when no filter is provided
-    coreFilters += ` and (Application_Stage in ('Stage 1 Documentation: Approved', 'Stage 1 Documentation: Rejected ', 'Stage 1 Milestone Completed', 'Stage 1 Documentation Reviewed', 'Skill Assessment Stage', 'Language Test', 'Lodge Application 1', 'Lodge Application 2', 'Lodge Application 3', 'Lodge Application 4','INIVITATION TO APPLY', 'Invitation to Apply', 'Invitation to Apply 2', 'VA Application Lodge', 'Stage 3 Documentation: Approved', 'Stage 3 Visa Application'))`;
+    coreFilters += ` and (Application_Stage in ('Stage 1 Documentation: Approved', 'Stage 1 Documentation: Rejected ', 'Stage 1 Milestone Completed', 'Stage 1 Documentation Reviewed', 'Skill Assessment Stage', 'Language Test', 'Lodge Application 1', 'Lodge Application 2', 'Lodge Application 3', 'Lodge Application 4','INIVITATION TO APPLY', 'Invitation to Apply', 'Invitation to Apply 2', 'VA Application Lodge', 'Stage 3 Documentation: Approved', 'Stage 3 Visa Application', 'SEND CHECKLIST'))`;
   }
 
   coreFilters += `)`;

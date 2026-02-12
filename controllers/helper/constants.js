@@ -25,16 +25,17 @@ const APPLICATION_STAGES = [
   'Invitation to Apply 2',
   'VA Application Lodge',
   'Stage 3 Documentation: Approved',
-  'Stage 3 Visa Application'
+  'Stage 3 Visa Application',
+  'SEND CHECKLIST'
 ];
 
 // Stage 1 specific stages for deadline tracking
 const STAGE_1_STAGES = [
-  'Skill Assessment Stage',
   'Stage 1 Documentation: Approved',
   'Stage 1 Documentation: Rejected',
   'Stage 1 Milestone Completed',
-  'Stage 1 Documentation Reviewed'
+  'Stage 1 Documentation Reviewed',
+  'Skill Assessment Stage'
 ];
 
 // Pagination limits
