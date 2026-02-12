@@ -120,6 +120,33 @@ async function getFilteredVisaApplications(username, role, page = 1, limit = 10,
   };
 }
 
+/**
+ * Fetches spouse info for a main applicant (Visa_Applications record).
+ * Queries Spouse_Skill_Assessment where Main_Applicant = applicationId.
+ * @param {string} applicationId - Visa_Applications record id
+ * @returns {{ spouseSkillAssessment: 'Yes'|'No', spouseName: string|null }}
+ */
+async function getSpouseInfoForMainApplicant(applicationId) {
+  const fallback = { spouseSkillAssessment: 'No', spouseName: null };
+  try {
+    const spouseQuery = {
+      select_query: `select id, Name from Spouse_Skill_Assessment where Main_Applicant.id = '${applicationId}' limit 1`
+    };
+    const { data: spouseData } = await zohoRequest("coql", "POST", spouseQuery);
+    if (!spouseData || spouseData.length === 0) {
+      return fallback;
+    }
+    const first = spouseData[0];
+    return {
+      spouseSkillAssessment: 'Yes',
+      spouseName: first.Name != null && first.Name !== '' ? first.Name : null
+    };
+  } catch (err) {
+    console.error('Error fetching spouse info for main applicant:', err.response?.data || err.message);
+    return fallback;
+  }
+}
+
 const getApplicationsWithAttachments = async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
@@ -214,12 +241,17 @@ const getVisaApplicationById = async (req, res) => {
     const application = zohoResponseData[0];
     const record_id = application.id;
 
-    const documentsCount = await dmsZohoDocument.countDocuments({ record_id: record_id });
+    const [documentsCount, spouseInfo] = await Promise.all([
+      dmsZohoDocument.countDocuments({ record_id: record_id }),
+      getSpouseInfoForMainApplicant(applicationId)
+    ]);
 
     res.json({
       data: {
         ...application,
         AttachmentCount: documentsCount,
+        Spouse_Skill_Assessment: spouseInfo.spouseSkillAssessment,
+        Spouse_Name: spouseInfo.spouseName,
       },
     });
   } catch (err) {
@@ -261,11 +293,19 @@ const getVisaApplication = async (req, res) => {
 
     const documentsCount = await dmsZohoDocument.countDocuments({ record_id: record_id });
 
+    const responseData = {
+      ...application,
+      AttachmentCount: documentsCount,
+    };
+
+    if (moduleName === MODULE_VISA_APPLICATION) {
+      const spouseInfo = await getSpouseInfoForMainApplicant(application.id);
+      responseData.Spouse_Skill_Assessment = spouseInfo.spouseSkillAssessment;
+      responseData.Spouse_Name = spouseInfo.spouseName;
+    }
+
     res.json({
-      data: {
-        ...application,
-        AttachmentCount: documentsCount,
-      },
+      data: responseData,
     });
   } catch (err) {
     console.error(err.response?.data || err.message);
