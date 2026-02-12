@@ -30,6 +30,7 @@ const APPLICATION_STAGES = [
 
 // Stage 1 specific stages for deadline tracking
 const STAGE_1_STAGES = [
+  'Skill Assessment Stage',
   'Stage 1 Documentation: Approved',
   'Stage 1 Documentation: Rejected',
   'Stage 1 Milestone Completed',
