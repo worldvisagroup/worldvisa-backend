@@ -273,7 +273,7 @@ const getVisaApplication = async (req, res) => {
   }
 };
 
-async function getFilteredSpouseApplications(username, role, page = 1, limit = 10, startDate, endDate, giveMine, recentActivity, applicationStage, applicationState) {
+async function getFilteredSpouseApplications(username, role, page = 1, limit = 10, startDate, endDate, giveMine, recentActivity, applicationStage) {
   const offset = (page - 1) * limit;
   
   const conditions = [];
@@ -307,13 +307,8 @@ async function getFilteredSpouseApplications(username, role, page = 1, limit = 1
   // Build WHERE clause
   const whereClause = ` where ${conditions.join(' and ')}`;
 
-  // Additional filters for Application State and Stage
+  // Additional filters for Application Stage only (Application_State doesn't exist in Spouse_Skill_Assessment)
   let additionalFilters = '';
-
-  // Application State filter
-  if (applicationState) {
-    additionalFilters += ` and Application_State = '${applicationState}'`;
-  }
 
   // Application Stage filter
   if (applicationStage) {
@@ -328,11 +323,16 @@ async function getFilteredSpouseApplications(username, role, page = 1, limit = 1
     countQuery += ` group by Application_Handled_By`;
   }
   
-  const baseQuery = `select Name, id, Application_Handled_By, Created_Time, Email, Phone, Quality_Check_From, DMS_Application_Status, Package_Finalize, Checklist_Requested, Deadline_For_Lodgment, Record_Type, Recent_Activity, Application_Stage, Application_State, Suggested_Anzsco, Assessing_Authority, Service_Finalized, Main_Applicant from Spouse_Skill_Assessment${whereClause}${additionalFilters}`;
+  // Simplified field list - only select fields that exist in Spouse_Skill_Assessment module
+  // Note: Application_State field doesn't exist in Spouse_Skill_Assessment module
+  const baseQuery = `select Name, id, Application_Handled_By, Created_Time, Email, Phone, DMS_Application_Status, Checklist_Requested, Record_Type, Recent_Activity, Application_Stage, Suggested_Anzsco, Assessing_Authority, Service_Finalized, Main_Applicant from Spouse_Skill_Assessment${whereClause}${additionalFilters}`;
 
   const orderBy = (recentActivity === 'true') ? 'Recent_Activity' : 'Created_Time';
   const finalQuery = `${baseQuery} order by ${orderBy} desc limit ${limit} offset ${offset}`;
-  
+
+  console.log('Spouse Count Query:', countQuery);
+  console.log('Spouse Final Query:', finalQuery);
+
   const [countResponse, zohoResponse] = await Promise.all([
     zohoRequest("coql", "POST", { select_query: countQuery }),
     zohoRequest("coql", "POST", { select_query: finalQuery })
@@ -350,7 +350,7 @@ const getSpouseApplicationsWithAttachments = async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
-    const { startDate, endDate, giveMine, recentActivity, applicationStage, applicationState } = req.query;
+    const { startDate, endDate, giveMine, recentActivity, applicationStage } = req.query;
 
     // Fetch applications from Zoho
     const { data: filteredApplications, info } = await getFilteredSpouseApplications(
@@ -362,8 +362,7 @@ const getSpouseApplicationsWithAttachments = async (req, res) => {
       endDate,
       giveMine,
       recentActivity,
-      applicationStage,
-      applicationState
+      applicationStage
     );
 
     if (!filteredApplications || filteredApplications.length === 0) {
@@ -417,9 +416,12 @@ const getSpouseApplicationsWithAttachments = async (req, res) => {
     
   } catch (err) {
     console.error('Error fetching spouse applications:', err.response?.data || err.message);
-    res.status(500).json({ 
+    console.error('Full error:', err);
+    console.error('Error stack:', err.stack);
+    res.status(500).json({
       error: "Failed to fetch spouse applications",
-      message: process.env.NODE_ENV === 'development' ? err.message : undefined
+      message: process.env.NODE_ENV === 'development' ? err.message : undefined,
+      details: process.env.NODE_ENV === 'development' ? (err.response?.data || err.toString()) : undefined
     });
   }
 };
