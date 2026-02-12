@@ -3,7 +3,7 @@ const dmsZohoDocument = require('../models/dmsZohoDocument');
 const { REQ_MODULE_VISA_APPLICATION, MODULE_VISA_APPLICATION, REQ_MODULE_SPOUSE_SKILL_ASSESSMENT, MODULE_SPOUSE_SKILL_ASSESSMENT } = require("./helper/constants.js");
 
 // Function to get filtered Visa Applications for a user
-async function getFilteredVisaApplications(username, role, page = 1, limit = 10, startDate, endDate, giveMine, recentActivity, handledBy) {
+async function getFilteredVisaApplications(username, role, page = 1, limit = 10, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState) {
   const offset = (page - 1) * limit;
   
   // Build query conditions
@@ -59,7 +59,15 @@ async function getFilteredVisaApplications(username, role, page = 1, limit = 10,
   const whereClause = ` where ${conditions.join(' and ')}`;
   
   // Core filters with correct parentheses matching your working code
-  let coreFilters = ` and ((((Application_State = 'Active')`;
+  let coreFilters = ` and (((`;
+
+  // Application State filter - now dynamic
+  if (applicationState) {
+    coreFilters += `(Application_State = '${applicationState}')`;
+  } else {
+    coreFilters += `(Application_State = 'Active')`;
+  }
+
   coreFilters += ` and (Qualified_Country = 'Australia'))`;
   
   // Service Finalized and Application Handled By logic
@@ -72,8 +80,17 @@ async function getFilteredVisaApplications(username, role, page = 1, limit = 10,
     coreFilters += ` and (Service_Finalized = 'Permanent Residency'))`;
   }
   
-  // Application Stage filter
-  coreFilters += ` and (Application_Stage in ('Stage 1 Documentation: Approved', 'Stage 1 Documentation: Rejected ', 'Stage 1 Milestone Completed', 'Stage 1 Documentation Reviewed', 'Skill Assessment Stage', 'Language Test', 'Lodge Application 1', 'Lodge Application 2', 'Lodge Application 3', 'Lodge Application 4','INIVITATION TO APPLY', 'Invitation to Apply', 'Invitation to Apply 2', 'VA Application Lodge', 'Stage 3 Documentation: Approved', 'Stage 3 Visa Application')))`;
+  // Application Stage filter - now dynamic
+  if (applicationStage) {
+    // Support multiple stages separated by comma
+    const stages = applicationStage.split(',').map(s => s.trim()).join("', '");
+    coreFilters += ` and (Application_Stage in ('${stages}'))`;
+  } else {
+    // Default stages when no filter is provided
+    coreFilters += ` and (Application_Stage in ('Stage 1 Documentation: Approved', 'Stage 1 Documentation: Rejected ', 'Stage 1 Milestone Completed', 'Stage 1 Documentation Reviewed', 'Skill Assessment Stage', 'Language Test', 'Lodge Application 1', 'Lodge Application 2', 'Lodge Application 3', 'Lodge Application 4','INIVITATION TO APPLY', 'Invitation to Apply', 'Invitation to Apply 2', 'VA Application Lodge', 'Stage 3 Documentation: Approved', 'Stage 3 Visa Application'))`;
+  }
+
+  coreFilters += `)`;
   
   // Count query
   let countQuery = `select COUNT(id) as total from Visa_Applications${whereClause}${coreFilters}`;
@@ -107,18 +124,20 @@ const getApplicationsWithAttachments = async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
-    const { startDate, endDate, giveMine, recentActivity, handledBy } = req.query;
+    const { startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState } = req.query;
 
     const { data: filteredApplications, info } = await getFilteredVisaApplications(
-      req.user.username, 
-      req.user.role, 
-      page, 
-      limit, 
-      startDate, 
-      endDate, 
-      giveMine, 
-      recentActivity, 
-      handledBy
+      req.user.username,
+      req.user.role,
+      page,
+      limit,
+      startDate,
+      endDate,
+      giveMine,
+      recentActivity,
+      handledBy,
+      applicationStage,
+      applicationState
     );
 
     if (!filteredApplications || filteredApplications.length === 0) {
@@ -254,7 +273,7 @@ const getVisaApplication = async (req, res) => {
   }
 };
 
-async function getFilteredSpouseApplications(username, role, page = 1, limit = 10, startDate, endDate, giveMine, recentActivity) {
+async function getFilteredSpouseApplications(username, role, page = 1, limit = 10, startDate, endDate, giveMine, recentActivity, applicationStage, applicationState) {
   const offset = (page - 1) * limit;
   
   const conditions = [];
@@ -287,16 +306,30 @@ async function getFilteredSpouseApplications(username, role, page = 1, limit = 1
   
   // Build WHERE clause
   const whereClause = ` where ${conditions.join(' and ')}`;
-  
+
+  // Additional filters for Application State and Stage
+  let additionalFilters = '';
+
+  // Application State filter
+  if (applicationState) {
+    additionalFilters += ` and Application_State = '${applicationState}'`;
+  }
+
+  // Application Stage filter
+  if (applicationStage) {
+    const stages = applicationStage.split(',').map(s => s.trim()).join("', '");
+    additionalFilters += ` and Application_Stage in ('${stages}')`;
+  }
+
   // Count query
-  let countQuery = `select COUNT(id) as total from Spouse_Skill_Assessment${whereClause}`;
+  let countQuery = `select COUNT(id) as total from Spouse_Skill_Assessment${whereClause}${additionalFilters}`;
   
   if (role === "admin") {
     countQuery += ` group by Application_Handled_By`;
   }
   
-  const baseQuery = `select Name, id, Application_Handled_By, Created_Time, Email, Phone, Quality_Check_From, DMS_Application_Status, Package_Finalize, Checklist_Requested, Deadline_For_Lodgment, Record_Type, Recent_Activity, Application_Stage, Suggested_Anzsco, Assessing_Authority, Service_Finalized, Main_Applicant from Spouse_Skill_Assessment${whereClause}`;
-  
+  const baseQuery = `select Name, id, Application_Handled_By, Created_Time, Email, Phone, Quality_Check_From, DMS_Application_Status, Package_Finalize, Checklist_Requested, Deadline_For_Lodgment, Record_Type, Recent_Activity, Application_Stage, Application_State, Suggested_Anzsco, Assessing_Authority, Service_Finalized, Main_Applicant from Spouse_Skill_Assessment${whereClause}${additionalFilters}`;
+
   const orderBy = (recentActivity === 'true') ? 'Recent_Activity' : 'Created_Time';
   const finalQuery = `${baseQuery} order by ${orderBy} desc limit ${limit} offset ${offset}`;
   
@@ -317,18 +350,20 @@ const getSpouseApplicationsWithAttachments = async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
-    const { startDate, endDate, giveMine, recentActivity } = req.query;
+    const { startDate, endDate, giveMine, recentActivity, applicationStage, applicationState } = req.query;
 
     // Fetch applications from Zoho
     const { data: filteredApplications, info } = await getFilteredSpouseApplications(
-      req.user.username, 
-      req.user.role, 
-      page, 
-      limit, 
-      startDate, 
-      endDate, 
-      giveMine, 
-      recentActivity
+      req.user.username,
+      req.user.role,
+      page,
+      limit,
+      startDate,
+      endDate,
+      giveMine,
+      recentActivity,
+      applicationStage,
+      applicationState
     );
 
     if (!filteredApplications || filteredApplications.length === 0) {

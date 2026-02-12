@@ -28,6 +28,14 @@ const APPLICATION_STAGES = [
   'Stage 3 Visa Application'
 ];
 
+// Stage 1 specific stages for deadline tracking
+const STAGE_1_STAGES = [
+  'Stage 1 Documentation: Approved',
+  'Stage 1 Documentation: Rejected',
+  'Stage 1 Milestone Completed',
+  'Stage 1 Documentation Reviewed'
+];
+
 // Pagination limits
 const MIN_PAGE = 1;
 const MIN_LIMIT = 1;
@@ -45,6 +53,7 @@ module.exports = {
   QUALIFIED_COUNTRY_AUSTRALIA,
   SERVICE_FINALIZED_PERMANENT_RESIDENCY,
   APPLICATION_STAGES,
+  STAGE_1_STAGES,
   MIN_PAGE,
   MIN_LIMIT,
   MAX_LIMIT,

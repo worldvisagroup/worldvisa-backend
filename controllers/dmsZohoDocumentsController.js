@@ -605,6 +605,7 @@ exports.createExternalFileLinks = async (req, res) => {
 exports.getQualityCheckApplications = async (req, res) => {
   try {
     const username = req.user.username;
+    const role = req.user.role;
 
     if (!username) {
       return res.status(400).json({
@@ -615,11 +616,29 @@ exports.getQualityCheckApplications = async (req, res) => {
       });
     }
 
-    const selectQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Record_Type from Visa_Applications where Quality_Check_From like ${username} `;
+    // Build conditional WHERE clause based on role
+    const conditions = [];
+    let hasWhereClause = false;
+
+    // Filter by username for all roles except master_admin
+    if (role !== 'master_admin') {
+      conditions.push(`Quality_Check_From like ${username}`);
+      hasWhereClause = true;
+    }
+
+    // If no WHERE clause (master_admin), add default
+    if (!hasWhereClause) {
+      conditions.push(`id is not null`);
+    }
+
+    // Build WHERE clause
+    const whereClause = ` where ${conditions.join(' and ')}`;
+
+    const selectQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Record_Type from Visa_Applications${whereClause}`;
 
     const response = await zohoRequest('coql', 'POST', { select_query: selectQuery });
 
-    const selectSpouseQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Main_Applicant, Record_Type from Spouse_Skill_Assessment where Quality_Check_From like ${username} `
+    const selectSpouseQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Main_Applicant, Record_Type from Spouse_Skill_Assessment${whereClause}`;
 
     const spouseResponse = await zohoRequest('coql', 'POST', { select_query: selectSpouseQuery });
 
@@ -2203,18 +2222,12 @@ exports.downloadAllFiles = async (req, res) => {
       filename = `${sanitizedClientName}_${dateString}.zip`;
     }
 
-    // Get access token for Zoho download
-    const accessToken = await getAccessToken();
-
-    // Return download information with direct Zoho URL and token
-    // This allows frontend to download directly from Zoho (fastest approach)
+    // Return download information as JSON (fast, no streaming overhead)
     res.status(200).json({
       success: true,
       downloadUrl: downloadLink,
-      accessToken: accessToken, // Token for Authorization header
       filename: filename,
-      message: 'Download link generated. Frontend should download directly from Zoho using the provided token.',
-      expiresIn: 3600, // Token/link expiration in seconds (adjust as needed)
+      message: 'Download link generated successfully. Use this URL to download the ZIP file.',
     });
   } catch (error) {
     console.error('Unexpected error in downloadAllFiles:', error);

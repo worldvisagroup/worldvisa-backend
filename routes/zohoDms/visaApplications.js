@@ -6,6 +6,7 @@ const {
   getSpouseApplicationsWithAttachments,
   getSpouseVisaApplicationById,
 } = require("../../controllers/visaApplicationController.js");
+const { getDeadlineStats } = require('../../controllers/applicationStatsController');
 const dmsZohoDocumentsController = require('../../controllers/dmsZohoDocumentsController');
 const multer = require('multer');
 
@@ -15,6 +16,7 @@ const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 router.get("/", protect, getApplicationsWithAttachments);
+router.get('/deadline-stats', protect, getDeadlineStats);
 router.get('/search', protect, dmsZohoDocumentsController.searchZohoApplications);
 // Request Application for Quality Check
 router.get('/quality_check', protect, dmsZohoDocumentsController.getQualityCheckApplications);
