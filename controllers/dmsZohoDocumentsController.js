@@ -2150,6 +2150,9 @@ exports.downloadAllFiles = async (req, res) => {
       });
     }
 
+    // Fetch client data to get client name for the ZIP filename
+    const clientData = await DmsZohoClient.findOne({ lead_id: record_id });
+
     if (!document.workdrive_parent_id) {
       return res.status(404).json({
         status: 'fail',
@@ -2184,55 +2187,35 @@ exports.downloadAllFiles = async (req, res) => {
       });
     }
 
-    // Get Zoho access token
-    let accessToken;
-    try {
-      accessToken = await getAccessToken();
-      if (!accessToken) {
-        return res.status(500).json({
-          status: 'error',
-          message: 'Unable to get Zoho access token.',
-        });
-      }
-    } catch (err) {
-      console.error('Error getting Zoho access token:', err);
-      return res.status(500).json({
-        status: 'error',
-        message: 'Unable to get Zoho access token.',
-      });
+    // Generate custom filename: ClientName_YYYY-MM-DD.zip
+    let filename = 'documents.zip'; // fallback
+
+    if (clientData && clientData.name) {
+      // Sanitize client name: remove special characters that could break filenames
+      const sanitizedClientName = clientData.name
+        .replace(/[^a-zA-Z0-9._-]/g, '_')  // Replace special chars with underscore
+        .replace(/_{2,}/g, '_')            // Replace multiple underscores with single
+        .replace(/^_|_$/g, '');            // Remove leading/trailing underscores
+
+      // Format date as YYYY-MM-DD
+      const dateString = new Date().toISOString().split('T')[0];
+
+      filename = `${sanitizedClientName}_${dateString}.zip`;
     }
 
-    // Stream the file from Zoho to the client
-    try {
-      const axios = require('axios');
-      const response = await axios.get(downloadLink, {
-        headers: {
-          Authorization: `Zoho-oauthtoken ${accessToken}`,
-        },
-        responseType: 'stream',
-      });
+    // Get access token for Zoho download
+    const accessToken = await getAccessToken();
 
-      // Try to extract filename from headers or fallback
-      let filename = 'documents.zip';
-      const contentDisposition = response.headers['content-disposition'];
-      if (contentDisposition) {
-        const match = contentDisposition.match(/filename="?([^"]+)"?/);
-        if (match && match[1]) {
-          filename = match[1];
-        }
-      }
-
-      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-      res.setHeader('Content-Type', response.headers['content-type'] || 'application/octet-stream');
-
-      response.data.pipe(res);
-    } catch (error) {
-      console.error('Error streaming file from Zoho:', error);
-      res.status(500).json({
-        status: 'error',
-        message: 'An unexpected error occurred while downloading the file.',
-      });
-    }
+    // Return download information with direct Zoho URL and token
+    // This allows frontend to download directly from Zoho (fastest approach)
+    res.status(200).json({
+      success: true,
+      downloadUrl: downloadLink,
+      accessToken: accessToken, // Token for Authorization header
+      filename: filename,
+      message: 'Download link generated. Frontend should download directly from Zoho using the provided token.',
+      expiresIn: 3600, // Token/link expiration in seconds (adjust as needed)
+    });
   } catch (error) {
     console.error('Unexpected error in downloadAllFiles:', error);
     res.status(500).json({
