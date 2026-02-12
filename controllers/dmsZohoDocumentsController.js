@@ -667,6 +667,7 @@ exports.getQualityCheckApplications = async (req, res) => {
     return res.status(200).json({
       success: true,
       data: data,
+      totalCount: totalRecords,
       pagination: {
         currentPage: page,
         pageSize: limit,
