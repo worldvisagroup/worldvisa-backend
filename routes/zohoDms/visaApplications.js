@@ -62,7 +62,10 @@ router.delete('/:record_id/aus-stage2-documents/:id', protect, dmsZohoDocumentsC
 // List Documents
 router.get('/:record_id/documents', dmsZohoDocumentsController.listDocuments);
 
-router.get('/:record_id/documents/download/all', protect, dmsZohoDocumentsController.downloadAllFiles);
+// ZIP Export endpoints
+router.post('/:record_id/documents/download/all', protect, dmsZohoDocumentsController.downloadAllFiles); // Create ZIP export job
+router.get('/:record_id/documents/download/all/status/:job_id', protect, dmsZohoDocumentsController.getZipExportStatus); // Get job status
+router.delete('/:record_id/documents/download/all/:job_id', protect, dmsZohoDocumentsController.cancelZipExport); // Cancel job
 
 router.get('/:record_id/documents/download/test', protect, dmsZohoDocumentsController.downloadSampleFile);
 

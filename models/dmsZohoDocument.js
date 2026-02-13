@@ -58,7 +58,6 @@ const dmsZohoDocumentSchema = new mongoose.Schema({
       requested_to: {
         type: String,
         required: true,
-        unique: true
       },
       status: {
         type: String,

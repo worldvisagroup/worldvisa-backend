@@ -43,6 +43,13 @@ const meetingRouter = require('./routes/worldvisa2.0/meeting/meeting.routes');
 
 // Visa News Cron Job
 const visaNewsCron = require("./utils/visaNewsCron");
+
+// ZIP Export Worker and Cleanup Cron
+const { createWorker } = require('./workers/zipExportWorker');
+const { startCleanupCron } = require('./utils/zipCleanupCron');
+
+let zipExportWorker = null;
+
 let aiJobOpportunitiesRouter = null;
 try {
   if (process.env.OPENAI_API_KEY) {
@@ -60,7 +67,20 @@ const mcubeApiKeyMiddleware = helperFunctions.mcubeApiKeyMiddleware;
 
 const mongoose = require("mongoose");
 const fetchToken = helperFunctions.fetchToken;
-const { getRedisStatus } = require("./services/redis");
+const { getRedisStatus, redis } = require("./services/redis");
+
+// Initialize ZIP worker when Redis is ready
+if (redis && process.env.DISABLE_ZIP_WORKER !== 'true') {
+  redis.on('ready', () => {
+    try {
+      zipExportWorker = createWorker();
+      console.log('[ZIP Worker] Background worker initialized');
+      logger.info('[ZIP Worker] Background worker started successfully');
+    } catch (error) {
+      logger.error("Failed to start ZIP export worker", { error: error.message });
+    }
+  });
+}
 
 process.on('uncaughtException', (error) => {
   logger.error('Uncaught Exception - Application will exit', {
@@ -141,9 +161,6 @@ const PORT = process.env.PORT || 3000;
 // Track MongoDB connection status
 let dbConnected = false;
 
-// Start server even if DB connection fails initially
-// Bind to 0.0.0.0 so reverse proxies (Dokploy/Traefik, etc.) can reach the app in containers
-// Heroku and other platforms work the same; no impact on existing deployments
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`Server is running on http://0.0.0.0:${PORT}`);
   logger.info('Server started', { port: PORT, host: '0.0.0.0', dbConnected: false });
@@ -176,6 +193,18 @@ mongoose
     } catch (error) {
       logger.error("Failed to start visa news cron job", { error: error.message });
     }
+
+    // ZIP export worker is initialized when Redis is ready (see Redis ready event handler above)
+
+    // Start ZIP cleanup cron
+    if (process.env.DISABLE_ZIP_CLEANUP !== 'true') {
+      try {
+        startCleanupCron();
+        logger.info('[ZIP Cleanup] Cleanup cron started successfully');
+      } catch (error) {
+        logger.error("Failed to start ZIP cleanup cron", { error: error.message });
+      }
+    }
   })
   .catch((err) => {
     dbConnected = false;
@@ -186,9 +215,6 @@ mongoose
     });
     console.error("Database connection error:", err.message);
     console.log("Server will continue running. Health checks will show unhealthy status.");
-    
-    // Don't exit - allow server to run and report unhealthy status via health checks
-    // Mongoose will automatically retry connection in the background
   });
 
 const io = new Server(server, {
@@ -387,5 +413,19 @@ app.post("/webhook", (req, res) => {
 app.use('/api/worldvisaV2/global-assessment-report', pdfRateLimiter, pdfRoutes);
 
 // Meeting booking routes
-// Note: Webhook endpoint is public (secured by HMAC signature), main endpoint requires API key
 app.use('/api/worldvisaV2/schedule-meeting', meetingRouter);
+
+// Graceful shutdown handler for ZIP export worker
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, closing ZIP export worker');
+  logger.info('SIGTERM received, initiating graceful shutdown');
+  try {
+    if (zipExportWorker) {
+      await zipExportWorker.close();
+      logger.info('ZIP export worker closed successfully');
+    }
+  } catch (error) {
+    logger.error('Error closing ZIP export worker', { error: error.message });
+  }
+  process.exit(0);
+});

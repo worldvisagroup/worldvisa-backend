@@ -13,6 +13,8 @@ const { updateRecentActivity, addToTimeline, addMovedFiles } = require('./helper
 const { getAccessToken, refreshAccessToken } = require('./zohoDms/zohoAuth');
 const DmsMovedDocuments = require('../models/movedDocuments');
 const { capitalizeFn } = require('../utils/helperFunction');
+const zipExportQueue = require('../queues/zipExportQueue');
+const ZipExportJob = require('../models/zipExportJob');
 
 // Configure Multer for file uploads
 const upload = multer({ storage: multer.memoryStorage() });
@@ -2178,91 +2180,164 @@ exports.deleteRequestedReviewMessage = (req, res) => {
   }
 }
 
+// Create async ZIP export job
 exports.downloadAllFiles = async (req, res) => {
   try {
     const { record_id } = req.params;
+    const user = req.user;
 
     if (!record_id) {
       return res.status(400).json({
-        status: 'fail',
-        message: 'record_id not provided.',
+        success: false,
+        message: 'Record ID is required.'
       });
     }
 
-    const document = await dmsZohoDocument.findOne({ record_id });
-
-    if (!document) {
-      return res.status(404).json({
-        status: 'fail',
-        message: 'Document not found.',
-      });
-    }
-
-    // Fetch client data to get client name for the ZIP filename
-    const clientData = await DmsZohoClient.findOne({ lead_id: record_id });
-
-    if (!document.workdrive_parent_id) {
-      return res.status(404).json({
-        status: 'fail',
-        message: "No documents or folder doesn't exist in WorkDrive.",
-      });
-    }
-
-    // Get the download link for all files in a zip
-    let downloadedZip;
-    let downloadLink;
-    try {
-      downloadedZip = await downloadAllFilesInZip(document.workdrive_parent_id);
-
-      // Extract download link from various possible response structures
-      downloadLink =
-        downloadedZip?.download_link ||
-        downloadedZip?.data?.attributes?.download_link ||
-        downloadedZip?.data?.attributes?.link;
-
-      if (!downloadLink) {
-        console.error('Unexpected response structure:', downloadedZip);
-        return res.status(500).json({
-          status: 'error',
-          message: 'Failed to get download link from WorkDrive.',
-        });
-      }
-    } catch (err) {
-      console.error('Error getting download link from WorkDrive:', err);
-      return res.status(500).json({
-        status: 'error',
-        message: 'Failed to get download link from WorkDrive.',
-      });
-    }
-
-    // Generate custom filename: ClientName_YYYY-MM-DD.zip
-    let filename = 'documents.zip'; // fallback
-
-    if (clientData && clientData.name) {
-      // Sanitize client name: remove special characters that could break filenames
-      const sanitizedClientName = clientData.name
-        .replace(/[^a-zA-Z0-9._-]/g, '_')  // Replace special chars with underscore
-        .replace(/_{2,}/g, '_')            // Replace multiple underscores with single
-        .replace(/^_|_$/g, '');            // Remove leading/trailing underscores
-
-      // Format date as YYYY-MM-DD
-      const dateString = new Date().toISOString().split('T')[0];
-
-      filename = `${sanitizedClientName}_${dateString}.zip`;
-    }
-
-    // Return download information as JSON (fast, no streaming overhead)
-    res.status(200).json({
-      success: true,
-      downloadUrl: downloadLink,
-      filename: filename,
-      message: 'Download link generated successfully. Use this URL to download the ZIP file.',
+    // Quick check if approved documents exist
+    const documentCount = await dmsZohoDocument.countDocuments({
+      record_id,
+      status: 'approved'
     });
+    if (documentCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No approved documents found for this record.'
+      });
+    }
+
+    // Create job record in database
+    const job = await ZipExportJob.create({
+      record_id,
+      status: 'pending',
+      requested_by: user?._id,
+      progress: {
+        current: 0,
+        total: documentCount,
+      },
+    });
+
+    // Add job to queue
+    await zipExportQueue.add('create-zip', {
+      jobId: job._id.toString(),
+      record_id,
+    });
+
+    console.log(`[Download All] Created ZIP export job ${job._id} for record ${record_id}`);
+
+    // Return job ID immediately
+    return res.status(202).json({
+      success: true,
+      job_id: job._id,
+      status: 'pending',
+      message: 'ZIP export job created. Use the job_id to check status.',
+      status_url: `/api/zoho_dms/visa_applications/${record_id}/documents/download/all/status/${job._id}`
+    });
+
   } catch (error) {
-    console.error('Unexpected error in downloadAllFiles:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'An unexpected error occurred.',
+    console.error('Error creating ZIP export job:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to create ZIP export job.'
+    });
+  }
+};
+
+// Check ZIP export job status
+exports.getZipExportStatus = async (req, res) => {
+  try {
+    const { job_id } = req.params;
+
+    const job = await ZipExportJob.findById(job_id);
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found.'
+      });
+    }
+
+    // Check if job has expired
+    if (job.expires_at && new Date() > job.expires_at) {
+      return res.status(410).json({
+        success: false,
+        status: 'expired',
+        message: 'Download link has expired (24 hour limit).'
+      });
+    }
+
+    const response = {
+      success: true,
+      job_id: job._id,
+      status: job.status,
+      progress: job.progress,
+      created_at: job.created_at,
+    };
+
+    if (job.status === 'completed') {
+      response.download_url = job.download_url;
+      response.expires_at = job.expires_at;
+      response.completed_at = job.completed_at;
+    }
+
+    if (job.status === 'failed') {
+      response.error_message = job.error_message;
+    }
+
+    return res.status(200).json(response);
+
+  } catch (error) {
+    console.error('Error fetching ZIP export status:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch job status.'
+    });
+  }
+};
+
+// Cancel pending ZIP export job
+exports.cancelZipExport = async (req, res) => {
+  try {
+    const { job_id } = req.params;
+
+    const job = await ZipExportJob.findById(job_id);
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found.'
+      });
+    }
+
+    if (job.status !== 'pending' && job.status !== 'processing') {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot cancel job with status: ${job.status}`
+      });
+    }
+
+    // Remove from queue
+    const queueJob = await zipExportQueue.getJob(job_id);
+    if (queueJob) {
+      await queueJob.remove();
+    }
+
+    // Update database
+    await ZipExportJob.findByIdAndUpdate(job_id, {
+      status: 'failed',
+      error_message: 'Cancelled by user',
+      completed_at: new Date(),
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Job cancelled successfully.'
+    });
+
+  } catch (error) {
+    console.error('Error cancelling ZIP export:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to cancel job.'
     });
   }
 };

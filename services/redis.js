@@ -22,7 +22,7 @@ try {
     console.log("🔗 Using REDIS_URL to connect to Redis");
     const redisOptions = {
       retryDelayOnFailover: 1000,
-      maxRetriesPerRequest: 3,
+      maxRetriesPerRequest: null, // Required for BullMQ compatibility
       lazyConnect: true,
       connectTimeout: 20000,
       commandTimeout: 10000,
@@ -69,7 +69,7 @@ try {
       port: process.env.REDIS_PORT || 6379,
       password: process.env.REDIS_PASSWORD || undefined,
       retryDelayOnFailover: 100,
-      maxRetriesPerRequest: 3,
+      maxRetriesPerRequest: null, // Required for BullMQ compatibility
       lazyConnect: false,
       connectTimeout: 10000,
       commandTimeout: 5000,
@@ -171,4 +171,6 @@ module.exports = {
   isRedisDisabled,
   getRedisStatus,
   flushRedis,
+  connection: redis, // Export for BullMQ
+  redis, // Export redis client
 };
