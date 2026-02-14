@@ -45,6 +45,22 @@ const MAX_LIMIT = 100;
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
 
+// Simplified field list for deadline statistics
+const DEADLINE_STATS_FIELDS = [
+  'id',
+  'Record_Type',
+  'Name',
+  'Phone',
+  'Email',
+  'Application_Handled_By',
+  'Created_Time',
+  'Recent_Activity',
+  'Deadline_For_Lodgment'
+];
+
+// Role-based access control - these roles can see ALL applications
+const ADMIN_ROLES = ['master_admin', 'team_leader', 'supervisor'];
+
 
 module.exports = {
   MODULE_VISA_APPLICATION,
@@ -61,4 +77,6 @@ module.exports = {
   MAX_LIMIT,
   DEFAULT_PAGE,
   DEFAULT_LIMIT,
+  DEADLINE_STATS_FIELDS,
+  ADMIN_ROLES,
 };

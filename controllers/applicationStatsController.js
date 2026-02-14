@@ -1,24 +1,66 @@
 const { getDeadlineStatistics } = require('../services/applicationStatsService');
+const { MIN_PAGE, MAX_LIMIT } = require('./helper/constants');
+
+
+// Validation helper for pagination parameters
+const validatePaginationParams = (params) => {
+  const errors = [];
+
+  // Validate page numbers
+  ['approachingPage', 'overduePage', 'noDeadlinePage'].forEach(param => {
+    if (params[param] < MIN_PAGE) {
+      errors.push(`${param} must be >= ${MIN_PAGE}`);
+    }
+  });
+
+  // Validate limits
+  ['approachingLimit', 'overdueLimit', 'noDeadlineLimit'].forEach(param => {
+    if (params[param] < 1 || params[param] > MAX_LIMIT) {
+      errors.push(`${param} must be between 1 and ${MAX_LIMIT}`);
+    }
+  });
+
+  return errors;
+};
 
 const getDeadlineStats = async (req, res) => {
   try {
-    // Extract optional type filter from query params
-    const { type } = req.query; // 'visa', 'spouse', or undefined (both)
+    // Extract user context from authenticated request
+    const username = req.user.username;
+    const role = req.user.role;
+
+    // Parse and validate query parameters
+    const params = {
+      type: req.query.type,
+      approachingPage: parseInt(req.query.approachingPage, 10) || 1,
+      approachingLimit: parseInt(req.query.approachingLimit, 10) || 10,
+      overduePage: parseInt(req.query.overduePage, 10) || 1,
+      overdueLimit: parseInt(req.query.overdueLimit, 10) || 10,
+      noDeadlinePage: parseInt(req.query.noDeadlinePage, 10) || 1,
+      noDeadlineLimit: parseInt(req.query.noDeadlineLimit, 10) || 10
+    };
 
     // Validate type parameter
-    if (type && !['visa', 'spouse'].includes(type)) {
+    if (params.type && !['visa', 'spouse'].includes(params.type)) {
       return res.status(400).json({
         success: false,
         error: "Invalid type parameter. Must be 'visa' or 'spouse'"
       });
     }
 
-    console.log(`Fetching deadline stats from Zoho (type: ${type || 'all'})...`);
+    // Validate pagination parameters
+    const validationErrors = validatePaginationParams(params);
+    if (validationErrors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid pagination parameters",
+        details: validationErrors
+      });
+    }
 
-    // Fetch fresh data from Zoho with optional type filter
-    const stats = await getDeadlineStatistics(type);
+    // Fetch deadline statistics with user context
+    const stats = await getDeadlineStatistics(username, role, params);
 
-    // Return response
     res.status(200).json({
       success: true,
       data: stats
@@ -27,7 +69,6 @@ const getDeadlineStats = async (req, res) => {
   } catch (err) {
     console.error('Error fetching deadline statistics:', err.response?.data || err.message);
 
-    // Distinguish between Zoho API errors and application errors
     if (err.response?.status === 401) {
       return res.status(503).json({
         success: false,
@@ -44,7 +85,6 @@ const getDeadlineStats = async (req, res) => {
       });
     }
 
-    // General error response
     res.status(500).json({
       success: false,
       error: "Failed to fetch deadline statistics",
