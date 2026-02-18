@@ -1,9 +1,13 @@
 const { zohoRequest } = require("./zohoDms/zohoApi.js");
 const dmsZohoDocument = require('../models/dmsZohoDocument');
-const { REQ_MODULE_VISA_APPLICATION, MODULE_VISA_APPLICATION, REQ_MODULE_SPOUSE_SKILL_ASSESSMENT, MODULE_SPOUSE_SKILL_ASSESSMENT } = require("./helper/constants.js");
+const {
+  REQ_MODULE_VISA_APPLICATION, MODULE_VISA_APPLICATION,
+  REQ_MODULE_SPOUSE_SKILL_ASSESSMENT, MODULE_SPOUSE_SKILL_ASSESSMENT,
+  APPLICATION_STAGES, APPLICATION_STAGES_CANADA, SUPPORTED_COUNTRIES
+} = require("./helper/constants.js");
 
 // Function to get filtered Visa Applications for a user
-async function getFilteredVisaApplications(username, role, page = 1, limit = 10, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState) {
+async function getFilteredVisaApplications(username, role, page = 1, limit = 10, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country = 'Australia') {
   const offset = (page - 1) * limit;
   
   // Build query conditions
@@ -68,8 +72,8 @@ async function getFilteredVisaApplications(username, role, page = 1, limit = 10,
     coreFilters += `(Application_State = 'Active')`;
   }
 
-  coreFilters += ` and (Qualified_Country = 'Australia'))`;
-  
+  coreFilters += ` and (Qualified_Country = '${country}'))`;
+
   // Service Finalized and Application Handled By logic
   if ((role === "admin" || role === "master_admin") && handledBy) {
     coreFilters += ` and ((Service_Finalized = 'Permanent Residency')`;
@@ -80,14 +84,14 @@ async function getFilteredVisaApplications(username, role, page = 1, limit = 10,
     coreFilters += ` and (Service_Finalized = 'Permanent Residency'))`;
   }
   
-  // Application Stage filter - now dynamic
+  // Application Stage filter - dynamic, with country-specific defaults
   if (applicationStage) {
-    // Support multiple stages separated by comma
     const stages = applicationStage.split(',').map(s => s.trim()).join("', '");
     coreFilters += ` and (Application_Stage in ('${stages}'))`;
   } else {
-    // Default stages when no filter is provided
-    coreFilters += ` and (Application_Stage in ('Stage 1 Documentation: Approved', 'Stage 1 Documentation: Rejected ', 'Stage 1 Milestone Completed', 'Stage 1 Documentation Reviewed', 'Skill Assessment Stage', 'Language Test', 'Lodge Application 1', 'Lodge Application 2', 'Lodge Application 3', 'Lodge Application 4','INIVITATION TO APPLY', 'Invitation to Apply', 'Invitation to Apply 2', 'VA Application Lodge', 'Stage 3 Documentation: Approved', 'Stage 3 Visa Application', 'SEND CHECKLIST'))`;
+    const defaultStages = (country === 'Canada' ? APPLICATION_STAGES_CANADA : APPLICATION_STAGES)
+      .map(s => `'${s}'`).join(', ');
+    coreFilters += ` and (Application_Stage in (${defaultStages}))`;
   }
 
   coreFilters += `)`;
@@ -124,7 +128,11 @@ const getApplicationsWithAttachments = async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
-    const { startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState } = req.query;
+    const { startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country = 'Australia' } = req.query;
+
+    if (!SUPPORTED_COUNTRIES.includes(country)) {
+      return res.status(400).json({ error: `Invalid country parameter. Supported values: ${SUPPORTED_COUNTRIES.join(', ')}` });
+    }
 
     const { data: filteredApplications, info } = await getFilteredVisaApplications(
       req.user.username,
@@ -137,7 +145,8 @@ const getApplicationsWithAttachments = async (req, res) => {
       recentActivity,
       handledBy,
       applicationStage,
-      applicationState
+      applicationState,
+      country
     );
 
     if (!filteredApplications || filteredApplications.length === 0) {

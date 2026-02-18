@@ -221,11 +221,11 @@ const attachAttachmentCountsToCategories = async (categoriesData) => {
 };
 
 
-const buildVisaStage1Query = (role, username) => {
+const buildVisaStage1Query = (role, username, country = QUALIFIED_COUNTRY_AUSTRALIA) => {
   const stagesStr = STAGE_1_STAGES.map(s => `'${s}'`).join(', ');
 
   // Build WHERE clause with Zoho-required parentheses grouping
-  let whereClause = `where id is not null and ((((Application_State = '${APPLICATION_STATE_ACTIVE}') and (Qualified_Country = '${QUALIFIED_COUNTRY_AUSTRALIA}')) and (Service_Finalized = '${SERVICE_FINALIZED_PERMANENT_RESIDENCY}')) and (Application_Stage in (${stagesStr})))`;
+  let whereClause = `where id is not null and ((((Application_State = '${APPLICATION_STATE_ACTIVE}') and (Qualified_Country = '${country}')) and (Service_Finalized = '${SERVICE_FINALIZED_PERMANENT_RESIDENCY}')) and (Application_Stage in (${stagesStr})))`;
 
   // Role-based filtering: only filter by handler for non-admin roles
   if (!ADMIN_ROLES.includes(role)) {
@@ -261,6 +261,7 @@ const getDeadlineStatistics = async (username, role, params = {}) => {
   try {
     const {
       type = null,
+      country = QUALIFIED_COUNTRY_AUSTRALIA,
       approachingPage = 1,
       approachingLimit = 10,
       overduePage = 1,
@@ -276,7 +277,7 @@ const getDeadlineStatistics = async (username, role, params = {}) => {
 
     // PHASE 1: Categorization - Fetch minimal fields for all applications
     if (!type || type === 'visa') {
-      const visaQuery = buildVisaStage1Query(role, username);
+      const visaQuery = buildVisaStage1Query(role, username, country);
       console.log('Visa Query:', visaQuery);
 
       try {

@@ -1,5 +1,5 @@
 const { getDeadlineStatistics } = require('../services/applicationStatsService');
-const { MIN_PAGE, MAX_LIMIT } = require('./helper/constants');
+const { MIN_PAGE, MAX_LIMIT, SUPPORTED_COUNTRIES } = require('./helper/constants');
 
 
 // Validation helper for pagination parameters
@@ -32,6 +32,7 @@ const getDeadlineStats = async (req, res) => {
     // Parse and validate query parameters
     const params = {
       type: req.query.type,
+      country: req.query.country || 'Australia',
       approachingPage: parseInt(req.query.approachingPage, 10) || 1,
       approachingLimit: parseInt(req.query.approachingLimit, 10) || 10,
       overduePage: parseInt(req.query.overduePage, 10) || 1,
@@ -45,6 +46,14 @@ const getDeadlineStats = async (req, res) => {
       return res.status(400).json({
         success: false,
         error: "Invalid type parameter. Must be 'visa' or 'spouse'"
+      });
+    }
+
+    // Validate country parameter
+    if (!SUPPORTED_COUNTRIES.includes(params.country)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid country parameter. Supported values: ${SUPPORTED_COUNTRIES.join(', ')}`
       });
     }
 

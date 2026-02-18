@@ -8,7 +8,11 @@ const multer = require('multer');
 const { zohoRequest } = require('./zohoDms/zohoApi');
 const { addNotificationAndEmit } = require('./helper/service/notifications');
 const ZohoDmsUser = require('../models/zohoDmsUser');
-const { MODULE_VISA_APPLICATION, MODULE_SPOUSE_SKILL_ASSESSMENT, REQ_MODULE_VISA_APPLICATION, REQ_MODULE_SPOUSE_SKILL_ASSESSMENT } = require('./helper/constants');
+const {
+  MODULE_VISA_APPLICATION, MODULE_SPOUSE_SKILL_ASSESSMENT,
+  REQ_MODULE_VISA_APPLICATION, REQ_MODULE_SPOUSE_SKILL_ASSESSMENT,
+  APPLICATION_STAGES, APPLICATION_STAGES_CANADA, SUPPORTED_COUNTRIES
+} = require('./helper/constants');
 const { updateRecentActivity, addToTimeline, addMovedFiles } = require('./helper/service/functions');
 const { getAccessToken, refreshAccessToken } = require('./zohoDms/zohoAuth');
 const DmsMovedDocuments = require('../models/movedDocuments');
@@ -608,6 +612,7 @@ exports.getQualityCheckApplications = async (req, res) => {
   try {
     const username = req.user.username;
     const role = req.user.role;
+    const { country } = req.query;
 
     // Extract pagination parameters
     const page = parseInt(req.query.page, 10) || 1;
@@ -623,6 +628,10 @@ exports.getQualityCheckApplications = async (req, res) => {
       });
     }
 
+    if (country && !SUPPORTED_COUNTRIES.includes(country)) {
+      return res.status(400).json({ success: false, message: `Invalid country parameter. Supported values: ${SUPPORTED_COUNTRIES.join(', ')}` });
+    }
+
     // Build conditional WHERE clause based on role
     const conditions = [];
 
@@ -634,17 +643,26 @@ exports.getQualityCheckApplications = async (req, res) => {
       conditions.push(`Quality_Check_From like '${username}'`);
     }
 
+    // Optional country filter (only applies to Visa_Applications — Spouse module has no Qualified_Country)
+    if (country) {
+      conditions.push(`Qualified_Country = '${country}'`);
+    }
+
     // Build WHERE clause
     const whereClause = ` where ${conditions.join(' and ')}`;
+
+    // Spouse query uses base conditions without country filter
+    const spouseConditions = conditions.filter(c => !c.startsWith('Qualified_Country'));
+    const spouseWhereClause = ` where ${spouseConditions.join(' and ')}`;
 
     // Build queries with pagination and sorting (latest first)
     const selectQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Record_Type from Visa_Applications${whereClause} order by Created_Time desc limit ${limit} offset ${offset}`;
 
-    const selectSpouseQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Main_Applicant, Record_Type from Spouse_Skill_Assessment${whereClause} order by Created_Time desc limit ${limit} offset ${offset}`;
+    const selectSpouseQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Main_Applicant, Record_Type from Spouse_Skill_Assessment${spouseWhereClause} order by Created_Time desc limit ${limit} offset ${offset}`;
 
     // Build count queries for pagination metadata
     const countQuery = `select COUNT(id) as count from Visa_Applications${whereClause}`;
-    const countSpouseQuery = `select COUNT(id) as count from Spouse_Skill_Assessment${whereClause}`;
+    const countSpouseQuery = `select COUNT(id) as count from Spouse_Skill_Assessment${spouseWhereClause}`;
 
     // Execute all queries in parallel
     const [response, spouseResponse, countResponse, countSpouseResponse] = await Promise.all([
@@ -984,7 +1002,7 @@ exports.searchZohoApplications = async (req, res) => {
     const username = req.user.username;
     const role = req.user.role;
 
-    const { criteria, email, phone, name, giveMine } = req.query;
+    const { criteria, email, phone, name, giveMine, country = 'Australia' } = req.query;
 
     if (!criteria && !email && !phone && !name) {
       return res.status(400).json({
@@ -995,53 +1013,35 @@ exports.searchZohoApplications = async (req, res) => {
       });
     }
 
-    let whereParts = [];
-    // Restrict to user's own applications if not admin
-    if (role === "admin" || giveMine && giveMine === 'true') {
+    if (!SUPPORTED_COUNTRIES.includes(country)) {
+      return res.status(400).json({ success: false, message: `Invalid country parameter. Supported values: ${SUPPORTED_COUNTRIES.join(', ')}` });
+    }
+
+    const whereParts = [];
+
+    // Restrict to user's own applications if admin or giveMine is set
+    if (role === "admin" || giveMine === 'true') {
       whereParts.push(`Application_Handled_By like '%${username}%'`);
     }
 
-    // Build COQL criteria using like for case-insensitive, contains search
-    if (phone) {
-      whereParts.push(`Phone like '%${phone}%'`);
-    }
-    if (name) {
-      whereParts.push(`Name like '%${name}%'`);
-    }
-    if (email) {
-      whereParts.push(`Email like '%${email}%'`);
-    }
-    // Generic criteria string (e.g. custom COQL passed in)
-    if (criteria) {
-      whereParts.push(criteria);
-    }
+    if (phone) whereParts.push(`Phone like '%${phone}%'`);
+    if (name)  whereParts.push(`Name like '%${name}%'`);
+    if (email) whereParts.push(`Email like '%${email}%'`);
+    if (criteria) whereParts.push(criteria);
 
-    // Combine all criteria with AND logic
-    let whereClause =
-      whereParts.length > 0
-        ? `where(${whereParts.join(' and ')})`
-        : '';
+    const userWhereClause = whereParts.length > 0 ? `where(${whereParts.join(' and ')})` : '';
 
-    // Filters by Application_State, Qualified_Country, Application_Stage and Service_Finalized
-    const filterByActiveApplications = ` and((((Application_State = 'Active')`;
-    const filterByCountryFinalised = ` and(Qualified_Country = 'Australia'))`;
-    const filterByApplicationApprovedStage = `and(Application_Stage in ('Stage 1 Documentation: Approved', 'Stage 1 Documentation: Rejected', 'Stage 1 Milestone Completed', 'Stage 1 Documentation Reviewed', 'Skill Assessment Stage', 'Language Test', 'Lodge Application 1', 'Lodge Application 2', 'Lodge Application 3', 'Lodge Application 4','INIVITATION TO APPLY', 'Invitation to Apply', 'Invitation to Apply 2', 'VA Application Lodge', 'Stage 3 Documentation: Approved', 'Stage 3 Visa Application')))`;
-    const filterByServiceFinalised = ` and(Service_Finalized = 'Permanent Residency'))`
+    // Country-specific default stages
+    const defaultStages = (country === 'Canada' ? APPLICATION_STAGES_CANADA : APPLICATION_STAGES)
+      .map(s => `'${s}'`).join(', ');
 
-    // Active Applications
-    whereClause += filterByActiveApplications;
+    // Core filters: state, country, service, stages
+    const coreFilters = ` and((((Application_State = 'Active') and(Qualified_Country = '${country}')) and(Service_Finalized = 'Permanent Residency')) and(Application_Stage in (${defaultStages})))`;
 
-    // Qualified Country
-    whereClause += filterByCountryFinalised;
-
-    // Service Finalised
-    whereClause += filterByServiceFinalised;
-
-    // Application Approved Stage
-    whereClause += filterByApplicationApprovedStage;
+    const whereClause = userWhereClause + coreFilters;
 
     // Build full COQL query
-    const selectQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, DMS_Application_Status, Package_Finalize, Checklist_Requested, Deadline_For_Lodgment, Record_Type, Application_Stage from Visa_Applications ${whereClause} `;
+    const selectQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, DMS_Application_Status, Package_Finalize, Checklist_Requested, Deadline_For_Lodgment, Record_Type, Application_Stage from Visa_Applications ${whereClause}`;
 
     // Make COQL API request (POST)
     const response = await zohoRequest('coql', 'POST', { select_query: selectQuery });
