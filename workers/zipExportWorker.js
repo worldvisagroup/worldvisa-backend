@@ -1,5 +1,3 @@
-const { Worker } = require('bullmq');
-const { connection } = require('../services/redis');
 const ZipExportJob = require('../models/zipExportJob');
 const dmsZohoDocument = require('../models/dmsZohoDocument');
 const { uploadToR2 } = require('../services/r2Client');
@@ -9,159 +7,141 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
-let worker = null;
+async function processZipJob(jobId, record_id) {
+  // Abort if job was cancelled before we started
+  const jobDoc = await ZipExportJob.findById(jobId);
+  if (!jobDoc || jobDoc.status === 'failed') return;
 
-function createWorker() {
-  if (worker) {
-    return worker;
+  console.log(`[ZIP Worker] Processing job ${jobId} for record ${record_id}`);
+
+  // Update job status to processing
+  await ZipExportJob.findByIdAndUpdate(jobId, {
+    status: 'processing',
+  });
+
+  // Fetch ONLY approved documents with download links
+  const documents = await dmsZohoDocument
+    .find({ record_id, status: 'approved' })
+    .select('file_name download_url document_link')
+    .lean();
+
+  if (!documents || documents.length === 0) {
+    throw new Error('No approved documents found for this record');
   }
 
-  worker = new Worker(
-    'zip-export',
-    async (job) => {
-      const { jobId, record_id } = job.data;
+  const filesWithLinks = documents.filter(doc => doc.download_url || doc.document_link);
 
-      try {
-        console.log(`[ZIP Worker] Processing job ${jobId} for record ${record_id}`);
+  if (filesWithLinks.length === 0) {
+    throw new Error('No downloadable files found');
+  }
 
-        // Update job status to processing
-        await ZipExportJob.findByIdAndUpdate(jobId, {
-          status: 'processing',
-        });
+  await ZipExportJob.findByIdAndUpdate(jobId, {
+    'progress.total': filesWithLinks.length,
+  });
 
-        // Fetch ONLY approved documents with download links
-        const documents = await dmsZohoDocument
-          .find({ record_id, status: 'approved' })
-          .select('file_name download_url document_link')
-          .lean();
+  // Create temporary directory for downloads
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zip-export-'));
 
-        if (!documents || documents.length === 0) {
-          throw new Error('No approved documents found for this record');
-        }
+  try {
+    // Download all files
+    console.log(`[ZIP Worker] Downloading ${filesWithLinks.length} files`);
 
-        const filesWithLinks = documents.filter(doc => doc.download_url || doc.document_link);
+    const downloadPromises = filesWithLinks.map(async (doc, index) => {
+      const downloadUrl = doc.download_url || doc.document_link;
+      const filename = doc.file_name || `document-${index + 1}`;
+      const filePath = path.join(tempDir, filename);
 
-        if (filesWithLinks.length === 0) {
-          throw new Error('No downloadable files found');
-        }
+      const response = await axios.get(downloadUrl, {
+        responseType: 'stream',
+        timeout: 60000, // 1 minute per file
+      });
 
-        await ZipExportJob.findByIdAndUpdate(jobId, {
-          'progress.total': filesWithLinks.length,
-        });
+      const writer = fs.createWriteStream(filePath);
+      response.data.pipe(writer);
 
-        // Create temporary directory for downloads
-        const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zip-export-'));
-
-        try {
-          // Download all files
-          console.log(`[ZIP Worker] Downloading ${filesWithLinks.length} files`);
-
-          const downloadPromises = filesWithLinks.map(async (doc, index) => {
-            const downloadUrl = doc.download_url || doc.document_link;
-            const filename = doc.file_name || `document-${index + 1}`;
-            const filePath = path.join(tempDir, filename);
-
-            const response = await axios.get(downloadUrl, {
-              responseType: 'stream',
-              timeout: 60000, // 1 minute per file
-            });
-
-            const writer = fs.createWriteStream(filePath);
-            response.data.pipe(writer);
-
-            return new Promise((resolve, reject) => {
-              writer.on('finish', async () => {
-                // Update progress
-                await ZipExportJob.findByIdAndUpdate(jobId, {
-                  $inc: { 'progress.current': 1 },
-                });
-                resolve(filePath);
-              });
-              writer.on('error', reject);
-            });
-          });
-
-          const downloadedFiles = await Promise.all(downloadPromises);
-
-          // Create ZIP archive
-          console.log(`[ZIP Worker] Creating ZIP archive`);
-          const zipPath = path.join(tempDir, 'export.zip');
-          const output = fs.createWriteStream(zipPath);
-          const archive = archiver('zip', { zlib: { level: 6 } });
-
-          archive.pipe(output);
-
-          // Add all files to ZIP
-          downloadedFiles.forEach((filePath, index) => {
-            const filename = filesWithLinks[index].file_name || `document-${index + 1}`;
-            archive.file(filePath, { name: filename });
-          });
-
-          await archive.finalize();
-
-          await new Promise((resolve, reject) => {
-            output.on('close', resolve);
-            output.on('error', reject);
-          });
-
-          // Upload to R2 using STREAM (not buffer - prevents memory issues)
-          console.log(`[ZIP Worker] Uploading to R2`);
-          const r2Key = `exports/${record_id}/${Date.now()}.zip`;
-          const zipStream = fs.createReadStream(zipPath);
-          const downloadUrl = await uploadToR2(r2Key, zipStream);
-
-          // Update job as completed
-          const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+      return new Promise((resolve, reject) => {
+        writer.on('finish', async () => {
+          // Update progress
           await ZipExportJob.findByIdAndUpdate(jobId, {
-            status: 'completed',
-            download_url: downloadUrl,
-            r2_key: r2Key,
-            completed_at: new Date(),
-            expires_at: expiresAt,
+            $inc: { 'progress.current': 1 },
           });
+          resolve(filePath);
+        });
+        writer.on('error', reject);
+      });
+    });
 
-          console.log(`[ZIP Worker] Job ${jobId} completed successfully`);
+    const downloadedFiles = await Promise.all(downloadPromises);
 
-        } finally {
-          // Cleanup temp files
-          fs.rmSync(tempDir, { recursive: true, force: true });
-        }
+    // Create ZIP archive
+    console.log(`[ZIP Worker] Creating ZIP archive`);
+    const zipPath = path.join(tempDir, 'export.zip');
+    const output = fs.createWriteStream(zipPath);
+    const archive = archiver('zip', { zlib: { level: 6 } });
 
-      } catch (error) {
-        console.error(`[ZIP Worker] Job ${jobId} failed:`, error);
+    archive.pipe(output);
 
-        // Update job as failed
+    // Add all files to ZIP
+    downloadedFiles.forEach((filePath, index) => {
+      const filename = filesWithLinks[index].file_name || `document-${index + 1}`;
+      archive.file(filePath, { name: filename });
+    });
+
+    await archive.finalize();
+
+    await new Promise((resolve, reject) => {
+      output.on('close', resolve);
+      output.on('error', reject);
+    });
+
+    // Upload to R2 using STREAM (not buffer - prevents memory issues)
+    console.log(`[ZIP Worker] Uploading to R2`);
+    const r2Key = `exports/${record_id}/${Date.now()}.zip`;
+    const zipStream = fs.createReadStream(zipPath);
+    const downloadUrl = await uploadToR2(r2Key, zipStream);
+
+    // Update job as completed
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    await ZipExportJob.findByIdAndUpdate(jobId, {
+      status: 'completed',
+      download_url: downloadUrl,
+      r2_key: r2Key,
+      completed_at: new Date(),
+      expires_at: expiresAt,
+    });
+
+    console.log(`[ZIP Worker] Job ${jobId} completed successfully`);
+
+  } finally {
+    // Cleanup temp files
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function processWithRetry(jobId, record_id, maxAttempts = 3) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      await processZipJob(jobId, record_id);
+      return;
+    } catch (error) {
+      console.error(`[ZIP Worker] Job ${jobId} attempt ${attempt} failed:`, error.message);
+      if (attempt < maxAttempts) {
+        const delay = 5000 * Math.pow(2, attempt - 1); // 5s, 10s
+        await new Promise(r => setTimeout(r, delay));
+      } else {
         await ZipExportJob.findByIdAndUpdate(jobId, {
           status: 'failed',
           error_message: error.message,
           completed_at: new Date(),
         });
-
-        throw error; // Let BullMQ handle retries
       }
-    },
-    {
-      connection,
-      concurrency: parseInt(process.env.MAX_CONCURRENT_ZIP_JOBS || '3'),
-      removeOnComplete: { count: 100 }, // Keep last 100 completed jobs
-      removeOnFail: { count: 50 },      // Keep last 50 failed jobs
-      attempts: 3,                       // Retry failed jobs 3 times
-      backoff: {
-        type: 'exponential',
-        delay: 5000,                     // Start with 5 second delay
-      },
     }
-  );
-
-  worker.on('completed', (job) => {
-    console.log(`[ZIP Worker] Job ${job.id} completed`);
-  });
-
-  worker.on('failed', (job, err) => {
-    console.error(`[ZIP Worker] Job ${job.id} failed:`, err.message);
-  });
-
-  return worker;
+  }
 }
 
-module.exports = { createWorker };
+// No-op stub — kept so app.js import doesn't break during transition
+function createWorker() {
+  return { close: async () => {} };
+}
+
+module.exports = { processWithRetry, createWorker };

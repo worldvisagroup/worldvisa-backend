@@ -182,10 +182,25 @@ mongoose
 
     bufferCommands: false,
   })
-  .then((result) => {
+  .then(async (result) => {
     dbConnected = true;
     console.log("Connected to db");
     logger.info('MongoDB connected successfully');
+
+    // Reset any ZIP jobs stuck in 'processing' from a previous server crash
+    try {
+      const ZipExportJob = require('./models/zipExportJob');
+      const stuckCount = await ZipExportJob.countDocuments({ status: 'processing' });
+      if (stuckCount > 0) {
+        await ZipExportJob.updateMany(
+          { status: 'processing' },
+          { status: 'failed', error_message: 'Server restarted during processing' }
+        );
+        logger.info(`[ZIP] Reset ${stuckCount} stuck processing job(s) to failed`);
+      }
+    } catch (err) {
+      logger.error('Failed to reset stuck ZIP jobs', { error: err.message });
+    }
 
     // Start visa news cron job after successful DB connection
     try {

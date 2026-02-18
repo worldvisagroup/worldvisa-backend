@@ -13,7 +13,7 @@ const { updateRecentActivity, addToTimeline, addMovedFiles } = require('./helper
 const { getAccessToken, refreshAccessToken } = require('./zohoDms/zohoAuth');
 const DmsMovedDocuments = require('../models/movedDocuments');
 const { capitalizeFn } = require('../utils/helperFunction');
-const zipExportQueue = require('../queues/zipExportQueue');
+const { processWithRetry } = require('../workers/zipExportWorker');
 const ZipExportJob = require('../models/zipExportJob');
 
 // Configure Multer for file uploads
@@ -2216,11 +2216,8 @@ exports.downloadAllFiles = async (req, res) => {
       },
     });
 
-    // Add job to queue
-    await zipExportQueue.add('create-zip', {
-      jobId: job._id.toString(),
-      record_id,
-    });
+    // Start processing in background (no Redis needed)
+    setImmediate(() => processWithRetry(job._id.toString(), record_id));
 
     console.log(`[Download All] Created ZIP export job ${job._id} for record ${record_id}`);
 
@@ -2315,13 +2312,7 @@ exports.cancelZipExport = async (req, res) => {
       });
     }
 
-    // Remove from queue
-    const queueJob = await zipExportQueue.getJob(job_id);
-    if (queueJob) {
-      await queueJob.remove();
-    }
-
-    // Update database
+    // Update database (setting status to 'failed' signals the running worker to abort)
     await ZipExportJob.findByIdAndUpdate(job_id, {
       status: 'failed',
       error_message: 'Cancelled by user',
