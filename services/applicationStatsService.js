@@ -92,7 +92,8 @@ const categorizeApplicationsWithIds = (applications) => {
   const categories = {
     approaching: { ids: [], applications: [], daysMap: new Map() },
     overdue: { ids: [], applications: [], daysMap: new Map() },
-    noDeadline: { ids: [], applications: [] }
+    noDeadline: { ids: [], applications: [] },
+    future: { ids: [], applications: [], daysMap: new Map() }
   };
 
   applications.forEach(app => {
@@ -114,6 +115,10 @@ const categorizeApplicationsWithIds = (applications) => {
       categories.approaching.ids.push(app.id);
       categories.approaching.applications.push(app);
       categories.approaching.daysMap.set(app.id, daysUntil);
+    } else {
+      categories.future.ids.push(app.id);
+      categories.future.applications.push(app);
+      categories.future.daysMap.set(app.id, daysUntil);
     }
   });
 
@@ -267,7 +272,9 @@ const getDeadlineStatistics = async (username, role, params = {}) => {
       overduePage = 1,
       overdueLimit = 10,
       noDeadlinePage = 1,
-      noDeadlineLimit = 10
+      noDeadlineLimit = 10,
+      futurePage = 1,
+      futureLimit = 10
     } = params;
 
     console.log(`Fetching deadline statistics for user: ${username}, role: ${role}, type: ${type || 'all'}`);
@@ -310,14 +317,15 @@ const getDeadlineStatistics = async (username, role, params = {}) => {
     // Categorize applications and track IDs
     const categorizedData = categorizeApplicationsWithIds(allApplications);
 
-    console.log(`Categorized: ${categorizedData.approaching.ids.length} approaching, ${categorizedData.overdue.ids.length} overdue, ${categorizedData.noDeadline.ids.length} no deadline`);
+    console.log(`Categorized: ${categorizedData.approaching.ids.length} approaching, ${categorizedData.overdue.ids.length} overdue, ${categorizedData.noDeadline.ids.length} no deadline, ${categorizedData.future.ids.length} future`);
 
     // PHASE 2: Fetch detailed paginated data for each category
     // Pass visaApps and spouseApps to determine which module to query for each ID
-    const [approachingDetails, overdueDetails, noDeadlineDetails] = await Promise.all([
+    const [approachingDetails, overdueDetails, noDeadlineDetails, futureDetails] = await Promise.all([
       getDetailedCategoryApplications(categorizedData.approaching, visaApps, spouseApps, approachingPage, approachingLimit),
       getDetailedCategoryApplications(categorizedData.overdue, visaApps, spouseApps, overduePage, overdueLimit),
-      getDetailedCategoryApplications(categorizedData.noDeadline, visaApps, spouseApps, noDeadlinePage, noDeadlineLimit)
+      getDetailedCategoryApplications(categorizedData.noDeadline, visaApps, spouseApps, noDeadlinePage, noDeadlineLimit),
+      getDetailedCategoryApplications(categorizedData.future, visaApps, spouseApps, futurePage, futureLimit)
     ]);
 
     // PHASE 3: Attach days calculations and type information
@@ -347,8 +355,17 @@ const getDeadlineStatistics = async (username, role, params = {}) => {
       };
     });
 
+    futureDetails.data = futureDetails.data.map(app => {
+      const appSource = visaApps.find(v => v.id === app.id) ? 'visa' : 'spouse';
+      return {
+        ...app,
+        daysUntil: categorizedData.future.daysMap.get(app.id) || 0,
+        type: appSource
+      };
+    });
+
     // PHASE 4: Attach attachment counts (always)
-    await attachAttachmentCountsToCategories([approachingDetails, overdueDetails, noDeadlineDetails]);
+    await attachAttachmentCountsToCategories([approachingDetails, overdueDetails, noDeadlineDetails, futureDetails]);
 
     // Build pagination metadata
     const buildPaginationMeta = (currentPage, limit, total) => ({
@@ -364,7 +381,8 @@ const getDeadlineStatistics = async (username, role, params = {}) => {
         total: allApplications.length,
         approaching: categorizedData.approaching.ids.length,
         overdue: categorizedData.overdue.ids.length,
-        noDeadline: categorizedData.noDeadline.ids.length
+        noDeadline: categorizedData.noDeadline.ids.length,
+        future: categorizedData.future.ids.length
       },
       details: {
         approaching: {
@@ -378,6 +396,10 @@ const getDeadlineStatistics = async (username, role, params = {}) => {
         noDeadline: {
           data: noDeadlineDetails.data,
           pagination: buildPaginationMeta(noDeadlinePage, noDeadlineLimit, noDeadlineDetails.total)
+        },
+        future: {
+          data: futureDetails.data,
+          pagination: buildPaginationMeta(futurePage, futureLimit, futureDetails.total)
         }
       },
       metadata: {

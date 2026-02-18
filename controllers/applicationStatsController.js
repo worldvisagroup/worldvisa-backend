@@ -7,14 +7,14 @@ const validatePaginationParams = (params) => {
   const errors = [];
 
   // Validate page numbers
-  ['approachingPage', 'overduePage', 'noDeadlinePage'].forEach(param => {
+  ['approachingPage', 'overduePage', 'noDeadlinePage', 'futurePage'].forEach(param => {
     if (params[param] < MIN_PAGE) {
       errors.push(`${param} must be >= ${MIN_PAGE}`);
     }
   });
 
   // Validate limits
-  ['approachingLimit', 'overdueLimit', 'noDeadlineLimit'].forEach(param => {
+  ['approachingLimit', 'overdueLimit', 'noDeadlineLimit', 'futureLimit'].forEach(param => {
     if (params[param] < 1 || params[param] > MAX_LIMIT) {
       errors.push(`${param} must be between 1 and ${MAX_LIMIT}`);
     }
@@ -38,7 +38,9 @@ const getDeadlineStats = async (req, res) => {
       overduePage: parseInt(req.query.overduePage, 10) || 1,
       overdueLimit: parseInt(req.query.overdueLimit, 10) || 10,
       noDeadlinePage: parseInt(req.query.noDeadlinePage, 10) || 1,
-      noDeadlineLimit: parseInt(req.query.noDeadlineLimit, 10) || 10
+      noDeadlineLimit: parseInt(req.query.noDeadlineLimit, 10) || 10,
+      futurePage: parseInt(req.query.futurePage, 10) || 1,
+      futureLimit: parseInt(req.query.futureLimit, 10) || 10
     };
 
     // Validate type parameter
