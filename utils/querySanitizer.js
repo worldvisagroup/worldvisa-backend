@@ -114,6 +114,17 @@ function sanitizeBoolean(value) {
   return null;
 }
 
+function sanitizeSearchTerm(value, maxLength = 100) {
+  if (value == null || typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed.length > maxLength) {
+    return null;
+  }
+  return trimmed;
+}
+
 module.exports = {
   escapeString,
   escapeRegexForMongo,
@@ -122,5 +133,6 @@ module.exports = {
   sanitizeNumber,
   sanitizeCommaList,
   sanitizeRole,
-  sanitizeBoolean
+  sanitizeBoolean,
+  sanitizeSearchTerm
 };

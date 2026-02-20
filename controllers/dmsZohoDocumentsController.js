@@ -11,13 +11,16 @@ const ZohoDmsUser = require('../models/zohoDmsUser');
 const {
   MODULE_VISA_APPLICATION, MODULE_SPOUSE_SKILL_ASSESSMENT,
   REQ_MODULE_VISA_APPLICATION, REQ_MODULE_SPOUSE_SKILL_ASSESSMENT,
-  APPLICATION_STAGES, APPLICATION_STAGES_CANADA, SUPPORTED_COUNTRIES
+  APPLICATION_STAGES, APPLICATION_STAGES_CANADA, SUPPORTED_COUNTRIES,
+  APPLICATION_STATE_ACTIVE
 } = require('./helper/constants');
+const SEARCH_TERM_MAX_LENGTH = 100;
+const DEFAULT_GLOBAL_SEARCH_LIMIT = 10;
 const { updateRecentActivity, addToTimeline, addMovedFiles } = require('./helper/service/functions');
 const { getAccessToken, refreshAccessToken } = require('./zohoDms/zohoAuth');
 const DmsMovedDocuments = require('../models/movedDocuments');
 const { capitalizeFn } = require('../utils/helperFunction');
-const { escapeRegexForMongo } = require('../utils/querySanitizer');
+const { escapeRegexForMongo, escapeString, sanitizeUsername, sanitizeSearchTerm } = require('../utils/querySanitizer');
 const { processWithRetry } = require('../workers/zipExportWorker');
 const ZipExportJob = require('../models/zipExportJob');
 
@@ -660,10 +663,10 @@ exports.getQualityCheckApplications = async (req, res) => {
     const spouseConditions = conditions.filter(c => !c.startsWith('Qualified_Country'));
     const spouseWhereClause = ` where ${spouseConditions.join(' and ')}`;
 
-    // Build queries with pagination and sorting (latest first)
-    const selectQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Record_Type from Visa_Applications${whereClause} order by Created_Time desc limit ${limit} offset ${offset}`;
+    // Build queries with pagination and sorting (latest first). COQL syntax: limit offset, limit
+    const selectQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Record_Type from Visa_Applications${whereClause} order by Created_Time desc limit ${offset}, ${limit}`;
 
-    const selectSpouseQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Main_Applicant, Record_Type from Spouse_Skill_Assessment${spouseWhereClause} order by Created_Time desc limit ${limit} offset ${offset}`;
+    const selectSpouseQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Main_Applicant, Record_Type from Spouse_Skill_Assessment${spouseWhereClause} order by Created_Time desc limit ${offset}, ${limit}`;
 
     // Build count queries for pagination metadata
     const countQuery = `select COUNT(id) as count from Visa_Applications${whereClause}`;
@@ -1091,6 +1094,251 @@ exports.searchZohoApplications = async (req, res) => {
       error.response ? error.response.data : error.message
     );
     return res.status(500).json({ success: false, message: 'Failed to search Zoho applications.' });
+  }
+};
+
+/**
+ * Global search: single `search` parameter, returns category-wise results (applications, requestedReview, checklistRequested, qualityCheck).
+ * Role-based: master_admin/supervisor see all; team_leader sees own + other admin/team_leader applications; admin sees only own.
+ */
+exports.globalSearch = async (req, res) => {
+  try {
+    const username = req.user?.username;
+    const role = req.user?.role;
+    const rawSearch = req.query.search;
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || DEFAULT_GLOBAL_SEARCH_LIMIT, 1), 50);
+    const country = (req.query.country && SUPPORTED_COUNTRIES.includes(req.query.country))
+      ? req.query.country
+      : 'Australia';
+
+    if (!username) {
+      return res.status(400).json({
+        success: false,
+        message: 'Authentication required.'
+      });
+    }
+
+    const trimmedSearch = sanitizeSearchTerm(rawSearch, SEARCH_TERM_MAX_LENGTH);
+    if (!trimmedSearch) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search parameter is required, must be non-empty, and at most ' + SEARCH_TERM_MAX_LENGTH + ' characters.'
+      });
+    }
+
+    const escapedSearch = escapeString(trimmedSearch);
+    const mongoRegexEscaped = escapeRegexForMongo(trimmedSearch);
+    const mongoRegex = { $regex: mongoRegexEscaped, $options: 'i' };
+
+    const defaultStages = (country === 'Canada' ? APPLICATION_STAGES_CANADA : APPLICATION_STAGES)
+      .map(s => `'${escapeString(s)}'`)
+      .join(', ');
+
+    let handlerFilterVisa = '';
+    let handlerFilterSpouse = '';
+
+    if (role === 'admin') {
+      const safeUser = sanitizeUsername(username) || escapeString(username);
+      handlerFilterVisa = ` and(Application_Handled_By like '${safeUser}')`;
+      handlerFilterSpouse = ` and(Application_Handled_By like '${safeUser}')`;
+    } else if (role === 'team_leader') {
+      const adminAndTeamLeaderUsers = await ZohoDmsUser.find({ role: { $in: ['admin', 'team_leader'] } })
+        .select('username')
+        .lean();
+      const usernames = [...new Set([username, ...adminAndTeamLeaderUsers.map(u => u.username).filter(Boolean)])];
+      const escapedList = usernames
+        .map(u => {
+          const s = sanitizeUsername(u) || escapeString(String(u));
+          return s ? `'${escapeString(s)}'` : null;
+        })
+        .filter(Boolean)
+        .join(', ');
+      if (escapedList) {
+        handlerFilterVisa = ` and(Application_Handled_By in (${escapedList}))`;
+        handlerFilterSpouse = ` and(Application_Handled_By in (${escapedList}))`;
+      } else {
+        const safeUser = sanitizeUsername(username) || escapeString(username);
+        handlerFilterVisa = ` and(Application_Handled_By like '${safeUser}')`;
+        handlerFilterSpouse = ` and(Application_Handled_By like '${safeUser}')`;
+      }
+    }
+    // master_admin, supervisor: no handler filter
+
+    // NOTE: id is NOT listed — Zoho COQL returns it automatically; explicit `id` in SELECT causes SYNTAX_ERROR
+    const selectFieldsVisa = 'Name, Email, Phone, Created_Time, Application_Handled_By, DMS_Application_Status, Package_Finalize, Checklist_Requested, Deadline_For_Lodgment, Record_Type, Application_Stage, Quality_Check_From';
+    const selectFieldsSpouse = 'Name, Email, Phone, Created_Time, Application_Handled_By, DMS_Application_Status, Checklist_Requested, Record_Type, Application_Stage, Quality_Check_From, Main_Applicant';
+
+    // Zoho COQL does not support `or` — use 3 separate single-field queries per module
+    const coreFiltersVisa = ` and((((Application_State = '${APPLICATION_STATE_ACTIVE}') and(Qualified_Country = '${escapeString(country)}')) and(Service_Finalized = 'Permanent Residency')) and(Application_Stage in (${defaultStages})))`;
+    // Spouse_Skill_Assessment has no Qualified_Country; use only search + handler filter
+
+    const coqlLimit = Math.min(50, limit * 3);
+    const buildVisaQuery = field =>
+      `select ${selectFieldsVisa} from Visa_Applications where(${field} like '%${escapedSearch}%')${coreFiltersVisa}${handlerFilterVisa} order by Created_Time desc limit 0, ${coqlLimit}`;
+    const buildSpouseQuery = field =>
+      `select ${selectFieldsSpouse} from Spouse_Skill_Assessment where(${field} like '%${escapedSearch}%')${handlerFilterSpouse} order by Created_Time desc limit 0, ${coqlLimit}`;
+
+    const requestedReviewPipeline = [
+      { $match: { 'requested_reviews.0': { $exists: true } } },
+      {
+        $lookup: {
+          from: 'dmszohoclients',
+          localField: 'record_id',
+          foreignField: 'lead_id',
+          as: 'client_info'
+        }
+      },
+      {
+        $match: {
+          $or: [
+            { document_name: mongoRegex },
+            { document_category: mongoRegex },
+            { 'client_info.name': mongoRegex },
+            { 'requested_reviews.requested_by': mongoRegex },
+            { 'requested_reviews.requested_to': mongoRegex }
+          ]
+        }
+      },
+      { $unwind: '$requested_reviews' },
+      { $sort: { 'requested_reviews.requested_at': -1 } }
+    ];
+
+    if (role === 'team_leader' || role === 'admin') {
+      requestedReviewPipeline.push({
+        $match: {
+          $or: [
+            { 'requested_reviews.requested_to': username },
+            { 'requested_reviews.requested_by': username }
+          ]
+        }
+      });
+    }
+
+    requestedReviewPipeline.push(
+      {
+        $project: {
+          _id: 1,
+          record_id: 1,
+          client_name: { $arrayElemAt: ['$client_info.name', 0] },
+          document_name: 1,
+          document_category: 1,
+          requested_review: {
+            requested_by: '$requested_reviews.requested_by',
+            requested_to: '$requested_reviews.requested_to',
+            status: '$requested_reviews.status',
+            _id: '$requested_reviews._id',
+            requested_at: '$requested_reviews.requested_at'
+          }
+        }
+      },
+      { $limit: limit }
+    );
+
+    // Promise.allSettled: 6 Zoho queries (3 per module, no `or`) + 1 MongoDB — all in parallel
+    const [
+      visaNameR, visaEmailR, visaPhoneR,
+      spouseNameR, spouseEmailR, spousePhoneR,
+      reviewResult
+    ] = await Promise.allSettled([
+      zohoRequest('coql', 'POST', { select_query: buildVisaQuery('Name') }),
+      zohoRequest('coql', 'POST', { select_query: buildVisaQuery('Email') }),
+      zohoRequest('coql', 'POST', { select_query: buildVisaQuery('Phone') }),
+      zohoRequest('coql', 'POST', { select_query: buildSpouseQuery('Name') }),
+      zohoRequest('coql', 'POST', { select_query: buildSpouseQuery('Email') }),
+      zohoRequest('coql', 'POST', { select_query: buildSpouseQuery('Phone') }),
+      dmsZohoDocument.aggregate(requestedReviewPipeline)
+    ]);
+
+    // Log any failures
+    for (const [label, r] of [
+      ['visa/Name', visaNameR], ['visa/Email', visaEmailR], ['visa/Phone', visaPhoneR],
+      ['spouse/Name', spouseNameR], ['spouse/Email', spouseEmailR], ['spouse/Phone', spousePhoneR]
+    ]) {
+      if (r.status === 'rejected') console.error(`globalSearch ${label} query failed:`, r.reason?.response?.data || r.reason);
+    }
+    if (reviewResult.status === 'rejected') console.error('globalSearch review pipeline failed:', reviewResult.reason);
+
+    // Deduplicate by id across all 6 results — a record matching Name AND Email would appear in both
+    const seenIds = new Set();
+    const visaData = [];
+    const spouseData = [];
+
+    for (const r of [visaNameR, visaEmailR, visaPhoneR]) {
+      if (r.status === 'fulfilled') {
+        for (const app of (r.value?.data || [])) {
+          if (app.id && !seenIds.has(app.id)) { seenIds.add(app.id); visaData.push(app); }
+        }
+      }
+    }
+    for (const r of [spouseNameR, spouseEmailR, spousePhoneR]) {
+      if (r.status === 'fulfilled') {
+        for (const app of (r.value?.data || [])) {
+          if (app.id && !seenIds.has(app.id)) { seenIds.add(app.id); spouseData.push(app); }
+        }
+      }
+    }
+
+    const requestedReviewResult = reviewResult.status === 'fulfilled' ? reviewResult.value : [];
+    const mergedApps = [...visaData, ...spouseData].sort((a, b) => {
+      const tA = a.Created_Time ? new Date(a.Created_Time).getTime() : 0;
+      const tB = b.Created_Time ? new Date(b.Created_Time).getTime() : 0;
+      return tB - tA;
+    });
+
+    const recordIds = mergedApps.map(app => app.id).filter(Boolean);
+    let countMap = new Map();
+    if (recordIds.length > 0) {
+      const counts = await dmsZohoDocument.aggregate([
+        { $match: { record_id: { $in: recordIds } } },
+        { $group: { _id: '$record_id', count: { $sum: 1 } } }
+      ]);
+      countMap = new Map(counts.map(item => [item._id, item.count]));
+    }
+
+    const applicationsWithCount = mergedApps.map(app => ({
+      ...app,
+      AttachmentCount: countMap.get(app.id) || 0
+    }));
+
+    const applications = applicationsWithCount.slice(0, limit);
+
+    const checklistRequested = applicationsWithCount
+      .filter(app => app.Checklist_Requested === true)
+      .slice(0, limit);
+
+    const qualityCheckFiltered = applicationsWithCount.filter(app => {
+      if (!app.Quality_Check_From) return false;
+      if (role === 'master_admin') return true;
+      return app.Quality_Check_From === username;
+    });
+    const qualityCheck = qualityCheckFiltered.slice(0, limit);
+
+    const requestedReview = Array.isArray(requestedReviewResult) ? requestedReviewResult : [];
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        applications,
+        requestedReview,
+        checklistRequested,
+        qualityCheck
+      }
+    });
+  } catch (error) {
+    const zohoPayload = error.response?.data;
+    if (zohoPayload) {
+      console.error('Error in globalSearch (Zoho response):', JSON.stringify(zohoPayload));
+    } else {
+      console.error('Error in globalSearch:', error);
+    }
+    const devError = process.env.NODE_ENV === 'development'
+      ? (zohoPayload?.message || error.message)
+      : undefined;
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to perform global search.',
+      error: devError
+    });
   }
 };
 

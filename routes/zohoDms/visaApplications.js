@@ -18,6 +18,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 router.get("/", protect, getApplicationsWithAttachments);
 router.get('/deadline-stats', protect, getDeadlineStats);
 router.get('/search', protect, dmsZohoDocumentsController.searchZohoApplications);
+router.get('/global-search', protect, dmsZohoDocumentsController.globalSearch);
 // Request Application for Quality Check
 router.get('/quality_check', protect, dmsZohoDocumentsController.getQualityCheckApplications);
 router.post('/quality_check', protect, dmsZohoDocumentsController.requestQualityCheck);
