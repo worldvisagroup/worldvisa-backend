@@ -302,17 +302,19 @@ exports.getAllNotifications = async (req, res, next) => {
     let limit = parseInt(req.query.limit, 10) || 20;
     if (page < 1) page = 1;
     if (limit < 1) limit = 20;
+    limit = Math.min(limit, 100);
     const skip = (page - 1) * limit;
 
-    // Lazy require to avoid import issues at the top
     const ZohoDmsNotification = require('../models/zohoDmsNotification');
+    const selectFields = 'title message type category source isRead createdAt link leadId documentId documentName applicationType';
 
-    // Fetch notifications for the logged-in user, sorted by newest first, paginated
     const [notifications, totalRecords] = await Promise.all([
       ZohoDmsNotification.find({ user: req.user._id })
+        .select(selectFields)
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(limit),
+        .limit(limit)
+        .lean(),
       ZohoDmsNotification.countDocuments({ user: req.user._id })
     ]);
 
@@ -338,7 +340,7 @@ exports.getAllNotifications = async (req, res, next) => {
 
 exports.addNotification = async (req, res) => {
   try {
-    const { message, type = 'info', category, link = null } = req.body;
+    const { message, title, type = 'info', category, source = 'general', link = null } = req.body;
     const { _id } = req.user;
 
     if (!_id || !message) {
@@ -348,7 +350,18 @@ exports.addNotification = async (req, res) => {
       });
     }
 
-    const notification = await addNotificationAndEmit({ req, userId: _id, leadId: null, message, type, category, link });
+    const shortTitle = title != null ? title : (message.length > 80 ? message.slice(0, 77) + '...' : message);
+    const notification = await addNotificationAndEmit({
+      req,
+      userId: _id,
+      leadId: null,
+      message,
+      title: shortTitle,
+      type,
+      category,
+      source,
+      link,
+    });
 
     res.status(201).json({
       status: 'success',
@@ -365,7 +378,7 @@ exports.addNotification = async (req, res) => {
 
 exports.addNotificationByClient = async (req, res) => {
   try {
-    const { message, type = 'info', category, link = null } = req.body;
+    const { message, title, type = 'info', category, source = 'general', link = null } = req.body;
     const { lead_owner, lead_id } = req.user;
 
     if (!lead_owner) {
@@ -376,7 +389,6 @@ exports.addNotificationByClient = async (req, res) => {
     }
 
     const DmsUser = require('../models/zohoDmsUser');
-    // Find the user by lead_owner (assuming lead_owner is the user's _id or some unique field)
     const user = await DmsUser.findOne({ username: lead_owner });
 
     if (!user) {
@@ -394,7 +406,18 @@ exports.addNotificationByClient = async (req, res) => {
       });
     }
 
-    const notification = await addNotificationAndEmit({ req, userId: _id, leadId: lead_id, message, type, category, link });
+    const shortTitle = title != null ? title : (message.length > 80 ? message.slice(0, 77) + '...' : message);
+    const notification = await addNotificationAndEmit({
+      req,
+      userId: _id,
+      leadId: lead_id,
+      message,
+      title: shortTitle,
+      type,
+      category,
+      source,
+      link,
+    });
 
     res.status(201).json({
       status: 'success',

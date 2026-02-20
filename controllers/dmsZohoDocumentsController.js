@@ -196,9 +196,11 @@ exports.uploadDocument = async (req, res) => {
             leadId: user?.lead_id ? user.lead_id : null,
             documentId: doc?._id,
             documentName: doc?.document_name,
+            title: `Document uploaded by ${user.name}`,
             message: `${user.name} uploaded ${document_name}`,
-            category: "document",
-            applicationType: moduleName
+            category: 'document',
+            source: 'document_review',
+            applicationType: moduleName,
           });
         }
       };
@@ -311,9 +313,11 @@ exports.updateDocument = async (req, res) => {
             leadId: user?.lead_id ? user.lead_id : null,
             documentId: document?._id,
             documentName: document?.document_name,
+            title: `Document re-uploaded by ${user.name}`,
             message: `${user.name} re uploaded ${document.document_name}`,
-            category: "document",
-            applicationType: moduleName
+            category: 'document',
+            source: 'document_review',
+            applicationType: moduleName,
           });
         }
       }
@@ -743,7 +747,16 @@ exports.requestQualityCheck = async (req, res) => {
 
     // Get user details from reqUserName
     if (userDetails) {
-      await addNotificationAndEmit({ req, leadId: leadId, userId: userDetails._id, message: `Application Requested for Quality Check by ${user.username} `, category: "quality check", applicationType: moduleName })
+      await addNotificationAndEmit({
+        req,
+        leadId,
+        userId: userDetails._id,
+        title: `Quality check requested by ${user.username}`,
+        message: `Application Requested for Quality Check by ${user.username}`,
+        category: 'quality check',
+        source: 'quality_check',
+        applicationType: moduleName,
+      });
 
       // Update recent activity with current date
       await updateRecentActivity(zohoRequest, moduleName, leadId);
@@ -911,15 +924,16 @@ exports.updateChecklistRequestStatus = async (req, res) => {
       const leadOwnerUser = await ZohoDmsUser.findOne({ username: req.user.lead_owner });
 
       if (leadOwnerUser) {
-        // send the Notification to the lead owner
         await addNotificationAndEmit({
           req,
           leadId: req.user.lead_id,
           userId: leadOwnerUser._id,
-          message: `${req.user.name || "Unknown"} has requested Checklist`,
-          category: "requested checklist",
-          applicationType: moduleName
-        })
+          title: `Checklist requested by ${req.user.name || 'Unknown'}`,
+          message: `${req.user.name || 'Unknown'} has requested Checklist`,
+          category: 'requested checklist',
+          source: 'requested_checklist',
+          applicationType: moduleName,
+        });
       }
 
       if (user?.record_type) {
@@ -1787,10 +1801,12 @@ exports.addRequestedReviews = async (req, res) => {
           req,
           leadId: document?.record_id,
           userId: requestedToUser._id,
+          title: `Review requested by ${requested_by}`,
           message: `${requested_by} has requested to review ${document.document_name} document`,
-          category: "request review",
-          applicationType: moduleName
-        })
+          category: 'request review',
+          source: 'requested_reviews',
+          applicationType: moduleName,
+        });
       }
 
       try {
@@ -2010,16 +2026,17 @@ exports.addRequestedReviewMessage = async (req, res) => {
         await addNotificationAndEmit({
           req,
           userId: user._id,
-          message: `${review.requested_to} has sent you a message: ${message} `,
+          title: `New message from ${review.requested_to}`,
+          message: `${review.requested_to} has sent you a message: ${message}`,
           leadId: document.record_id,
           documentId: document._id,
           documentName: document?.document_name,
-          category: "admin message",
-          applicationType: moduleName
-        })
+          category: 'admin message',
+          source: 'requested_reviews',
+          applicationType: moduleName,
+        });
       }
     } else if (username === review.requested_by) {
-      // Send Notification to the lead owner once message is added
       const leadOwnerUsername = review.requested_to;
 
       if (leadOwnerUsername) {
@@ -2028,13 +2045,15 @@ exports.addRequestedReviewMessage = async (req, res) => {
         await addNotificationAndEmit({
           req,
           userId: user._id,
-          message: `${review.requested_by} has sent you a message: ${message} `,
+          title: `New message from ${review.requested_by}`,
+          message: `${review.requested_by} has sent you a message: ${message}`,
           leadId: document.record_id,
           documentId: document._id,
           documentName: document?.document_name,
-          category: "admin message",
-          applicationType: moduleName
-        })
+          category: 'admin message',
+          source: 'requested_reviews',
+          applicationType: moduleName,
+        });
       }
     }
 
