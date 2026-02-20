@@ -128,6 +128,21 @@ function normalizeReportData(countries, reportData) {
    return reportData;
 }
 
+
+function injectGeneratedDate(normalizedData) {
+   const generatedDateStr = new Date().toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+   });
+   for (const key of Object.keys(normalizedData)) {
+      if (normalizedData[key] && normalizedData[key].meta) {
+         normalizedData[key].meta.generatedDate = generatedDateStr;
+      }
+   }
+   return normalizedData;
+}
+
 /**
  * Get report type based on countries
  */
@@ -180,6 +195,7 @@ async function generatePDF({ userName, countries, reportData, requestId }) {
       // Step 1: Normalize data format (backwards compatible)
       currentStep = "normalizing data";
       const normalizedData = normalizeReportData(countries, reportData);
+      injectGeneratedDate(normalizedData);
       const reportType = getReportType(countries);
 
       logger.info("Data normalized", {

@@ -51,7 +51,7 @@ export function CombinedReport({ countries, reportData, userName }: CombinedRepo
           data={firstCountryData?.coverPage || { title: 'Global Immigration Report', subtitle: 'Multi-Country Assessment' }}
           meta={{
             userName,
-            generatedDate: new Date().toLocaleDateString('en-US', {
+            generatedDate: firstCountryData?.meta?.generatedDate ?? new Date().toLocaleDateString('en-US', {
               year: 'numeric',
               month: 'long',
               day: 'numeric'

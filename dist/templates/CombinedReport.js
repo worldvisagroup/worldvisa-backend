@@ -38,7 +38,7 @@ function CombinedReport({ countries, reportData, userName }) {
         react_1.default.createElement("body", null,
             react_1.default.createElement(CoverPage_1.CoverPage, { data: firstCountryData?.coverPage || { title: 'Global Immigration Report', subtitle: 'Multi-Country Assessment' }, meta: {
                     userName,
-                    generatedDate: new Date().toLocaleDateString('en-US', {
+                    generatedDate: firstCountryData?.meta?.generatedDate ?? new Date().toLocaleDateString('en-US', {
                         year: 'numeric',
                         month: 'long',
                         day: 'numeric'
