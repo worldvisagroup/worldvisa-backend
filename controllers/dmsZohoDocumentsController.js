@@ -17,6 +17,7 @@ const { updateRecentActivity, addToTimeline, addMovedFiles } = require('./helper
 const { getAccessToken, refreshAccessToken } = require('./zohoDms/zohoAuth');
 const DmsMovedDocuments = require('../models/movedDocuments');
 const { capitalizeFn } = require('../utils/helperFunction');
+const { escapeRegexForMongo } = require('../utils/querySanitizer');
 const { processWithRetry } = require('../workers/zipExportWorker');
 const ZipExportJob = require('../models/zipExportJob');
 
@@ -1634,24 +1635,89 @@ exports.getAllRequestedReview = async (req, res) => {
 
 exports.searchRequestedReviewDocuments = async (req, res) => {
   try {
-    const { page = 1, limit = 10, document_name, document_category } = req.query;
-    const skip = (page - 1) * limit;
+    const {
+      page = 1,
+      limit = 10,
+      q,
+      document_name,
+      document_category,
+      client_name,
+      requested_by,
+      requested_to
+    } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
 
-    // Build match conditions for document search
-    const matchConditions = {};
-    if (document_name) {
-      matchConditions.document_name = { $regex: document_name, $options: 'i' };
-    }
-    if (document_category) {
-      matchConditions.document_category = { $regex: document_category, $options: 'i' };
-    }
-    // Only include documents that have requested reviews
-    matchConditions['requested_reviews.0'] = { $exists: true };
+    const matchConditions = { 'requested_reviews.0': { $exists: true } };
 
-    // Use aggregation pipeline with $facet to get both data and count in single query
-    const result = await dmsZohoDocument.aggregate([
+    // One search param `q` searches across: document_name, document_category, client name, requested_by, requested_to
+    const useUnifiedSearch = q && String(q).trim().length > 0;
+    if (!useUnifiedSearch) {
+      if (document_name) {
+        matchConditions.document_name = {
+          $regex: escapeRegexForMongo(document_name),
+          $options: 'i'
+        };
+      }
+      if (document_category) {
+        matchConditions.document_category = {
+          $regex: escapeRegexForMongo(document_category),
+          $options: 'i'
+        };
+      }
+      if (requested_by) {
+        matchConditions['requested_reviews.requested_by'] = {
+          $regex: escapeRegexForMongo(requested_by),
+          $options: 'i'
+        };
+      }
+      if (requested_to) {
+        matchConditions['requested_reviews.requested_to'] = {
+          $regex: escapeRegexForMongo(requested_to),
+          $options: 'i'
+        };
+      }
+    }
+
+    const pipeline = [
       { $match: matchConditions },
+      {
+        $lookup: {
+          from: 'dmszohoclients',
+          localField: 'record_id',
+          foreignField: 'lead_id',
+          as: 'client_info'
+        }
+      }
+    ];
+
+    if (useUnifiedSearch) {
+      const escapedQ = escapeRegexForMongo(String(q).trim());
+      const regex = { $regex: escapedQ, $options: 'i' };
+      pipeline.push({
+        $match: {
+          $or: [
+            { document_name: regex },
+            { document_category: regex },
+            { 'client_info.name': regex },
+            { 'requested_reviews.requested_by': regex },
+            { 'requested_reviews.requested_to': regex }
+          ]
+        }
+      });
+    } else if (client_name) {
+      pipeline.push({
+        $match: {
+          'client_info.name': {
+            $regex: escapeRegexForMongo(client_name),
+            $options: 'i'
+          }
+        }
+      });
+    }
+
+    pipeline.push(
       { $unwind: '$requested_reviews' },
+      { $sort: { 'requested_reviews.requested_at': -1 } },
       {
         $facet: {
           data: [
@@ -1659,6 +1725,7 @@ exports.searchRequestedReviewDocuments = async (req, res) => {
               $project: {
                 _id: 1,
                 record_id: 1,
+                client_name: { $arrayElemAt: ['$client_info.name', 0] },
                 workdrive_file_id: 1,
                 workdrive_parent_id: 1,
                 file_name: 1,
@@ -1687,12 +1754,12 @@ exports.searchRequestedReviewDocuments = async (req, res) => {
             { $skip: skip },
             { $limit: parseInt(limit, 10) }
           ],
-          totalCount: [
-            { $count: 'count' }
-          ]
+          totalCount: [{ $count: 'count' }]
         }
       }
-    ]);
+    );
+
+    const result = await dmsZohoDocument.aggregate(pipeline);
 
     const paginatedReviews = result[0].data || [];
     const totalItems = result[0].totalCount[0]?.count || 0;

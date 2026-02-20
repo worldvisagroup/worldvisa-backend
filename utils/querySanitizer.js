@@ -6,6 +6,13 @@ function escapeString(value) {
   return value.replace(/'/g, "''");
 }
 
+function escapeRegexForMongo(value) {
+  if (value == null || typeof value !== 'string') {
+    return '';
+  }
+  return value.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+}
+
 
 function sanitizeDate(dateString) {
   if (!dateString || typeof dateString !== 'string') {
@@ -109,6 +116,7 @@ function sanitizeBoolean(value) {
 
 module.exports = {
   escapeString,
+  escapeRegexForMongo,
   sanitizeDate,
   sanitizeUsername,
   sanitizeNumber,
