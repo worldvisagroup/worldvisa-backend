@@ -40,6 +40,7 @@ const visaReferenceFormController = require("./routes/visaReferenceForm");
 
 const pdfRoutes = require('./routes/worldvisa2.0/pdf/pdf.routes');
 const meetingRouter = require('./routes/worldvisa2.0/meeting/meeting.routes');
+const anabinRouter = require('./routes/anabin');
 
 // Visa News Cron Job
 const visaNewsCron = require("./utils/visaNewsCron");
@@ -429,6 +430,9 @@ app.use('/api/worldvisaV2/global-assessment-report', pdfRateLimiter, pdfRoutes);
 
 // Meeting booking routes
 app.use('/api/worldvisaV2/schedule-meeting', meetingRouter);
+
+// ANABIN institution database
+app.use('/api/anabin', anabinRouter);
 
 // Graceful shutdown handler for ZIP export worker
 process.on('SIGTERM', async () => {
