@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const DmsZohoClient = require('../models/dmsZohoClient');
 const DmsZohoDocument = require('../models/dmsZohoDocument');
 const { deleteFileFromWorkDrive, renameWorkDriveFile } = require('../utils/dmsZohoWorkDrive');
+const { zohoRequest } = require('./zohoDms/zohoApi');
 const bcrypt = require('bcryptjs');
 
 const signToken = (id, lead_id, email) => {
@@ -200,14 +201,122 @@ exports.resetPassword = async (req, res) => {
 
 exports.getAllClients = async (req, res) => {
   try {
-    // Explicitly select password and password_value fields, exclude checklist
-    const clients = await DmsZohoClient.find({}, '-checklist');
+    const page  = Math.max(parseInt(req.query.page,  10) || 1, 1);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+    const skip  = (page - 1) * limit;
+
+    const { search, lead_owner } = req.query;
+
+    // ── Phase 1: MongoDB — paginate + document stats ───────────────────────
+    const matchStage = {};
+
+    if (lead_owner) {
+      matchStage.lead_owner = lead_owner.trim();
+    }
+
+    if (search) {
+      const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex   = new RegExp(escaped, 'i');
+      matchStage.$or = [
+        { name:    regex },
+        { email:   regex },
+        { phone:   regex },
+        { lead_id: regex },
+      ];
+    }
+
+    const [result] = await DmsZohoClient.aggregate([
+      { $match: matchStage },
+      {
+        $facet: {
+          data: [
+            { $sort: { created_at: -1 } },
+            { $skip: skip },
+            { $limit: limit },
+            { $project: { password: 0, checklist: 0 } },
+            // $lookup scoped to the page slice — runs for at most `limit` docs
+            {
+              $lookup: {
+                from: 'dmszohodocuments',
+                let:  { lid: '$lead_id' },
+                pipeline: [
+                  { $match: { $expr: { $eq: ['$record_id', '$$lid'] } } },
+                  { $group: { _id: '$status', count: { $sum: 1 } } },
+                ],
+                as: 'document_stats',
+              },
+            },
+            {
+              $addFields: {
+                total_documents: { $sum: '$document_stats.count' },
+                documents_by_status: {
+                  $arrayToObject: {
+                    $map: {
+                      input: '$document_stats',
+                      as:    's',
+                      in:    { k: '$$s._id', v: '$$s.count' },
+                    },
+                  },
+                },
+              },
+            },
+            { $project: { document_stats: 0 } },
+          ],
+          totalCount: [{ $count: 'count' }],
+        },
+      },
+    ]);
+
+    const clients    = result.data;
+    const total      = result.totalCount[0]?.count ?? 0;
+    const totalPages = Math.ceil(total / limit);
+
+    // ── Phase 2: Zoho — batch fetch application data ───────────────────────
+    const visaIds   = [];
+    const spouseIds = [];
+
+    for (const c of clients) {
+      if (c.record_type === 'visa_application')        visaIds.push(c.lead_id);
+      if (c.record_type === 'spouse_skill_assessment') spouseIds.push(c.lead_id);
+    }
+
+    const COMMON_FIELDS = 'id, Name, Email, DMS_Application_Status, Application_Stage, Deadline_For_Lodgment, Record_Type, Recent_Activity, Package_Finalize, Qualified_Country';
+    const SPOUSE_FIELDS = `${COMMON_FIELDS}, Assessing_Authority, Suggested_Anzsco, Spouse_Name`;
+
+    const buildCoql = (module, fields, ids) => ({
+      select_query: `select ${fields} from ${module} where id in (${ids.map(id => `'${id}'`).join(',')})`,
+    });
+
+    const [visaRes, spouseRes] = await Promise.allSettled([
+      visaIds.length   ? zohoRequest('coql', 'POST', buildCoql('Visa_Applications',       COMMON_FIELDS, visaIds))   : Promise.resolve(null),
+      spouseIds.length ? zohoRequest('coql', 'POST', buildCoql('Spouse_Skill_Assessment', SPOUSE_FIELDS, spouseIds)) : Promise.resolve(null),
+    ]);
+
+    const appMap = new Map();
+
+    if (visaRes.status === 'fulfilled' && visaRes.value?.data) {
+      for (const app of visaRes.value.data) appMap.set(app.id, app);
+    }
+    if (spouseRes.status === 'fulfilled' && spouseRes.value?.data) {
+      for (const app of spouseRes.value.data) appMap.set(app.id, app);
+    }
+
+    const enriched = clients.map(c => ({
+      ...c,
+      application_data: appMap.get(c.lead_id) ?? null,
+    }));
+
+    // ── Response ───────────────────────────────────────────────────────────
     res.status(200).json({
       status: 'success',
-      results: clients.length,
-      data: {
-        clients,
+      results: enriched.length,
+      pagination: {
+        currentPage:  page,
+        totalPages,
+        totalRecords: total,
+        limit,
       },
+      data: { clients: enriched },
     });
   } catch (error) {
     res.status(500).json({

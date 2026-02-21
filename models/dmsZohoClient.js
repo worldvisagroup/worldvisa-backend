@@ -86,6 +86,10 @@ dmsZohoClientSchema.methods.correctPassword = async function (
   return await bcrypt.compare(candidatePassword, userPassword);
 };
 
+dmsZohoClientSchema.index({ lead_owner: 1 });
+dmsZohoClientSchema.index({ created_at: -1 });
+dmsZohoClientSchema.index({ name: 'text', email: 'text', phone: 'text', lead_id: 'text' });
+
 const DmsZohoClient = mongoose.model('DmsZohoClient', dmsZohoClientSchema);
 
 module.exports = DmsZohoClient;
