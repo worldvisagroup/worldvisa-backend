@@ -786,3 +786,61 @@ exports.updateClientAccountByRecordId = async (req, res) => {
     });
   }
 };
+
+exports.getClientById = async (req, res) => {
+  try {
+    const { id }   = req.params;
+    const limit    = Math.min(parseInt(req.query.limit,    10) || 10, 50);
+    const docsPage = Math.max(parseInt(req.query.docs_page,10) || 1, 1);
+    const docsSkip = (docsPage - 1) * limit;
+
+    const client = await DmsZohoClient.findById(id).select('-password -checklist');
+    if (!client) return res.status(404).json({ status: 'fail', message: 'Client not found' });
+
+    const zohoModule = client.record_type === 'spouse_skill_assessment'
+      ? 'Spouse_Skill_Assessment' : 'Visa_Applications';
+    const zohoFields = client.record_type === 'spouse_skill_assessment'
+      ? 'id, Name, Email, DMS_Application_Status, Application_Stage, Deadline_For_Lodgment, Record_Type, Recent_Activity, Package_Finalize, Assessing_Authority, Suggested_Anzsco, Spouse_Name, Application_Handled_By'
+      : 'id, Name, Email, DMS_Application_Status, Application_Stage, Deadline_For_Lodgment, Record_Type, Recent_Activity, Package_Finalize, Qualified_Country, Service_Finalized, Checklist_Requested, Send_Check_List, Application_Handled_By';
+
+    const [docsResult, docsTotal, docStats, appRes] = await Promise.allSettled([
+      DmsZohoDocument.find({ record_id: client.lead_id })
+        .sort({ uploaded_at: -1 })
+        .skip(docsSkip)
+        .limit(limit)
+        .select('_id file_name document_name document_category status uploaded_at uploaded_by workdrive_file_id')
+        .lean(),
+      DmsZohoDocument.countDocuments({ record_id: client.lead_id }),
+      DmsZohoDocument.aggregate([
+        { $match: { record_id: client.lead_id } },
+        { $group: { _id: '$status', count: { $sum: 1 } } },
+      ]),
+      zohoRequest('coql', 'POST', {
+        select_query: `select ${zohoFields} from ${zohoModule} where id = '${client.lead_id}'`,
+      }),
+    ]);
+
+    const docs                = docsResult.status === 'fulfilled' ? docsResult.value           : [];
+    const totalDocs           = docsTotal.status  === 'fulfilled' ? docsTotal.value            : 0;
+    const statRows            = docStats.status   === 'fulfilled' ? docStats.value             : [];
+    const applicationData     = appRes.status     === 'fulfilled' ? appRes.value?.data?.[0] ?? null : null;
+    const documents_by_status = Object.fromEntries(statRows.map(s => [s._id, s.count]));
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        client: { ...client.toObject(), application_data: applicationData },
+        documents: {
+          data: docs,
+          totalRecords: totalDocs,
+          totalPages: Math.ceil(totalDocs / limit),
+          currentPage: docsPage,
+          limit,
+          documents_by_status,
+        },
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message || 'Something went wrong' });
+  }
+};

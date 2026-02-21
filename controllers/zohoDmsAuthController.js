@@ -5,18 +5,242 @@ const jwt = require('jsonwebtoken');
 const ZohoDmsUser = require('../models/zohoDmsUser');
 const { addNotificationAndEmit } = require("./helper/service/notifications");
 const DmsZohoClient = require("../models/dmsZohoClient");
+const DmsZohoDocument = require('../models/dmsZohoDocument');
+const ZohoDmsNotification = require('../models/zohoDmsNotification');
+const { zohoRequest } = require('./zohoDms/zohoApi');
 
-exports.getAllUsers = async (req, res, next) => {
+exports.getAllUsers = async (req, res) => {
   try {
-    const users = await ZohoDmsUser.find(); // Include password in the results
+    const page  = Math.max(parseInt(req.query.page,  10) || 1, 1);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+    const skip  = (page - 1) * limit;
+    const { search, role } = req.query;
+
+    const matchStage = {};
+    if (role)   matchStage.role = role.trim();
+    if (search) {
+      const esc = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      matchStage.username = new RegExp(esc, 'i');
+    }
+
+    // Single pipeline: filter + paginate + count
+    const [result] = await ZohoDmsUser.aggregate([
+      { $match: matchStage },
+      {
+        $facet: {
+          data: [
+            { $sort: { last_login: -1 } },
+            { $skip: skip },
+            { $limit: limit },
+            { $project: { password: 0, passwordVal: 0 } },
+          ],
+          totalCount: [{ $count: 'count' }],
+        },
+      },
+    ]);
+
+    const users      = result.data;
+    const total      = result.totalCount[0]?.count ?? 0;
+    const totalPages = Math.ceil(total / limit);
+
+    if (!users.length) {
+      return res.status(200).json({
+        status: 'success', results: 0,
+        pagination: { currentPage: page, totalPages: 0, totalRecords: 0, limit },
+        data: { users: [] },
+      });
+    }
+
+    const usernames = users.map(u => u.username);
+    const userIds = users.map(u => u._id);
+
+    const allStats = await Promise.allSettled([
+      DmsZohoDocument.aggregate([
+        { $match: { 'requested_reviews.requested_by': { $in: usernames } } },
+        { $unwind: '$requested_reviews' },
+        { $match: { 'requested_reviews.requested_by': { $in: usernames } } },
+        { $group: {
+            _id:     '$requested_reviews.requested_by',
+            total:   { $sum: 1 },
+            pending: { $sum: { $cond: [{ $eq: ['$requested_reviews.status', 'pending'] }, 1, 0] } },
+        }},
+      ]),
+      DmsZohoDocument.aggregate([
+        { $match: { 'requested_reviews.requested_to': { $in: usernames } } },
+        { $unwind: '$requested_reviews' },
+        { $match: { 'requested_reviews.requested_to': { $in: usernames } } },
+        { $group: {
+            _id:     '$requested_reviews.requested_to',
+            total:   { $sum: 1 },
+            pending: { $sum: { $cond: [{ $eq: ['$requested_reviews.status', 'pending'] }, 1, 0] } },
+        }},
+      ]),
+      ZohoDmsNotification.aggregate([
+        { $match: { user: { $in: userIds }, isRead: false } },
+        { $group: { _id: '$user', count: { $sum: 1 } } },
+      ]),
+      ...usernames.map(username =>
+        Promise.all([
+          zohoRequest('coql', 'POST', {
+            select_query: `select COUNT(id) as total from Visa_Applications where Application_Handled_By like '${username}' and Application_State = 'Active'`,
+          }),
+          zohoRequest('coql', 'POST', {
+            select_query: `select COUNT(id) as total from Spouse_Skill_Assessment where Application_Handled_By like '${username}'`,
+          }),
+        ]).then(([vRes, sRes]) => ({
+          username,
+          count: (vRes?.data?.[0]?.total || 0) + (sRes?.data?.[0]?.total || 0),
+        })).catch(() => ({ username, count: 0 }))
+      ),
+    ]);
+
+    const [sentStats, receivedStats, notifStats, ...appResults] = allStats;
+
+    const sentMap     = new Map((sentStats.status     === 'fulfilled' ? sentStats.value     : []).map(s => [s._id, s]));
+    const receivedMap = new Map((receivedStats.status === 'fulfilled' ? receivedStats.value : []).map(s => [s._id, s]));
+    const notifMap    = new Map((notifStats.status    === 'fulfilled' ? notifStats.value    : []).map(s => [s._id.toString(), s.count]));
+    const appCountMap = new Map();
+
+    for (const r of appResults) {
+      if (r.status === 'fulfilled' && r.value?.username !== undefined) {
+        appCountMap.set(r.value.username, r.value.count);
+      }
+    }
+
+    const enriched = users.map(u => ({
+      ...u,
+      stats: {
+        active_applications:       appCountMap.get(u.username)         ?? 0,
+        reviews_sent:              sentMap.get(u.username)?.total       ?? 0,
+        reviews_sent_pending:      sentMap.get(u.username)?.pending     ?? 0,
+        reviews_received:          receivedMap.get(u.username)?.total   ?? 0,
+        reviews_received_pending:  receivedMap.get(u.username)?.pending ?? 0,
+        unread_notifications:      notifMap.get(u._id.toString())       ?? 0,
+      },
+    }));
+
     res.status(200).json({
-      data: users,
+      status: 'success',
+      results: enriched.length,
+      pagination: { currentPage: page, totalPages, totalRecords: total, limit },
+      data: { users: enriched },
     });
   } catch (error) {
-    res.status(500).json({
-      status: 'fail',
-      message: error.message,
+    res.status(500).json({ status: 'error', message: error.message || 'Something went wrong' });
+  }
+};
+
+exports.getUserById = async (req, res) => {
+  try {
+    const { id }      = req.params;
+    const limit       = Math.min(parseInt(req.query.limit,        10) || 10, 50);
+    const reviewsPage = Math.max(parseInt(req.query.reviews_page, 10) || 1, 1);
+    const appsPage    = Math.max(parseInt(req.query.apps_page,    10) || 1, 1);
+    const notifsPage  = Math.max(parseInt(req.query.notifs_page,  10) || 1, 1);
+
+    const user = await ZohoDmsUser.findById(id).select('-password -passwordVal');
+    if (!user) return res.status(404).json({ status: 'fail', message: 'User not found' });
+
+    const { username } = user;
+    const reviewSkip   = (reviewsPage - 1) * limit;
+    const appsOffset   = (appsPage    - 1) * limit;
+    const notifsSkip   = (notifsPage  - 1) * limit;
+
+    const [sentResult, receivedResult, notifResult, notifTotal, visaRes, spouseRes] = await Promise.allSettled([
+      DmsZohoDocument.aggregate([
+        { $match: { 'requested_reviews.requested_by': username } },
+        { $unwind: '$requested_reviews' },
+        { $match: { 'requested_reviews.requested_by': username } },
+        { $sort: { 'requested_reviews.requested_at': -1 } },
+        { $lookup: { from: 'dmszohoclients', localField: 'record_id', foreignField: 'lead_id', as: 'client' } },
+        {
+          $facet: {
+            data: [
+              { $skip: reviewSkip }, { $limit: limit },
+              { $project: {
+                  _id: 1, record_id: 1, document_name: 1, document_category: 1,
+                  client_name: { $arrayElemAt: ['$client.name', 0] },
+                  review: {
+                    _id:          '$requested_reviews._id',
+                    requested_to: '$requested_reviews.requested_to',
+                    status:       '$requested_reviews.status',
+                    requested_at: '$requested_reviews.requested_at',
+                  },
+              }},
+            ],
+            totalCount: [{ $count: 'count' }],
+          },
+        },
+      ]),
+      DmsZohoDocument.aggregate([
+        { $match: { 'requested_reviews.requested_to': username } },
+        { $unwind: '$requested_reviews' },
+        { $match: { 'requested_reviews.requested_to': username } },
+        { $sort: { 'requested_reviews.requested_at': -1 } },
+        { $lookup: { from: 'dmszohoclients', localField: 'record_id', foreignField: 'lead_id', as: 'client' } },
+        {
+          $facet: {
+            data: [
+              { $skip: reviewSkip }, { $limit: limit },
+              { $project: {
+                  _id: 1, record_id: 1, document_name: 1, document_category: 1,
+                  client_name: { $arrayElemAt: ['$client.name', 0] },
+                  review: {
+                    _id:          '$requested_reviews._id',
+                    requested_by: '$requested_reviews.requested_by',
+                    status:       '$requested_reviews.status',
+                    requested_at: '$requested_reviews.requested_at',
+                  },
+              }},
+            ],
+            totalCount: [{ $count: 'count' }],
+          },
+        },
+      ]),
+      ZohoDmsNotification.find({ user: user._id }).sort({ createdAt: -1 }).skip(notifsSkip).limit(limit).lean(),
+      ZohoDmsNotification.countDocuments({ user: user._id }),
+      zohoRequest('coql', 'POST', {
+        select_query: `select id, Name, DMS_Application_Status, Application_Stage, Deadline_For_Lodgment, Record_Type, Qualified_Country, Recent_Activity, Package_Finalize from Visa_Applications where Application_Handled_By like '${username}' and Application_State = 'Active' order by Created_Time desc limit ${limit} offset ${appsOffset}`,
+      }),
+      zohoRequest('coql', 'POST', {
+        select_query: `select id, Name, DMS_Application_Status, Application_Stage, Deadline_For_Lodgment, Record_Type, Assessing_Authority, Recent_Activity from Spouse_Skill_Assessment where Application_Handled_By like '${username}' order by Created_Time desc limit ${limit} offset ${appsOffset}`,
+      }),
+    ]);
+
+    const sentData     = sentResult.status     === 'fulfilled' ? sentResult.value[0]       : { data: [], totalCount: [] };
+    const receivedData = receivedResult.status === 'fulfilled' ? receivedResult.value[0]   : { data: [], totalCount: [] };
+    const notifs       = notifResult.status    === 'fulfilled' ? notifResult.value          : [];
+    const totalNotifs  = notifTotal.status     === 'fulfilled' ? notifTotal.value           : 0;
+    const visaApps     = visaRes.status        === 'fulfilled' ? visaRes.value?.data   ?? [] : [];
+    const spouseApps   = spouseRes.status      === 'fulfilled' ? spouseRes.value?.data ?? [] : [];
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        user: { _id: user._id, username: user.username, role: user.role, last_login: user.last_login },
+        reviews_sent: {
+          data: sentData.data,
+          totalRecords: sentData.totalCount[0]?.count ?? 0,
+          currentPage: reviewsPage, limit,
+        },
+        reviews_received: {
+          data: receivedData.data,
+          totalRecords: receivedData.totalCount[0]?.count ?? 0,
+          currentPage: reviewsPage, limit,
+        },
+        applications: {
+          data: [...visaApps, ...spouseApps],
+          currentPage: appsPage, limit,
+        },
+        notifications: {
+          data: notifs,
+          totalRecords: totalNotifs,
+          currentPage: notifsPage, limit,
+        },
+      },
     });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message || 'Something went wrong' });
   }
 };
 
@@ -25,7 +249,6 @@ exports.deleteUser = async (req, res, next) => {
     const { username } = req.body;
     const { role } = req.user;
 
-    // Check if the user has the master_admin role
     if (role !== 'master_admin') {
       return res.status(403).json({
         status: 'fail',
@@ -33,7 +256,6 @@ exports.deleteUser = async (req, res, next) => {
       });
     }
 
-    // Find and delete the user by username
     const deletedUser = await ZohoDmsUser.findOneAndDelete({ username });
 
     if (!deletedUser) {
@@ -61,7 +283,6 @@ exports.resetPassword = async (req, res, next) => {
     const { username, newPassword } = req.body;
     const { role } = req.user;
 
-    // Check if the user has the master_admin role
     if (role !== 'master_admin') {
       return res.status(403).json({
         status: 'fail',
@@ -69,7 +290,6 @@ exports.resetPassword = async (req, res, next) => {
       });
     }
 
-    // Find the user by username
     const user = await ZohoDmsUser.findOne({ username });
     if (!user) {
       return res.status(404).json({
@@ -78,7 +298,6 @@ exports.resetPassword = async (req, res, next) => {
       });
     }
 
-    // Update the user's password
     user.password = newPassword;
     await user.save();
 
@@ -99,7 +318,6 @@ exports.updateUserRole = async (req, res, next) => {
     const { username, newRole } = req.body;
     const { role } = req.user;
 
-    // Check if the user has the master_admin role
     if (role !== 'master_admin') {
       return res.status(403).json({
         status: 'fail',
@@ -107,7 +325,6 @@ exports.updateUserRole = async (req, res, next) => {
       });
     }
 
-    // Find the user by username
     const user = await ZohoDmsUser.findOne({ username });
     if (!user) {
       return res.status(404).json({
@@ -116,7 +333,6 @@ exports.updateUserRole = async (req, res, next) => {
       });
     }
 
-    // Update the user's role
     user.role = newRole;
     await user.save();
 
@@ -235,7 +451,8 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    // 3) If everything ok, send token to client
+    // 3) Record last login, then send token
+    await ZohoDmsUser.findByIdAndUpdate(user._id, { last_login: new Date() });
     createSendToken(user, 200, res);
   } catch (error) {
     res.status(400).json({
@@ -489,7 +706,6 @@ exports.updateNotificationIsRead = async (req, res) => {
       });
     }
 
-    // Only allow the user to update their own notification
     const notification = await ZohoDmsNotification.findOne({ _id: notificationId, user: userId });
     if (!notification) {
       return res.status(404).json({

@@ -23,6 +23,10 @@ const zohoDmsUserSchema = new mongoose.Schema({
     enum: ['master_admin', 'supervisor', 'team_leader', 'admin'],
     required: [true, 'Please specify a role: admin, master_admin or team_leader'],
   },
+  last_login: {
+    type: Date,
+    default: null,
+  },
 });
 
 // Hash password before saving
@@ -43,6 +47,8 @@ zohoDmsUserSchema.methods.correctPassword = async function (
 ) {
   return await bcrypt.compare(candidatePassword, userPassword);
 };
+
+zohoDmsUserSchema.index({ role: 1 });
 
 const ZohoDmsUser = mongoose.model('ZohoDmsUser', zohoDmsUserSchema);
 

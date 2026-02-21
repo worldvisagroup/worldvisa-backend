@@ -26,4 +26,7 @@ router.put('/clients/reset-password', resetPasswordByLeadId);
 
 
 
+// User details by MongoDB _id — must be last to avoid conflicts with named routes
+router.get('/:id', zohoDmsAuthController.protect, zohoDmsAuthController.getUserById);
+
 module.exports = router;
