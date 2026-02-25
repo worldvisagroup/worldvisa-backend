@@ -68,6 +68,9 @@ const PackageSchema = new mongoose.Schema({
   timestamps: true
 });
 
+PackageSchema.index({ country: 1, type: 1 });
+PackageSchema.index({ addOns: 1 });
+
 const Packages = mongoose.model('Packages', PackageSchema);
 
 module.exports = Packages;

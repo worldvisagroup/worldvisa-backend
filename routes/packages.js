@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getAllPackages, createPackage, getPackageById, updatePackageById, deletePackageById, getPackageBySlug, getPackageUrl, addBulkPackages, deleteAllPackages, searchPackagesByQuery, updatePackageByItemId } = require('../controllers/packagesController');
+const { listPackages, createPackage, getPackageById, updatePackageById, deletePackageById, getPackageBySlug, getPackageUrl, addBulkPackages, deleteAllPackages } = require('../controllers/packagesController');
 const { getAllZohoBooksItems, createZohoBooksItem, getZohoBooksItemById, deleteZohoBooksItemById, updateZohoBooksItem, bulkImportZohoBooksItems, deleteAllZohoBooksItems, updateZohoBooksByItemId } = require('../controllers/zohoBooksItems');
 
 // Zoho books items
@@ -23,13 +23,11 @@ router.delete('/items/:id', deleteZohoBooksItemById);
 
 
 // Packages
-router.get('/', getAllPackages);
+router.get('/', listPackages);
 
 router.get('/package-url/:itemId', getPackageUrl);
 
 router.get('/packages-bulk', addBulkPackages);
-
-router.get('/search', searchPackagesByQuery)
 
 router.get('/:slug', getPackageBySlug);
 

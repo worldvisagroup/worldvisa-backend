@@ -1,36 +1,117 @@
+const mongoose = require('mongoose');
 const Packages = require("../models/packages");
 const ZohoBooksItem = require("../models/zohoBooksItems");
 const { validateRequiredFields } = require("../utils/helperFunction");
 const allBulkPackagesData = require('../factories/allPackages.json');
 
-/**
- * List all packages with pagination.
- * Populates tiers and addOns
- */
-const getAllPackages = async (req, res) => {
-  try {
-    let page = parseInt(req.query.page, 10) || 1;
-    let limit = parseInt(req.query.limit, 10) || 10;
-    if (page < 1) page = 1;
-    if (limit < 1) limit = 10;
+const VISA_TYPES = ['pr', 'tourist', 'work', 'study'];
+const MAX_LIMIT = 100;
+const DEFAULT_LIMIT = 10;
 
-    const skip = (page - 1) * limit;
-    const { type, country } = req.query;
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function isValidObjectId(id) {
+  return typeof id === 'string' && /^[a-fA-F0-9]{24}$/.test(id);
+}
+
+const listPackages = async (req, res) => {
+  try {
+    const {
+      page: pageParam,
+      limit: limitParam,
+      search,
+      q,
+      searchTerm,
+      country: countryParam,
+      type: typeParam,
+      visaType: visaTypeParam,
+      addOn: addOnParam,
+      addOns: addOnsParam,
+      hasAddOn: hasAddOnParam
+    } = req.query;
+
+    let page = parseInt(pageParam, 10) || 1;
+    let limit = parseInt(limitParam, 10) || DEFAULT_LIMIT;
+    if (page < 1) page = 1;
+    if (limit < 1) limit = DEFAULT_LIMIT;
+    if (limit > MAX_LIMIT) limit = MAX_LIMIT;
+
+    const searchTermValue = search || q || searchTerm;
+    const typeValue = typeParam || visaTypeParam;
+    const addOnValue = addOnsParam || addOnParam;
 
     const query = {};
-    if (type) {
-      query.type = { $in: type.split(',') };
+
+    if (searchTermValue && typeof searchTermValue === 'string' && searchTermValue.trim()) {
+      const escaped = escapeRegex(searchTermValue.trim());
+      query.$and = query.$and || [];
+      query.$and.push({
+        $or: [
+          { title: { $regex: escaped, $options: 'i' } },
+          { subtitle: { $regex: escaped, $options: 'i' } }
+        ]
+      });
     }
-    if (country) {
-      query.country = country;
+
+    if (countryParam && typeof countryParam === 'string') {
+      const countries = countryParam.split(',').map(c => c.trim()).filter(Boolean);
+      if (countries.length === 1) {
+        query.country = countries[0];
+      } else if (countries.length > 1) {
+        query.country = { $in: countries };
+      }
     }
+
+    if (typeValue && typeof typeValue === 'string') {
+      const types = typeValue.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
+      const invalid = types.filter(t => !VISA_TYPES.includes(t));
+      if (invalid.length > 0) {
+        return res.status(400).json({
+          error: 'Invalid visa type(s). Allowed: pr, tourist, work, study',
+          invalid
+        });
+      }
+      if (types.length > 0) {
+        query.type = { $in: types };
+      }
+    }
+
+    if (addOnValue && typeof addOnValue === 'string') {
+      const ids = addOnValue.split(',').map(id => id.trim()).filter(Boolean);
+      const invalidIds = ids.filter(id => !isValidObjectId(id));
+      if (invalidIds.length > 0) {
+        return res.status(400).json({
+          error: 'Invalid addOn/addOns: each value must be a 24-character hex ObjectId',
+          invalid: invalidIds
+        });
+      }
+      if (ids.length > 0) {
+        query.addOns = { $in: ids.map(id => new mongoose.Types.ObjectId(id)) };
+      }
+    }
+
+    if (hasAddOnParam === 'true' || hasAddOnParam === 'false') {
+      const addOnTrueIds = await ZohoBooksItem.find({ addOn: true }).distinct('_id');
+      if (hasAddOnParam === 'true') {
+        query.tiers = addOnTrueIds.length > 0 ? { $in: addOnTrueIds } : { $in: [] };
+      } else {
+        if (addOnTrueIds.length > 0) {
+          query.tiers = { $nin: addOnTrueIds };
+        }
+      }
+    }
+
+    const skip = (page - 1) * limit;
 
     const [packages, total] = await Promise.all([
       Packages.find(query)
         .skip(skip)
         .limit(limit)
-        .select('slug title country shortDescription type') // Select only the required fields
-        .populate('tiers').populate('addOns'), // Populate tiers
+        .select('slug title country shortDescription type')
+        .populate('tiers')
+        .populate('addOns'),
       Packages.countDocuments(query)
     ]);
 
@@ -41,41 +122,12 @@ const getAllPackages = async (req, res) => {
       pagination: { total, page, limit, totalPages }
     });
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch packages", details: err.message });
-  }
-};
-
-const searchPackagesByQuery = async (req, res) => {
-  try {
-    const { searchTerm } = req.query;
-
-    if (!searchTerm) {
-      return res.status(400).json({ error: "Missing `searchTerm` in query parameters" });
-    }
-
-    const packages = await Packages.find({
-      $or: [
-        { title: { $regex: searchTerm, $options: 'i' } },
-        { subtitle: { $regex: searchTerm, $options: 'i' } },
-      ]
-    })
-      .select('slug title country shortDescription type') // Select only the required fields
-
-    if (packages.length === 0) {
-      return res.status(404).json({ error: "No packages found matching the search term" });
-    }
-
-    res.status(200).json({ data: packages });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to search packages", details: err.message });
+    res.status(500).json({ error: 'Failed to fetch packages', details: err.message });
   }
 };
 
 
-/**
- * Get a package by ID.
- * Populates tiers and addOns
- */
+
 const getPackageById = async (req, res) => {
   try {
     const packageId = req.params.id;
@@ -98,10 +150,7 @@ const getPackageById = async (req, res) => {
   }
 };
 
-/**
- * Get a package by slug.
- * Populates tiers and addOns
- */
+
 const getPackageBySlug = async (req, res) => {
   try {
     const packageSlug = req.params.slug;
@@ -125,17 +174,10 @@ const getPackageBySlug = async (req, res) => {
 };
 
 
-/**
- * Create a new package according to the updated schema.
- * The updated schema includes: country, title, subtitle (optional),
- * tags (required, array), shortDescription (optional),
- * longDescription (optional), type (enum, required),
- * tiers (required), addOns (required, array)
- */
+
 const createPackage = async (req, res) => {
   try {
-    // Extract fields according to the updated schema
-    const {
+      const {
       country,
       title,
       slug,
@@ -150,7 +192,6 @@ const createPackage = async (req, res) => {
       validity
     } = req.body;
 
-    // Validate required fields per model
     const requiredFields = [
       { key: 'country', label: "Field 'country' is required" },
       { key: 'title', label: "Field 'title' is required" },
@@ -166,7 +207,6 @@ const createPackage = async (req, res) => {
       return res.status(400).json({ error: errorMessage });
     }
 
-    // Validate tiers structure
     if (
       !Array.isArray(tiers) ||
       tiers.length === 0 ||
@@ -177,7 +217,6 @@ const createPackage = async (req, res) => {
       });
     }
 
-    // Validate addOns if present
     let normalizedAddOns = [];
     if (addOns && Array.isArray(addOns)) {
       if (!addOns.every(addOn => typeof addOn === 'string' && addOn.length === 24)) {
@@ -200,7 +239,6 @@ const createPackage = async (req, res) => {
       }
     }
 
-    // Build package object per schema, keeping undefined for optional fields
     const packageObj = {
       country,
       title,
@@ -219,7 +257,6 @@ const createPackage = async (req, res) => {
     const newPackage = new Packages(packageObj);
     const savedPackage = await newPackage.save();
 
-    // Populate for response
     await savedPackage.populate('tiers');
     await savedPackage.populate('addOns');
 
@@ -229,10 +266,7 @@ const createPackage = async (req, res) => {
   }
 };
 
-/**
- * Update a package by ID according to the updated schema.
- * Handles all modifiable fields in the schema.
- */
+
 const updatePackageById = async (req, res) => {
   try {
     const packageId = req.params.id;
@@ -242,7 +276,6 @@ const updatePackageById = async (req, res) => {
     ];
     const updatedFields = {};
 
-    // Only extract provided fields
     for (const field of allowedFields) {
       if (Object.prototype.hasOwnProperty.call(req.body, field)) {
         updatedFields[field] = req.body[field] === null && (field === 'validity' || field === 'benefits') ? null : req.body[field];
@@ -256,7 +289,6 @@ const updatePackageById = async (req, res) => {
       });
     }
 
-    // Required fields validation for update
     const requiredFieldsForUpdate = [];
     if ('country' in updatedFields)
       requiredFieldsForUpdate.push({ key: 'country', label: "Field 'country' is required" });
@@ -280,7 +312,6 @@ const updatePackageById = async (req, res) => {
       }
     }
 
-    // If updating tiers, validate structure
     if ('tiers' in updatedFields) {
       const tiers = updatedFields.tiers;
       if (
@@ -295,7 +326,6 @@ const updatePackageById = async (req, res) => {
       updatedFields.tiers = tiers;
     }
 
-    // If updating addOns, validate structure
     if ('addOns' in updatedFields) {
       const addOns = updatedFields.addOns;
       if (addOns && Array.isArray(addOns)) {
@@ -308,7 +338,6 @@ const updatePackageById = async (req, res) => {
       }
     }
 
-    // If updating validity, validate structure
     if ('validity' in updatedFields && updatedFields.validity !== null) {
       const { validity } = updatedFields;
       if (
@@ -323,7 +352,6 @@ const updatePackageById = async (req, res) => {
       }
     }
 
-    // If updating benefits, validate structure
     if ('benefits' in updatedFields && updatedFields.benefits !== null) {
       const benefits = updatedFields.benefits;
       if (!Array.isArray(benefits)) {
@@ -352,9 +380,7 @@ const updatePackageById = async (req, res) => {
   }
 };
 
-/**
- * Delete a package by its ID.
- */
+  
 const deletePackageById = async (req, res) => {
   try {
     const packageId = req.params.id;
@@ -445,7 +471,7 @@ const deleteAllPackages = async (req, res) => {
 
 
 module.exports = {
-  getAllPackages,
+  listPackages,
   createPackage,
   getPackageById,
   getPackageBySlug,
@@ -453,6 +479,5 @@ module.exports = {
   deletePackageById,
   getPackageUrl,
   addBulkPackages,
-  deleteAllPackages,
-  searchPackagesByQuery
+  deleteAllPackages
 };
