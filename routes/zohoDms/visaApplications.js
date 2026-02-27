@@ -7,6 +7,7 @@ const {
   getSpouseVisaApplicationById,
 } = require("../../controllers/visaApplicationController.js");
 const { getDeadlineStats } = require('../../controllers/applicationStatsController');
+const { getAdminDashboardStats } = require('../../controllers/adminDashboardController');
 const dmsZohoDocumentsController = require('../../controllers/dmsZohoDocumentsController');
 const multer = require('multer');
 
@@ -33,6 +34,9 @@ router.get('/checklist/requested', protect, dmsZohoDocumentsController.getCheckl
 router.get('/spouse/applications', protect, getSpouseApplicationsWithAttachments);
 router.get('/spouse/applications/search', protect, dmsZohoDocumentsController.searchSpouseZohoApplications);
 router.get('/spouse/applications/:id', protect, getSpouseVisaApplicationById);
+
+// Admin dashboard stats (must be before /:id)
+router.get('/admin/dashboard', protect, getAdminDashboardStats);
 
 // Application Field Update:Patch route
 router.get("/:id", protect, getVisaApplicationById);

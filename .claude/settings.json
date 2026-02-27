@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -r \"quality\\\\|checklist\" /Users/vishnu/Development/WorldvisaV1/worldvisa-backend/models/*.js)"
+    ]
+  }
+}
