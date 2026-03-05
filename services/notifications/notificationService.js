@@ -6,8 +6,8 @@ const logger = require('../../utils/logger');
 
 const IMMEDIATE_TYPES = new Set(['document_rejected', 'checklist_created', 'checklist_requested']);
 
-// Dedupe window for checklist_created: only one email per lead per window
-const CHECKLIST_CREATED_DEDUPE_WINDOW_MS = 15 * 60 * 1000;
+// Dedupe window for immediate types that can be triggered multiple times for the same lead
+const DEDUPE_WINDOW_MS = 15 * 60 * 1000;
 
 const WINDOW_MS_BY_ROLE = {
   client: 60 * 60 * 1000,       // 60 min — admin actions → client
@@ -52,13 +52,15 @@ async function createEmailNotification(params) {
   const windowMs = WINDOW_MS_BY_ROLE[recipientRole] ?? (30 * 60 * 1000);
   const scheduledFor = sendImmediately ? new Date() : new Date(Date.now() + windowMs);
 
-  // Deduplicate checklist_created: one email per lead per time window
-  if (notificationType === 'checklist_created') {
-    const cutoff = new Date(Date.now() - CHECKLIST_CREATED_DEDUPE_WINDOW_MS);
+  // Deduplicate immediate types that can be triggered multiple times for the same lead
+  const dedupeTypes = ['checklist_created', 'checklist_requested'];
+  if (dedupeTypes.includes(notificationType)) {
+    const cutoff = new Date(Date.now() - DEDUPE_WINDOW_MS);
+    const parentId = entityParentId || 'system';
     const existing = await EmailNotification.findOne({
       recipientEmail,
-      notificationType: 'checklist_created',
-      entityParentId: entityParentId || 'system',
+      notificationType,
+      entityParentId: parentId,
       $or: [
         { status: 'pending', createdAt: { $gte: cutoff } },
         { status: 'sent', sentAt: { $gte: cutoff } },
@@ -69,15 +71,20 @@ async function createEmailNotification(params) {
 
     if (existing) {
       const existingId = existing._id;
-      if (existing.status === 'pending' && templateData?.checklistCount != null) {
+      if (
+        notificationType === 'checklist_created' &&
+        existing.status === 'pending' &&
+        templateData?.checklistCount != null
+      ) {
         await EmailNotification.updateOne(
           { _id: existingId },
           { $set: { templateData: { ...existing.templateData, checklistCount: templateData.checklistCount } } }
         );
       }
-      logger.info('[Email] Deduplicated checklist_created', {
+      logger.info('[Email] Deduplicated immediate notification', {
+        notificationType,
         recipientEmail,
-        entityParentId,
+        entityParentId: parentId,
         existingId: existingId.toString(),
       });
       return null;
