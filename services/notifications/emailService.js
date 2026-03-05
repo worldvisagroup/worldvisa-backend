@@ -172,6 +172,13 @@ async function sendSingle(notificationId) {
 async function sendBatch(notificationIds) {
   if (!notificationIds?.length) return;
 
+  // Idempotency: batch was already sent (e.g. previous attempt succeeded, then crash before DB update)
+  const any = await EmailNotification.find(
+    { _id: { $in: notificationIds } },
+    { status: 1 }
+  ).lean();
+  if (any.length && any.every((r) => r.status === 'sent')) return;
+
   const records = await EmailNotification.find({
     _id: { $in: notificationIds },
     status: { $in: ['pending', 'processing'] },
