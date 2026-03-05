@@ -21,7 +21,6 @@ function render(notifications, { recipientName, leadId } = {}) {
   const firstName = (recipientName || 'Applicant').split(' ')[0];
   const total = notifications.length;
 
-  // Group by type for structured display
   const groups = {};
   for (const n of notifications) {
     const key = n.notificationType;
