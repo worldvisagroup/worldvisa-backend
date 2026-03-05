@@ -49,7 +49,12 @@ const visaNewsCron = require("./utils/visaNewsCron");
 const { createWorker } = require('./workers/zipExportWorker');
 const { startCleanupCron } = require('./utils/zipCleanupCron');
 
+// Email Notification Worker and Batch Aggregator
+const { createWorker: createEmailWorker } = require('./workers/emailWorker');
+const { startBatchAggregator } = require('./workers/emailBatchAggregator');
+
 let zipExportWorker = null;
+let emailWorker = null;
 
 let aiJobOpportunitiesRouter = null;
 try {
@@ -79,6 +84,19 @@ if (redis && process.env.DISABLE_ZIP_WORKER !== 'true') {
       logger.info('[ZIP Worker] Background worker started successfully');
     } catch (error) {
       logger.error("Failed to start ZIP export worker", { error: error.message });
+    }
+  });
+}
+
+// Initialize Email worker and batch aggregator when Redis is ready
+if (redis && process.env.DISABLE_EMAIL_WORKER !== 'true') {
+  redis.on('ready', () => {
+    try {
+      emailWorker = createEmailWorker();
+      startBatchAggregator();
+      logger.info('[Email] Worker and batch aggregator initialized');
+    } catch (error) {
+      logger.error('Failed to start email worker', { error: error.message });
     }
   });
 }
@@ -434,9 +452,8 @@ app.use('/api/worldvisaV2/schedule-meeting', meetingRouter);
 // ANABIN institution database
 app.use('/api/anabin', anabinRouter);
 
-// Graceful shutdown handler for ZIP export worker
+// Graceful shutdown handler
 process.on('SIGTERM', async () => {
-  console.log('SIGTERM received, closing ZIP export worker');
   logger.info('SIGTERM received, initiating graceful shutdown');
   try {
     if (zipExportWorker) {
@@ -445,6 +462,14 @@ process.on('SIGTERM', async () => {
     }
   } catch (error) {
     logger.error('Error closing ZIP export worker', { error: error.message });
+  }
+  try {
+    if (emailWorker) {
+      await emailWorker.close();
+      logger.info('Email worker closed successfully');
+    }
+  } catch (error) {
+    logger.error('Error closing email worker', { error: error.message });
   }
   process.exit(0);
 });

@@ -205,6 +205,13 @@ exports.uploadDocument = async (req, res) => {
             category: 'document',
             source: 'document_review',
             applicationType: moduleName,
+            emailNotificationType: 'document_upload',
+            emailSubject: `${user.name} uploaded a document`,
+            emailTemplateData: {
+              clientName: user.name,
+              leadOwnerName: user.lead_owner,
+              uploadedAt: new Date().toISOString(),
+            },
           });
         }
       };
@@ -322,6 +329,13 @@ exports.updateDocument = async (req, res) => {
             category: 'document',
             source: 'document_review',
             applicationType: moduleName,
+            emailNotificationType: 'document_reupload',
+            emailSubject: `${user.name} re-uploaded a document`,
+            emailTemplateData: {
+              clientName: user.name,
+              leadOwnerName: user.lead_owner,
+              uploadedAt: new Date().toISOString(),
+            },
           });
         }
       }
@@ -357,13 +371,52 @@ exports.updateStatus = async (req, res) => {
     document.history.push({ status, changed_by: changed_by || 'Unknown' });
     await document.save();
 
-
     const timelineMessage = reject_message
       ? `Document status updated to: ${capitalizeFn(status)} by ${capitalizeFn(changed_by)
       } with this reject message: ${reject_message} `
       : `Document status updated to: ${capitalizeFn(status)} by ${capitalizeFn(changed_by)} `;
 
     await addToTimeline(document._id, timelineMessage, timelineMessage, changed_by);
+
+    // Send notification to client when document is approved or rejected
+    if (status === 'approved' || status === 'rejected') {
+      try {
+        const clientData = await DmsZohoClient.findOne({ lead_id: document.record_id }).lean();
+        if (clientData?._id) {
+          await addNotificationAndEmit({
+            req,
+            userId: clientData._id,
+            leadId: document.record_id,
+            documentId: document._id,
+            documentName: document.document_name,
+            title: status === 'approved' ? 'Document Approved' : 'Document Rejected',
+            message: status === 'approved'
+              ? `Your document "${document.document_name}" has been approved.`
+              : `Your document "${document.document_name}" was rejected. Reason: ${reject_message || 'See portal'}`,
+            type: status === 'approved' ? 'success' : 'error',
+            category: 'document',
+            source: 'document_review',
+            applicationType: document.applicationType || MODULE_VISA_APPLICATION,
+            emailNotificationType: status === 'approved' ? 'document_approved' : 'document_rejected',
+            emailSubject: status === 'approved'
+              ? `Document Approved: ${document.document_name}`
+              : `Action Required — Document Rejected: ${document.document_name}`,
+            emailTemplateData: {
+              rejectReason: reject_message || null,
+              reviewedBy: changed_by || null,
+            },
+          });
+        }
+      } catch (notifErr) {
+        // Non-fatal — log and continue
+        const logger = require('../utils/logger');
+        logger.error('Failed to send document status notification', {
+          error: notifErr.message,
+          docId,
+          status,
+        });
+      }
+    }
 
     res.status(200).json({ success: true, data: document });
   } catch (error) {
@@ -937,6 +990,13 @@ exports.updateChecklistRequestStatus = async (req, res) => {
           category: 'requested checklist',
           source: 'requested_checklist',
           applicationType: moduleName,
+          emailNotificationType: 'checklist_requested',
+          emailSubject: `Checklist requested by ${req.user.name || 'Unknown'}`,
+          emailTemplateData: {
+            clientName: req.user.name || 'Unknown',
+            leadOwnerName: leadOwnerUser?.username,
+            requestedAt: new Date().toISOString(),
+          },
         });
       }
 
@@ -1492,6 +1552,24 @@ exports.addChecklist = async (req, res) => {
       }
       // Update Recent Activity
       await updateRecentActivity(zohoRequest, moduleName, user.lead_id);
+
+      // Notify client immediately that their checklist has been updated
+      await addNotificationAndEmit({
+        req,
+        userId: user._id,
+        leadId: user.lead_id,
+        title: 'Document Checklist Updated',
+        message: 'Your document checklist has been updated. Please review the required documents.',
+        type: 'info',
+        category: 'document',
+        source: 'general',
+        applicationType: moduleName,
+        emailNotificationType: 'checklist_created',
+        emailSubject: 'Your Document Checklist is Ready',
+        emailTemplateData: {
+          checklistCount: user.checklist.length,
+        },
+      });
     }
 
     res.status(200).json({
@@ -2112,6 +2190,7 @@ exports.addRequestedReviews = async (req, res) => {
       const requestedToUser = await DmsUser.findOne({ username: requested_to });
 
       if (requestedToUser) {
+        const emailQualifies = ['supervisor', 'master_admin'].includes(requestedToUser.role);
         await addNotificationAndEmit({
           req,
           leadId: document?.record_id,
@@ -2121,6 +2200,17 @@ exports.addRequestedReviews = async (req, res) => {
           category: 'request review',
           source: 'requested_reviews',
           applicationType: moduleName,
+          ...(emailQualifies && {
+            emailNotificationType: 'review_requested',
+            emailSubject: `Review requested: ${document.document_name}`,
+            emailTemplateData: {
+              clientName: user.name,
+              requestedBy: requested_by,
+              requestedAt: new Date().toISOString(),
+              documentName: document.document_name,
+              applicationType: moduleName,
+            },
+          }),
         });
       }
 
