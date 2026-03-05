@@ -1,5 +1,7 @@
+const mongoose = require('mongoose');
 const { zohoRequest } = require("./zohoDms/zohoApi.js");
 const dmsZohoDocument = require('../models/dmsZohoDocument');
+const DmsZohoClient = require('../models/dmsZohoClient');
 const {
   REQ_MODULE_VISA_APPLICATION, MODULE_VISA_APPLICATION,
   REQ_MODULE_SPOUSE_SKILL_ASSESSMENT, MODULE_SPOUSE_SKILL_ASSESSMENT,
@@ -223,12 +225,16 @@ const getVisaApplicationById = async (req, res) => {
     const application = zohoResponseData[0];
     const record_id = application.id;
 
-    const documentsCount = await dmsZohoDocument.countDocuments({ record_id: record_id });
+    const [documentsCount, client] = await Promise.all([
+      dmsZohoDocument.countDocuments({ record_id }),
+      DmsZohoClient.findOne({ lead_id: record_id }).select('notes').lean(),
+    ]);
 
     res.json({
       data: {
         ...application,
         AttachmentCount: documentsCount,
+        notes: client?.notes ?? [],
       },
     });
   } catch (err) {
@@ -453,12 +459,16 @@ const getSpouseVisaApplicationById = async (req, res) => {
     const application = zohoResponseData[0];
     const record_id = application.id;
 
-    const documentsCount = await dmsZohoDocument.countDocuments({ record_id: record_id });
+    const [documentsCount, client] = await Promise.all([
+      dmsZohoDocument.countDocuments({ record_id }),
+      DmsZohoClient.findOne({ lead_id: record_id }).select('notes').lean(),
+    ]);
 
     res.json({
       data: {
         ...application,
         AttachmentCount: documentsCount,
+        notes: client?.notes ?? [],
       },
     });
   } catch (err) {
@@ -467,10 +477,138 @@ const getSpouseVisaApplicationById = async (req, res) => {
   }
 };
 
+const getApplicationNotes = async (req, res) => {
+  try {
+    const leadId = req.params.id;
+    const client = await DmsZohoClient.findOne({ lead_id: leadId }).select('notes').lean();
+    if (!client) {
+      return res.status(404).json({ status: 'fail', message: 'Client not found for this application' });
+    }
+    res.status(200).json({
+      status: 'success',
+      data: { notes: client.notes || [] },
+    });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message || 'Something went wrong' });
+  }
+};
+
+const addApplicationNote = async (req, res) => {
+  try {
+    const leadId = req.params.id;
+    let { note } = req.body;
+    if (note !== undefined) note = typeof note === 'string' ? note.trim() : '';
+    if (!note) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Note text is required and cannot be empty',
+      });
+    }
+    if (note.length > 2000) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Note cannot exceed 2000 characters',
+      });
+    }
+    const addedBy = req.user.username;
+    const addedAt = new Date();
+    const updated = await DmsZohoClient.findOneAndUpdate(
+      { lead_id: leadId },
+      { $push: { notes: { note, addedBy, addedAt } } },
+      { new: true, runValidators: true }
+    ).select('notes');
+    if (!updated) {
+      return res.status(404).json({ status: 'fail', message: 'Client not found for this application' });
+    }
+    const newNote = updated.notes[updated.notes.length - 1];
+    res.status(201).json({
+      status: 'success',
+      data: { note: newNote, notes: updated.notes },
+    });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message || 'Something went wrong' });
+  }
+};
+
+const updateApplicationNote = async (req, res) => {
+  try {
+    const leadId = req.params.id;
+    const { noteId } = req.params;
+    let { note } = req.body;
+    if (note !== undefined) note = typeof note === 'string' ? note.trim() : '';
+    if (!note) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Note text is required and cannot be empty',
+      });
+    }
+    if (note.length > 2000) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Note cannot exceed 2000 characters',
+      });
+    }
+    if (!mongoose.Types.ObjectId.isValid(noteId)) {
+      return res.status(400).json({ status: 'fail', message: 'Invalid note id' });
+    }
+    const noteObjectId = new mongoose.Types.ObjectId(noteId);
+    const updated = await DmsZohoClient.findOneAndUpdate(
+      { lead_id: leadId, 'notes._id': noteObjectId },
+      { $set: { 'notes.$.note': note } },
+      { new: true, runValidators: true }
+    ).select('notes');
+    if (!updated) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Client or note not found for this application',
+      });
+    }
+    const updatedNote = updated.notes.id(noteId);
+    res.status(200).json({
+      status: 'success',
+      data: { note: updatedNote, notes: updated.notes },
+    });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message || 'Something went wrong' });
+  }
+};
+
+const deleteApplicationNote = async (req, res) => {
+  try {
+    const leadId = req.params.id;
+    const { noteId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(noteId)) {
+      return res.status(400).json({ status: 'fail', message: 'Invalid note id' });
+    }
+    const noteObjectId = new mongoose.Types.ObjectId(noteId);
+    const updated = await DmsZohoClient.findOneAndUpdate(
+      { lead_id: leadId },
+      { $pull: { notes: { _id: noteObjectId } } },
+      { new: true }
+    ).select('notes');
+    if (!updated) {
+      return res.status(404).json({
+        status: 'fail',
+        message: 'Client not found for this application',
+      });
+    }
+    res.status(200).json({
+      status: 'success',
+      data: { notes: updated.notes },
+    });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message || 'Something went wrong' });
+  }
+};
+
 module.exports = {
   getApplicationsWithAttachments,
   getSpouseApplicationsWithAttachments,
   getVisaApplicationById,
   getSpouseVisaApplicationById,
-  getVisaApplication
+  getVisaApplication,
+  getApplicationNotes,
+  addApplicationNote,
+  updateApplicationNote,
+  deleteApplicationNote,
 };

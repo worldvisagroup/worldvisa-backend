@@ -503,6 +503,17 @@ exports.protect = async (req, res, next) => {
   }
 };
 
+const DMS_ADMIN_ROLES = ['master_admin', 'supervisor', 'team_leader', 'admin'];
+
+exports.restrictToAdmin = (req, res, next) => {
+  if (!req.user || !DMS_ADMIN_ROLES.includes(req.user.role)) {
+    return res.status(403).json({
+      status: 'fail',
+      message: 'Access denied. Admin role required.',
+    });
+  }
+  next();
+};
 
 exports.getAllNotifications = async (req, res, next) => {
   try {

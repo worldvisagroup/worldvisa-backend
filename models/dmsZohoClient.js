@@ -66,6 +66,24 @@ const dmsZohoClientSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  notes: [
+    {
+      note: {
+        type: String,
+        required: [true, 'Please provide note text'],
+        trim: true,
+        maxlength: [2000, 'Note cannot exceed 2000 characters'],
+      },
+      addedBy: {
+        type: String,
+        required: [true, 'Please provide who added the note'],
+      },
+      addedAt: {
+        type: Date,
+        default: Date.now,
+      },
+    },
+  ],
 });
 
 // Hash password before saving

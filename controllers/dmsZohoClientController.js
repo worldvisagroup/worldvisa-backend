@@ -630,6 +630,7 @@ exports.getClientAccountByRecordId = async (req, res) => {
           record_type: 1,
           created_at: 1,
           password_value: 1,
+          notes: 1,
           accountStatus: {
             exists: true,
             emailValid: { $cond: [{ $ne: ['$email', null] }, true, false] },
@@ -839,6 +840,59 @@ exports.getClientById = async (req, res) => {
           documents_by_status,
         },
       },
+    });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message || 'Something went wrong' });
+  }
+};
+
+exports.getClientNotes = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const client = await DmsZohoClient.findById(id).select('notes').lean();
+    if (!client) {
+      return res.status(404).json({ status: 'fail', message: 'Client not found' });
+    }
+    res.status(200).json({
+      status: 'success',
+      data: { notes: client.notes || [] },
+    });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message || 'Something went wrong' });
+  }
+};
+
+exports.addClientNote = async (req, res) => {
+  try {
+    const { id } = req.params;
+    let { note } = req.body;
+    if (note !== undefined) note = typeof note === 'string' ? note.trim() : '';
+    if (!note) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Note text is required and cannot be empty',
+      });
+    }
+    if (note.length > 2000) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Note cannot exceed 2000 characters',
+      });
+    }
+    const addedBy = req.user.username;
+    const addedAt = new Date();
+    const updated = await DmsZohoClient.findOneAndUpdate(
+      { _id: id },
+      { $push: { notes: { note, addedBy, addedAt } } },
+      { new: true, runValidators: true }
+    ).select('notes');
+    if (!updated) {
+      return res.status(404).json({ status: 'fail', message: 'Client not found' });
+    }
+    const newNote = updated.notes[updated.notes.length - 1];
+    res.status(201).json({
+      status: 'success',
+      data: { note: newNote, notes: updated.notes },
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message || 'Something went wrong' });

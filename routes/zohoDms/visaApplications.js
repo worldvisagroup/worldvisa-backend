@@ -1,10 +1,14 @@
 const express = require("express");
-const { protect } = require("../../controllers/zohoDmsAuthController.js");
+const { protect, restrictToAdmin } = require("../../controllers/zohoDmsAuthController.js");
 const {
   getApplicationsWithAttachments,
   getVisaApplicationById,
   getSpouseApplicationsWithAttachments,
   getSpouseVisaApplicationById,
+  getApplicationNotes,
+  addApplicationNote,
+  updateApplicationNote,
+  deleteApplicationNote,
 } = require("../../controllers/visaApplicationController.js");
 const { getDeadlineStats } = require('../../controllers/applicationStatsController');
 const { getAdminDashboardStats } = require('../../controllers/adminDashboardController');
@@ -33,10 +37,20 @@ router.get('/checklist/requested', protect, dmsZohoDocumentsController.getCheckl
 // Spouse Skill Assessment Applications
 router.get('/spouse/applications', protect, getSpouseApplicationsWithAttachments);
 router.get('/spouse/applications/search', protect, dmsZohoDocumentsController.searchSpouseZohoApplications);
+router.get('/spouse/applications/:id/notes', protect, restrictToAdmin, getApplicationNotes);
+router.post('/spouse/applications/:id/notes', protect, restrictToAdmin, addApplicationNote);
+router.patch('/spouse/applications/:id/notes/:noteId', protect, restrictToAdmin, updateApplicationNote);
+router.delete('/spouse/applications/:id/notes/:noteId', protect, restrictToAdmin, deleteApplicationNote);
 router.get('/spouse/applications/:id', protect, getSpouseVisaApplicationById);
 
 // Admin dashboard stats (must be before /:id)
 router.get('/admin/dashboard', protect, getAdminDashboardStats);
+
+// Admin-only: application notes (must be before /:id)
+router.get('/:id/notes', protect, restrictToAdmin, getApplicationNotes);
+router.post('/:id/notes', protect, restrictToAdmin, addApplicationNote);
+router.patch('/:id/notes/:noteId', protect, restrictToAdmin, updateApplicationNote);
+router.delete('/:id/notes/:noteId', protect, restrictToAdmin, deleteApplicationNote);
 
 // Application Field Update:Patch route
 router.get("/:id", protect, getVisaApplicationById);
