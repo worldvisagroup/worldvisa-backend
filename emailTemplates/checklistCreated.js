@@ -22,7 +22,7 @@ function render(data) {
     </p>
 
     <p style="margin:0 0 20px 0;font-size:15px;color:#111111;line-height:1.6;">
-      Your document checklist has been prepared by the WorldVisa team. Please review the required documents and begin uploading them to keep your application on track.
+      Your document checklist has been prepared by the WorldVisa team. Kindly submit all the required documents by logging in to your portal and uploading them to keep your application on track.
     </p>
 
     <!-- Info block -->
@@ -56,7 +56,7 @@ function render(data) {
   `;
 
   return {
-    html: base(content, { previewText: `Your document checklist is ready. ${countText} required.` }),
+    html: base(content, { previewText: `Your document checklist is ready. Kindly submit all the required ${countText}.` }),
     subject: 'Your Document Checklist is Ready',
   };
 }
