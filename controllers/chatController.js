@@ -189,7 +189,8 @@ exports.createConversation = async (req, res) => {
 
     if (type === 'dm') {
       if (!participant) return res.status(400).json({ status: 'fail', message: 'participant required for DM' });
-      const allowed = await chatAuthService.canInitiateDm(actor, participant);
+      const actorWithRole = chatAuthService.withRole(actor, req.user);
+      const allowed = await chatAuthService.canInitiateDm(actorWithRole, participant);
       if (!allowed) return res.status(403).json({ status: 'fail', message: 'Not allowed to start DM with this participant' });
       const p1 = { type: actor.type, id: actor.id };
       const p2 = { type: participant.type, id: participant.id };

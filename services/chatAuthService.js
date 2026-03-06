@@ -36,7 +36,7 @@ async function staffHandlesClient(staffId, clientId) {
  * Can actor initiate a DM with the other participant?
  * - Client: only with their lead_owner.
  * - Admin: any staff; clients only if staffHandlesClient(actor.id, other.id).
- * - master_admin/supervisor/team_leader: same as admin for DMs.
+ * - master_admin / supervisor / team_leader: any staff; any client (can create chat with any client).
  */
 async function canInitiateDm(actor, otherParticipant) {
   if (!actor || !otherParticipant) return false;
@@ -50,7 +50,11 @@ async function canInitiateDm(actor, otherParticipant) {
 
   if (isStaff(actor)) {
     if (otherParticipant.type === 'staff') return true;
-    return staffHandlesClient(actor.id, otherParticipant.id);
+    if (otherParticipant.type === 'client') {
+      const role = actor.role;
+      if (role && GROUP_CREATOR_ROLES.includes(role)) return true;
+      return staffHandlesClient(actor.id, otherParticipant.id);
+    }
   }
 
   return false;

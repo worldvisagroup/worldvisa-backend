@@ -8,6 +8,35 @@
 
 ---
 
+## 0. Client identity & get-conversation response (clarifications)
+
+**1. Client identity in chat**
+
+For client–staff DMs, the backend uses the **same id everywhere** for the client:
+
+- **`conversation.participants[].id`** (when `type === 'client'`) = **MongoDB `_id`** of the **DmsZohoClient** document.
+- **`message.sender.id`** (when `sender.type === 'client'`) = same **MongoDB `_id`** (DmsZohoClient).
+
+So: **it is the client’s document `_id`**, not `lead_id`. The client JWT is signed with this same id (`decoded.id` = client `_id`). On the frontend, use the **same id you use for the logged-in client** (e.g. from decoding the JWT or from your “current user” object). If your frontend stores `user._id` as the MongoDB id, that’s the one to use for comparing with `participants[].id` and `message.sender.id`. Do **not** use `lead_id` for chat identity (lead_id is a separate Zoho lead string).
+
+**2. “Get conversation by id” response**
+
+`GET /api/zoho_dms/chats/:conversationId` returns:
+
+- **`participants`** — array of `{ type, id }` (always present; it’s part of the conversation document).
+- **`members`** — array of `{ type, id, displayName }` (resolved display names for each participant).
+- Plus the rest of the conversation (e.g. `_id`, `type`, `name`, `description`, `imageUrl`, `createdBy`, `lastMessageAt`, `archivedBy`, `createdAt`, `updatedAt`) and **`unreadCount`**.
+
+So you can rely on **`data.participants`** to find the client in a DM (the one with `type === 'client'`); use **`data.members`** when you need display names.
+
+**3. Who can create a DM with a client**
+
+- **master_admin, supervisor, team_leader:** Can create a chat (DM) with **any** client.
+- **admin:** Can create a chat with a client **only if** that client is their “handling” client (client’s lead_owner = this admin’s username).
+- **Client:** Can only start a DM with their own lead_owner.
+
+---
+
 ## 1. API Reference (URLs + Payloads)
 
 ### 1.1 List conversations (single endpoint: list + filter + search)
@@ -27,13 +56,15 @@
 
 ---
 
-### 1.2 Get one conversation (with members for groups)
+### 1.2 Get one conversation (with members)
 
 | Item | Value |
 |------|--------|
 | **URL** | `GET /api/zoho_dms/chats/:conversationId` |
 | **Params** | `conversationId` (MongoDB ObjectId string) |
-| **Response** | `{ status: 'success', data: { ...conversation, unreadCount, members: [{ type, id, displayName }] } }` |
+| **Response** | `{ status: 'success', data: { ...conversation, unreadCount, members } }` |
+
+**`data`** includes the full conversation (so **`participants`** is present: array of `{ type, id }`) plus **`unreadCount`** and **`members`** (array of `{ type, id, displayName }`).
 
 ---
 
