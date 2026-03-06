@@ -39,9 +39,9 @@ async function runAggregator() {
   try {
     const now = new Date();
 
-    // Find all pending batched records whose scheduled window has elapsed
+    // Find all pending/failed batched records whose scheduled window has elapsed
     const due = await EmailNotification.find({
-      status: 'pending',
+      status: { $in: ['pending', 'failed'] },
       sendImmediately: false,
       scheduledFor: { $lte: now },
     }).lean();

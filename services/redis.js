@@ -25,7 +25,6 @@ try {
       maxRetriesPerRequest: null, // Required for BullMQ compatibility
       lazyConnect: true,
       connectTimeout: 20000,
-      commandTimeout: 10000,
       family: 4,
       keepAlive: 30000,
       retryStrategy: (times) => {
