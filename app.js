@@ -278,7 +278,10 @@ io.use((socket, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    socket.userId = decoded.id; //mongo db id
+    socket.userId = decoded.id;
+    socket.chatActorType = decoded.role === 'client' ? 'client' : 'staff';
+    const chatRoom = `chat:${socket.chatActorType}:${decoded.id}`;
+    socket.chatRoom = chatRoom;
     return next();
   } catch (e) {
     return next(new Error('Unauthorized'));
@@ -287,7 +290,8 @@ io.use((socket, next) => {
 
 io.on('connection', (socket) => {
   if (socket.userId) {
-    socket.join(`user:${socket.userId}`)
+    socket.join(`user:${socket.userId}`);
+    if (socket.chatRoom) socket.join(socket.chatRoom);
   }
 
   socket.on('disconnect', () => {
@@ -297,7 +301,7 @@ io.on('connection', (socket) => {
 
 app.set('io', io);
 
-app.use(express.json({ limit: '10mb' })); // Large payload for report data
+app.use(express.json({ limit: '10mb' })); 
 app.use(compression());
 app.use(express.urlencoded({ extended: true }));
 
@@ -398,6 +402,9 @@ app.use("/api/zoho_dms/visa_applications", zohoDmsVisaApplicationsRouter);
 app.use('/api/zoho_dms/users', zohoDmsUserAuthRouter);
 
 app.use('/api/zoho_dms/clients', zohoDmsClientAuthRouter);
+
+const chatRouter = require('./routes/chat');
+app.use('/api/zoho_dms/chats', chatRouter);
 
 // Technical Assessment
 app.use('/api/ai/technical-assessment', technicalAssessmentRouter);
