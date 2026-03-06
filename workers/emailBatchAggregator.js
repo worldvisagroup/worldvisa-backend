@@ -20,6 +20,8 @@ async function runAggregator() {
   const { redis } = require('../services/redis');
   const { getEmailQueue } = require('../queues/emailQueue');
 
+  logger.info('[Email Batch] Aggregator cron tick', { instanceId: INSTANCE_ID, time: new Date().toISOString() });
+
   if (!redis) {
     logger.warn('[Email Batch] Redis not available — skipping aggregator run');
     return;
@@ -32,6 +34,8 @@ async function runAggregator() {
     return;
   }
 
+  logger.info('[Email Batch] Lock acquired', { instanceId: INSTANCE_ID });
+
   try {
     const now = new Date();
 
@@ -43,7 +47,7 @@ async function runAggregator() {
     }).lean();
 
     if (!due.length) {
-      logger.debug('[Email Batch] No due records found');
+      logger.info('[Email Batch] No due records found');
       return;
     }
 
@@ -58,10 +62,13 @@ async function runAggregator() {
       groups.get(key).push(record._id.toString());
     }
 
+    logger.info('[Email Batch] Groups formed', { groupCount: groups.size });
+
     const queue = getEmailQueue();
     let enqueued = 0;
 
-    for (const [, ids] of groups) {
+    for (const [groupKey, ids] of groups) {
+      logger.info('[Email Batch] Marking group as processing', { groupKey, count: ids.length });
       // Mark as processing to prevent double-enqueue
       await EmailNotification.updateMany(
         { _id: { $in: ids }, status: 'pending' },
@@ -74,7 +81,7 @@ async function runAggregator() {
 
     logger.info('[Email Batch] Enqueued batch jobs', { groups: enqueued, records: due.length });
   } catch (err) {
-    logger.error('[Email Batch] Aggregator error', { error: err.message });
+    logger.error('[Email Batch] Aggregator error', { error: err.message, stack: err.stack });
   } finally {
     // Release lock only if we still own it
     try {

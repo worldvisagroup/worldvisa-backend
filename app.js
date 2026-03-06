@@ -93,10 +93,15 @@ if (redis && process.env.DISABLE_EMAIL_WORKER !== 'true') {
   redis.on('ready', () => {
     try {
       emailWorker = createEmailWorker();
-      startBatchAggregator();
-      logger.info('[Email] Worker and batch aggregator initialized');
+      logger.info('[Email] Worker initialized');
     } catch (error) {
       logger.error('Failed to start email worker', { error: error.message });
+    }
+    try {
+      startBatchAggregator();
+      logger.info('[Email] Batch aggregator initialized');
+    } catch (error) {
+      logger.error('Failed to start email batch aggregator', { error: error.message });
     }
   });
 }

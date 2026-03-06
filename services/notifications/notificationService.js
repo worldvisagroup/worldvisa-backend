@@ -52,32 +52,56 @@ async function createEmailNotification(params) {
   const windowMs = WINDOW_MS_BY_ROLE[recipientRole] ?? (30 * 60 * 1000);
   const scheduledFor = sendImmediately ? new Date() : new Date(Date.now() + windowMs);
 
-  // Deduplicate immediate types that can be triggered multiple times for the same lead
+  // Deduplicate immediate types that can be triggered multiple times for the same lead.
+  // Uses an atomic findOneAndUpdate+upsert to prevent race conditions when multiple
+  // events fire simultaneously (e.g. bulk checklist assignment).
   const dedupeTypes = ['checklist_created', 'checklist_requested'];
   if (dedupeTypes.includes(notificationType)) {
+    const { Types } = require('mongoose');
     const cutoff = new Date(Date.now() - DEDUPE_WINDOW_MS);
     const parentId = entityParentId || 'system';
-    const existing = await EmailNotification.findOne({
-      recipientEmail,
-      notificationType,
-      entityParentId: parentId,
-      $or: [
-        { status: 'pending', createdAt: { $gte: cutoff } },
-        { status: 'sent', sentAt: { $gte: cutoff } },
-      ],
-    })
-      .sort({ createdAt: -1 })
-      .lean();
+    const newId = new Types.ObjectId();
+
+    const existing = await EmailNotification.findOneAndUpdate(
+      {
+        recipientEmail,
+        notificationType,
+        entityParentId: parentId,
+        $or: [
+          { status: { $in: ['pending', 'processing'] }, createdAt: { $gte: cutoff } },
+          { status: 'sent', sentAt: { $gte: cutoff } },
+        ],
+      },
+      {
+        $setOnInsert: {
+          _id: newId,
+          recipientEmail,
+          recipientName,
+          recipientRole,
+          notificationType,
+          entityParentId,
+          entityId,
+          entityName,
+          sendImmediately,
+          scheduledFor,
+          subject,
+          message,
+          templateData,
+          status: 'pending',
+        },
+      },
+      { upsert: true, new: false }
+    );
 
     if (existing) {
-      const existingId = existing._id;
+      // A recent record already exists — deduplicate
       if (
         notificationType === 'checklist_created' &&
         existing.status === 'pending' &&
         templateData?.checklistCount != null
       ) {
         await EmailNotification.updateOne(
-          { _id: existingId },
+          { _id: existing._id },
           { $set: { templateData: { ...existing.templateData, checklistCount: templateData.checklistCount } } }
         );
       }
@@ -85,12 +109,26 @@ async function createEmailNotification(params) {
         notificationType,
         recipientEmail,
         entityParentId: parentId,
-        existingId: existingId.toString(),
+        existingId: existing._id.toString(),
       });
       return null;
     }
+
+    // No match found — new record was atomically inserted with newId
+    try {
+      const { getEmailQueue } = require('../../queues/emailQueue');
+      const queue = getEmailQueue();
+      await queue.add('send-immediate', { notificationId: newId.toString() }, { priority: 1 });
+    } catch (err) {
+      logger.error('[Email] Failed to enqueue immediate notification', {
+        error: err.message,
+        notificationId: newId.toString(),
+      });
+    }
+    return { _id: newId };
   }
 
+  // Non-dedupe path: document_rejected and all batched types
   const record = await EmailNotification.create({
     recipientEmail,
     recipientName,
