@@ -27,7 +27,9 @@ router.post('/:conversationId/messages', (req, res, next) => {
 router.delete('/:conversationId/messages/:messageId', chatController.deleteMessage);
 router.post('/:conversationId/read', chatController.markRead);
 router.post('/:conversationId/clear', chatController.clearConversation);
+router.post('/:conversationId/archive', chatController.setArchiveConversation);
 router.post('/:conversationId/leave', chatController.leaveConversation);
+router.delete('/:conversationId', chatController.deleteConversation);
 router.patch('/:conversationId/participants', chatController.updateParticipants);
 
 module.exports = router;

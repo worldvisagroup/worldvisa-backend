@@ -171,17 +171,41 @@ Use returned `data` in **1.7 Option A** as `attachments: [ data ]`, or in **1.4 
 
 ---
 
-### 1.11 Leave / archive
+### 1.11 Archive / unarchive conversation (for current user)
+
+One API to archive or unarchive. Use `GET /chats?archived=true` to list archived chats.
+
+| Item | Value |
+|------|--------|
+| **URL** | `POST /api/zoho_dms/chats/:conversationId/archive` |
+| **Body** | `{ archived: true }` to archive, `{ archived: false }` to unarchive |
+| **Response** | `{ status: 'success', data: conversation, message: 'Conversation archived' \| 'Conversation unarchived' \| 'Already archived' \| 'Already unarchived' }` |
+
+---
+
+### 1.12 Leave conversation
 
 | Item | Value |
 |------|--------|
 | **URL** | `POST /api/zoho_dms/chats/:conversationId/leave` |
 | **Body** | None |
-| **Response** | `{ status: 'success', data?, message }` — DM: archived; Group: left (or conversation removed if last participant). |
+| **Response** | `{ status: 'success', data?, message }` — DM: adds you to archived; Group: you leave (conversation deleted if last participant). |
 
 ---
 
-### 1.12 Delete message (own message only)
+### 1.13 Delete entire conversation (for everyone)
+
+Removes the conversation and all its messages for all participants. Any participant can call this.
+
+| Item | Value |
+|------|--------|
+| **URL** | `DELETE /api/zoho_dms/chats/:conversationId` |
+| **Body** | None |
+| **Response** | `{ status: 'success', message: 'Conversation deleted' }` |
+
+---
+
+### 1.14 Delete message (own message only)
 
 | Item | Value |
 |------|--------|
@@ -205,7 +229,9 @@ Use returned `data` in **1.7 Option A** as `attachments: [ data ]`, or in **1.4 
 | **Forward** | `POST /chats/:id/messages` with `forwardedFromMessageId` (and optional `content`). |
 | **Read state** | Use `unreadCount` from list/detail. Mark read when opening chat with `POST /chats/:id/read`. |
 | **Clear chat** | `POST /chats/:id/clear`. |
-| **Leave / archive** | `POST /chats/:id/leave`. |
+| **Archive / unarchive chat** | `POST /chats/:id/archive` with body `{ archived: true }` or `{ archived: false }`. Use `GET /chats?archived=true` to list archived. |
+| **Leave** | `POST /chats/:id/leave` (DM: archive for you; Group: leave, or delete if last participant). |
+| **Delete entire chat** | `DELETE /chats/:id` (removes conversation and all messages for everyone). |
 | **Delete message** | `DELETE /chats/:id/messages/:messageId`. |
 
 ---
@@ -247,8 +273,8 @@ Use returned `data` in **1.7 Option A** as `attachments: [ data ]`, or in **1.4 
 4. **Group settings (from thread)**
    - Show name, description, image, members (from `GET /chats/:id` → `members`). Edit: `PATCH /chats/:id` (name, description, imageUrl). Add/remove members: `PATCH /chats/:id/participants` with `add` / `remove`. Leave: `POST /chats/:id/leave`.
 
-5. **Clear / archive**
-   - In thread or list context menu: “Clear conversation” → `POST /chats/:id/clear`. “Leave” or “Archive” → `POST /chats/:id/leave`. After leave, remove or move to “Archived” and refresh list.
+5. **Clear / archive / leave / delete**
+   - “Clear conversation” → `POST /chats/:id/clear`. “Archive” / “Unarchive” → `POST /chats/:id/archive` with `{ archived: true }` or `{ archived: false }`. “Leave” → `POST /chats/:id/leave`. “Delete entire chat” → `DELETE /chats/:id`. Refresh list after.
 
 ### 4.3 Errors
 
@@ -271,7 +297,9 @@ Use returned `data` in **1.7 Option A** as `attachments: [ data ]`, or in **1.4 
 | Upload file (standalone) | POST | `/api/zoho_dms/chats/attachments` | multipart `file` |
 | Mark read | POST | `/api/zoho_dms/chats/:id/read` | `{}` or `lastReadAt` |
 | Clear | POST | `/api/zoho_dms/chats/:id/clear` | — |
+| Archive / unarchive | POST | `/api/zoho_dms/chats/:id/archive` | `{ archived: true }` or `{ archived: false }` |
 | Leave | POST | `/api/zoho_dms/chats/:id/leave` | — |
+| Delete entire chat | DELETE | `/api/zoho_dms/chats/:id` | — |
 | Delete message | DELETE | `/api/zoho_dms/chats/:id/messages/:messageId` | — |
 
 All requests: **Header** `Authorization: Bearer <JWT>`.

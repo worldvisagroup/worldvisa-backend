@@ -400,7 +400,62 @@ exports.clearConversation = async (req, res) => {
   }
 };
 
-// ---------- Leave / archive ----------
+// ---------- Archive / unarchive conversation (for current user) ----------
+
+exports.setArchiveConversation = async (req, res) => {
+  try {
+    const actor = req.chatActor;
+    const { conversationId } = req.params;
+    const archived = req.body.archived;
+
+    if (typeof archived !== 'boolean') {
+      return res.status(400).json({ status: 'fail', message: 'Body must include archived: true or archived: false' });
+    }
+
+    const conv = await ChatConversation.findById(conversationId);
+    if (!conv) return res.status(404).json({ status: 'fail', message: 'Conversation not found' });
+    if (!chatAuthService.canAccessConversation(actor, conv)) return res.status(403).json({ status: 'fail', message: 'Access denied' });
+
+    if (!conv.archivedBy) conv.archivedBy = [];
+    const inArchived = conv.archivedBy.some((p) => participantMatch(p, actor));
+
+    if (archived && !inArchived) {
+      conv.archivedBy.push(actor);
+      await conv.save();
+      return res.status(200).json({ status: 'success', data: conv, message: 'Conversation archived' });
+    }
+    if (!archived && inArchived) {
+      conv.archivedBy = conv.archivedBy.filter((p) => !participantMatch(p, actor));
+      await conv.save();
+      return res.status(200).json({ status: 'success', data: conv, message: 'Conversation unarchived' });
+    }
+    res.status(200).json({ status: 'success', data: conv, message: archived ? 'Already archived' : 'Already unarchived' });
+  } catch (err) {
+    res.status(500).json({ status: 'fail', message: err.message || 'Failed to update archive state' });
+  }
+};
+
+// ---------- Delete entire conversation (for everyone) ----------
+
+exports.deleteConversation = async (req, res) => {
+  try {
+    const actor = req.chatActor;
+    const { conversationId } = req.params;
+
+    const conv = await ChatConversation.findById(conversationId);
+    if (!conv) return res.status(404).json({ status: 'fail', message: 'Conversation not found' });
+    if (!chatAuthService.canAccessConversation(actor, conv)) return res.status(403).json({ status: 'fail', message: 'Access denied' });
+
+    await ChatMessage.deleteMany({ conversationId: conv._id });
+    await ChatConversationMeta.deleteMany({ conversationId: conv._id });
+    await conv.deleteOne();
+    res.status(200).json({ status: 'success', message: 'Conversation deleted' });
+  } catch (err) {
+    res.status(500).json({ status: 'fail', message: err.message || 'Failed to delete conversation' });
+  }
+};
+
+// ---------- Leave conversation ----------
 
 exports.leaveConversation = async (req, res) => {
   try {
@@ -421,8 +476,13 @@ exports.leaveConversation = async (req, res) => {
     }
 
     conv.participants = conv.participants.filter((p) => !participantMatch(p, actor));
-    if (conv.participants.length === 0) await conv.deleteOne();
-    else await conv.save();
+    if (conv.participants.length === 0) {
+      await ChatMessage.deleteMany({ conversationId: conv._id });
+      await ChatConversationMeta.deleteMany({ conversationId: conv._id });
+      await conv.deleteOne();
+      return res.status(200).json({ status: 'success', data: null, message: 'Left group; conversation removed (last participant)' });
+    }
+    await conv.save();
     res.status(200).json({ status: 'success', data: conv, message: 'Left group' });
   } catch (err) {
     res.status(500).json({ status: 'fail', message: err.message || 'Failed to leave conversation' });
