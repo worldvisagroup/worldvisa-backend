@@ -7,6 +7,7 @@ const logger = require('../../utils/logger');
 // Template renderers
 const documentRejectedTpl = require('../../emailTemplates/documentRejected');
 const checklistCreatedTpl = require('../../emailTemplates/checklistCreated');
+const checklistRequestedTpl = require('../../emailTemplates/checklistRequested');
 const adminActionSummaryTpl = require('../../emailTemplates/adminActionSummary');
 const clientActivitySummaryTpl = require('../../emailTemplates/clientActivitySummary');
 const reviewRequestedTpl = require('../../emailTemplates/reviewRequested');
@@ -22,7 +23,6 @@ const ADMIN_ACTION_TYPES = new Set([
 const CLIENT_ACTIVITY_TYPES = new Set([
   'document_upload',
   'document_reupload',
-  'checklist_requested',
   'comment_by_client',
 ]);
 
@@ -59,6 +59,14 @@ function renderTemplate(notification) {
     return checklistCreatedTpl.render({
       recipientName,
       checklistCount: templateData?.checklistCount,
+      leadId: entityParentId !== 'system' ? entityParentId : null,
+    });
+  }
+
+  if (notificationType === 'checklist_requested') {
+    return checklistRequestedTpl.render({
+      recipientName,
+      clientName: templateData?.clientName,
       leadId: entityParentId !== 'system' ? entityParentId : null,
     });
   }
@@ -149,17 +157,15 @@ async function sendSingle(notificationId) {
       resendId: data?.id,
     });
   } catch (err) {
-    const retryCount = (record.error?.retryCount || 0) + 1;
     await EmailNotification.findByIdAndUpdate(notificationId, {
       status: 'failed',
       'error.message': err.message,
-      'error.retryCount': retryCount,
+      $inc: { 'error.retryCount': 1 },
       'error.lastRetryAt': new Date(),
     });
     logger.error('[Email] Failed to send immediate notification', {
       notificationId,
       error: err.message,
-      retryCount,
     });
     throw err; // Let BullMQ retry
   }
@@ -181,7 +187,7 @@ async function sendBatch(notificationIds) {
 
   const records = await EmailNotification.find({
     _id: { $in: notificationIds },
-    status: { $in: ['pending', 'processing'] },
+    status: { $in: ['pending', 'processing', 'failed'] },
   }).lean();
 
   if (!records.length) return;

@@ -42,6 +42,9 @@ try {
       },
     };
     redis = new IoRedis(process.env.REDIS_URL, redisOptions);
+    redis.connect().catch((err) => {
+      console.warn('Redis initial connect error (will retry automatically):', err.message);
+    });
     redis.on("connect", () => {
       console.log("✅ Redis connected successfully");
       redisConnected = true;

@@ -81,4 +81,10 @@ emailNotificationSchema.index({ sendImmediately: 1, status: 1 });
 // TTL: auto-delete sent records after 30 days
 emailNotificationSchema.index({ sentAt: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60, sparse: true });
 
+// TTL: auto-delete failed records after 30 days
+emailNotificationSchema.index(
+  { createdAt: 1 },
+  { expireAfterSeconds: 30 * 24 * 60 * 60, partialFilterExpression: { status: 'failed' } }
+);
+
 module.exports = mongoose.model('EmailNotification', emailNotificationSchema);

@@ -6,7 +6,6 @@ const logger = require('../../utils/logger');
 
 const IMMEDIATE_TYPES = new Set(['document_rejected', 'checklist_created', 'checklist_requested']);
 
-// Dedupe window for immediate types that can be triggered multiple times for the same lead
 const DEDUPE_WINDOW_MS = 15 * 60 * 1000;
 
 const WINDOW_MS_BY_ROLE = {
@@ -22,7 +21,6 @@ function resolveRecipientEmail(role, clientEmail) {
   if (role === 'client') return clientEmail || null;
   if (role === 'master_admin') return process.env.EMAIL_MASTER_ADMIN || null;
   if (role === 'supervisor') return process.env.EMAIL_SUPERVISOR || null;
-  // admin, team_leader → shared inbox
   return process.env.EMAIL_ADMIN_TEAM || null;
 }
 

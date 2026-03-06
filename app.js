@@ -88,7 +88,7 @@ if (redis && process.env.DISABLE_ZIP_WORKER !== 'true') {
   });
 }
 
-// Initialize Email worker and batch aggregator when Redis is ready
+// Initialize Email worker when Redis is ready
 if (redis && process.env.DISABLE_EMAIL_WORKER !== 'true') {
   redis.on('ready', () => {
     try {
@@ -96,12 +96,6 @@ if (redis && process.env.DISABLE_EMAIL_WORKER !== 'true') {
       logger.info('[Email] Worker initialized');
     } catch (error) {
       logger.error('Failed to start email worker', { error: error.message });
-    }
-    try {
-      startBatchAggregator();
-      logger.info('[Email] Batch aggregator initialized');
-    } catch (error) {
-      logger.error('Failed to start email batch aggregator', { error: error.message });
     }
   });
 }
@@ -233,7 +227,6 @@ mongoose
       logger.error("Failed to start visa news cron job", { error: error.message });
     }
 
-    // ZIP export worker is initialized when Redis is ready (see Redis ready event handler above)
 
     // Start ZIP cleanup cron
     if (process.env.DISABLE_ZIP_CLEANUP !== 'true') {
@@ -242,6 +235,15 @@ mongoose
         logger.info('[ZIP Cleanup] Cleanup cron started successfully');
       } catch (error) {
         logger.error("Failed to start ZIP cleanup cron", { error: error.message });
+      }
+    }
+
+    if (process.env.DISABLE_EMAIL_WORKER !== 'true') {
+      try {
+        startBatchAggregator();
+        logger.info('[Email] Batch aggregator started');
+      } catch (error) {
+        logger.error('Failed to start email batch aggregator', { error: error.message });
       }
     }
   })
