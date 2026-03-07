@@ -5,6 +5,8 @@ const ZohoDmsUser = require('../models/zohoDmsUser');
 const DmsZohoClient = require('../models/dmsZohoClient');
 const chatAuthService = require('../services/chatAuthService');
 const { uploadToR2 } = require('../services/r2Client');
+const { addNotificationAndEmit } = require('./helper/service/notifications');
+const logger = require('../utils/logger');
 const mongoose = require('mongoose');
 
 const DEFAULT_PAGE = 1;
@@ -335,6 +337,47 @@ exports.sendMessage = async (req, res) => {
     if (io) {
       conv.participants.forEach((p) => {
         io.to(`chat:${p.type}:${p.id}`).emit('chat:message', { conversationId: conv._id, message: msg });
+      });
+    }
+
+    // In-app notifications for recipients (non-fatal)
+    try {
+      const senderName = (await resolveParticipantDisplayName(actor)) ?? 'Someone';
+      const title = conv.type === 'dm'
+        ? `New message from ${senderName}`
+        : `New message in ${conv.name || 'Group'}`;
+      const snippet = (content && String(content).trim())
+        ? (String(content).length > 80 ? `${String(content).slice(0, 80)}…` : String(content))
+        : (attachmentList.length ? '[Attachment]' : 'New message');
+      const link = `/v2/messages/${conv._id}`;
+      const recipients = conv.participants.filter((p) => !participantMatch(p, actor));
+      const results = await Promise.allSettled(
+        recipients.map((p) =>
+          addNotificationAndEmit({
+            req,
+            userId: p.id,
+            message: snippet,
+            title,
+            link,
+            type: 'info',
+            category: 'chat',
+            source: 'chat',
+          })
+        )
+      );
+      results.forEach((r, i) => {
+        if (r.status === 'rejected') {
+          logger.warn('Chat notification failed', {
+            conversationId: conv._id,
+            userId: recipients[i].id?.toString(),
+            error: r.reason?.message,
+          });
+        }
+      });
+    } catch (notifErr) {
+      logger.warn('Chat notifications error', {
+        conversationId: conv._id,
+        error: notifErr?.message,
       });
     }
 

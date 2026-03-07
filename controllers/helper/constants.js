@@ -83,7 +83,7 @@ const DEADLINE_STATS_FIELDS = [
 const ADMIN_ROLES = ['master_admin', 'team_leader', 'supervisor'];
 
 // Notification source enum for Zoho DMS notifications (origin/context for frontend)
-const NOTIFICATION_SOURCES = ['document_review', 'requested_reviews', 'quality_check', 'requested_checklist', 'general'];
+const NOTIFICATION_SOURCES = ['document_review', 'requested_reviews', 'quality_check', 'requested_checklist', 'general', 'chat'];
 
 module.exports = {
   MODULE_VISA_APPLICATION,

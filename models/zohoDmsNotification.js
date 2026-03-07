@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const NOTIFICATION_SOURCES = ['document_review', 'requested_reviews', 'quality_check', 'requested_checklist', 'general'];
+const NOTIFICATION_SOURCES = ['document_review', 'requested_reviews', 'quality_check', 'requested_checklist', 'general', 'chat'];
 
 const zohoDmsNotificationSchema = new mongoose.Schema({
   user: {
