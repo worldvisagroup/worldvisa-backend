@@ -12,7 +12,7 @@ const {
   MODULE_VISA_APPLICATION, MODULE_SPOUSE_SKILL_ASSESSMENT,
   REQ_MODULE_VISA_APPLICATION, REQ_MODULE_SPOUSE_SKILL_ASSESSMENT,
   APPLICATION_STAGES, APPLICATION_STAGES_CANADA, SUPPORTED_COUNTRIES,
-  APPLICATION_STATE_ACTIVE
+  APPLICATION_STATE_ACTIVE, ADMIN_ROLES
 } = require('./helper/constants');
 const SEARCH_TERM_MAX_LENGTH = 100;
 const DEFAULT_GLOBAL_SEARCH_LIMIT = 10;
@@ -1157,9 +1157,12 @@ exports.searchZohoApplications = async (req, res) => {
   }
 };
 
+const ALLOWED_GLOBAL_SEARCH_ROLES = ['master_admin', 'supervisor', 'team_leader', 'admin'];
+
 /**
  * Global search: single `search` parameter, returns category-wise results (applications, requestedReview, checklistRequested, qualityCheck).
- * Role-based: master_admin/supervisor see all; team_leader sees own + other admin/team_leader applications; admin sees only own.
+ * Allowed roles: admin, team_leader, supervisor, master_admin. master_admin, supervisor, and team_leader see all clients and applications;
+ * admin sees only their handling clients. All roles receive the same response shape (full client info: Name, Email, Phone, client_name, etc.).
  */
 exports.globalSearch = async (req, res) => {
   try {
@@ -1175,6 +1178,13 @@ exports.globalSearch = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Authentication required.'
+      });
+    }
+
+    if (!role || !ALLOWED_GLOBAL_SEARCH_ROLES.includes(role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Admin role required.'
       });
     }
 
@@ -1201,28 +1211,8 @@ exports.globalSearch = async (req, res) => {
       const safeUser = sanitizeUsername(username) || escapeString(username);
       handlerFilterVisa = ` and(Application_Handled_By like '${safeUser}')`;
       handlerFilterSpouse = ` and(Application_Handled_By like '${safeUser}')`;
-    } else if (role === 'team_leader') {
-      const adminAndTeamLeaderUsers = await ZohoDmsUser.find({ role: { $in: ['admin', 'team_leader'] } })
-        .select('username')
-        .lean();
-      const usernames = [...new Set([username, ...adminAndTeamLeaderUsers.map(u => u.username).filter(Boolean)])];
-      const escapedList = usernames
-        .map(u => {
-          const s = sanitizeUsername(u) || escapeString(String(u));
-          return s ? `'${escapeString(s)}'` : null;
-        })
-        .filter(Boolean)
-        .join(', ');
-      if (escapedList) {
-        handlerFilterVisa = ` and(Application_Handled_By in (${escapedList}))`;
-        handlerFilterSpouse = ` and(Application_Handled_By in (${escapedList}))`;
-      } else {
-        const safeUser = sanitizeUsername(username) || escapeString(username);
-        handlerFilterVisa = ` and(Application_Handled_By like '${safeUser}')`;
-        handlerFilterSpouse = ` and(Application_Handled_By like '${safeUser}')`;
-      }
     }
-    // master_admin, supervisor: no handler filter
+    // master_admin, supervisor, team_leader: no handler filter (see all)
 
     // NOTE: id is NOT listed — Zoho COQL returns it automatically; explicit `id` in SELECT causes SYNTAX_ERROR
     const selectFieldsVisa = 'Name, Email, Phone, Created_Time, Application_Handled_By, DMS_Application_Status, Package_Finalize, Checklist_Requested, Deadline_For_Lodgment, Record_Type, Application_Stage, Quality_Check_From';
@@ -1263,7 +1253,7 @@ exports.globalSearch = async (req, res) => {
       { $sort: { 'requested_reviews.requested_at': -1 } }
     ];
 
-    if (role === 'team_leader' || role === 'admin') {
+    if (role === 'admin') {
       requestedReviewPipeline.push({
         $match: {
           $or: [
@@ -1368,7 +1358,7 @@ exports.globalSearch = async (req, res) => {
 
     const qualityCheckFiltered = applicationsWithCount.filter(app => {
       if (!app.Quality_Check_From) return false;
-      if (role === 'master_admin') return true;
+      if (ADMIN_ROLES.includes(role)) return true;
       return app.Quality_Check_From === username;
     });
     const qualityCheck = qualityCheckFiltered.slice(0, limit);
