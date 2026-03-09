@@ -15,14 +15,36 @@ const MAX_LIMIT = 50;
 
 // ---------- Helpers ----------
 
-async function resolveParticipantDisplayName(participant) {
+
+async function resolveParticipantInfo(participant) {
   if (!participant || !participant.type || !participant.id) return null;
   if (participant.type === 'staff') {
-    const u = await ZohoDmsUser.findById(participant.id).select('username').lean();
-    return u ? u.username : null;
+    const u = await ZohoDmsUser.findById(participant.id)
+      .select('username profile_image_url online_status')
+      .lean();
+    return u
+      ? {
+          displayName: u.username,
+          profile_image_url: u.profile_image_url ?? null,
+          online_status: u.online_status ?? false,
+        }
+      : null;
   }
-  const c = await DmsZohoClient.findById(participant.id).select('name email').lean();
-  return c ? (c.name || c.email) : null;
+  const c = await DmsZohoClient.findById(participant.id)
+    .select('name email online_status')
+    .lean();
+  return c
+    ? {
+        displayName: c.name || c.email,
+        profile_image_url: null,
+        online_status: c.online_status ?? false,
+      }
+    : null;
+}
+
+async function resolveParticipantDisplayName(participant) {
+  const info = await resolveParticipantInfo(participant);
+  return info ? info.displayName : null;
 }
 
 async function getUnreadCount(conversationId, actor) {
@@ -87,9 +109,22 @@ exports.listConversations = async (req, res) => {
           .lean();
       }
       let otherDisplayName = null;
+      let otherParticipant = undefined;
       if (conv.type === 'dm') {
         const other = conv.participants.find((p) => !participantMatch(p, actor));
-        otherDisplayName = other ? await resolveParticipantDisplayName(other) : null;
+        if (other) {
+          const info = await resolveParticipantInfo(other);
+          if (info) {
+            otherDisplayName = info.displayName;
+            otherParticipant = {
+              type: other.type,
+              id: other.id,
+              displayName: info.displayName,
+              profile_image_url: info.profile_image_url,
+              online_status: info.online_status,
+            };
+          }
+        }
       }
       if (search) {
         const searchLower = search.toLowerCase();
@@ -102,6 +137,7 @@ exports.listConversations = async (req, res) => {
         unreadCount,
         lastMessage: lastMessage ? { content: lastMessage.content, sender: lastMessage.sender, createdAt: lastMessage.createdAt } : null,
         otherDisplayName: conv.type === 'dm' ? otherDisplayName : undefined,
+        otherParticipant,
       });
     }
 
@@ -130,11 +166,16 @@ exports.getConversation = async (req, res) => {
     }
     const unreadCount = await getUnreadCount(conv._id, actor);
     const members = await Promise.all(
-      conv.participants.map(async (p) => ({
-        type: p.type,
-        id: p.id,
-        displayName: await resolveParticipantDisplayName(p),
-      }))
+      conv.participants.map(async (p) => {
+        const info = await resolveParticipantInfo(p);
+        return {
+          type: p.type,
+          id: p.id,
+          displayName: info ? info.displayName : null,
+          profile_image_url: info ? info.profile_image_url : null,
+          online_status: info ? info.online_status : false,
+        };
+      })
     );
     res.status(200).json({
       status: 'success',
