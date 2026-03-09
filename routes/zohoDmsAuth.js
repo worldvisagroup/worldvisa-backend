@@ -1,8 +1,10 @@
 const express = require('express');
+const multer = require('multer');
 const zohoDmsAuthController = require('../controllers/zohoDmsAuthController');
 const { resetPasswordByLeadId, getAllClients } = require('../controllers/dmsZohoClientController');
 
 const router = express.Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 router.post('/signup', zohoDmsAuthController.signup);
 router.post('/login', zohoDmsAuthController.login);
@@ -26,6 +28,9 @@ router.get('/clients', zohoDmsAuthController.protect, getAllClients);
 router.put('/clients/reset-password', resetPasswordByLeadId);
 
 
+
+// Profile image upload
+router.post('/profile-image', zohoDmsAuthController.protect, upload.single('image'), zohoDmsAuthController.uploadProfileImage);
 
 // User details by MongoDB _id — must be last to avoid conflicts with named routes
 router.get('/:id', zohoDmsAuthController.protect, zohoDmsAuthController.getUserById);

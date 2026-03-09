@@ -8,6 +8,7 @@ const DmsZohoClient = require("../models/dmsZohoClient");
 const DmsZohoDocument = require('../models/dmsZohoDocument');
 const ZohoDmsNotification = require('../models/zohoDmsNotification');
 const { zohoRequest } = require('./zohoDms/zohoApi');
+const { uploadToR2 } = require('../services/r2Client');
 
 exports.getAllUsers = async (req, res) => {
   try {
@@ -217,7 +218,7 @@ exports.getUserById = async (req, res) => {
     res.status(200).json({
       status: 'success',
       data: {
-        user: { _id: user._id, username: user.username, role: user.role, last_login: user.last_login },
+        user: { _id: user._id, username: user.username, role: user.role, last_login: user.last_login, online_status: user.online_status, profile_image_url: user.profile_image_url },
         reviews_sent: {
           data: sentData.data,
           totalRecords: sentData.totalCount[0]?.count ?? 0,
@@ -511,6 +512,25 @@ exports.logout = async (req, res) => {
     res.status(200).json({ status: 'success', message: 'Logged out successfully' });
   } catch (err) {
     res.status(500).json({ status: 'error', message: 'Logout failed' });
+  }
+};
+
+exports.uploadProfileImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ status: 'fail', message: 'No image file provided' });
+    }
+    const ext = (req.file.originalname || 'image').split('.').pop() || 'jpg';
+    const key = `profile-images/users/${req.user._id}/${Date.now()}.${ext}`;
+    const url = await uploadToR2(key, req.file.buffer, req.file.mimetype || 'image/jpeg');
+    const updated = await ZohoDmsUser.findByIdAndUpdate(
+      req.user._id,
+      { profile_image_url: url },
+      { new: true }
+    ).select('-password -passwordVal');
+    res.status(200).json({ status: 'success', data: { user: updated } });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message || 'Upload failed' });
   }
 };
 

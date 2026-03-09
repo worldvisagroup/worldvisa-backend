@@ -31,6 +31,10 @@ const zohoDmsUserSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  profile_image_url: {
+    type: String,
+    default: null,
+  },
 });
 
 // Hash password before saving
