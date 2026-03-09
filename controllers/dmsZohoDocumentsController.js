@@ -1161,8 +1161,8 @@ const ALLOWED_GLOBAL_SEARCH_ROLES = ['master_admin', 'supervisor', 'team_leader'
 
 /**
  * Global search: single `search` parameter, returns category-wise results (applications, requestedReview, checklistRequested, qualityCheck).
- * Allowed roles: admin, team_leader, supervisor, master_admin. master_admin, supervisor, and team_leader see all clients and applications;
- * admin sees only their handling clients. All roles receive the same response shape (full client info: Name, Email, Phone, client_name, etc.).
+ * Allowed roles: admin, team_leader, supervisor, master_admin. All of these roles see all clients and applications (no handler filter).
+ * All roles receive the same response shape (full client info: Name, Email, Phone, client_name, etc.).
  */
 exports.globalSearch = async (req, res) => {
   try {
@@ -1204,15 +1204,8 @@ exports.globalSearch = async (req, res) => {
       .map(s => `'${escapeString(s)}'`)
       .join(', ');
 
-    let handlerFilterVisa = '';
-    let handlerFilterSpouse = '';
-
-    if (role === 'admin') {
-      const safeUser = sanitizeUsername(username) || escapeString(username);
-      handlerFilterVisa = ` and(Application_Handled_By like '${safeUser}')`;
-      handlerFilterSpouse = ` and(Application_Handled_By like '${safeUser}')`;
-    }
-    // master_admin, supervisor, team_leader: no handler filter (see all)
+    const handlerFilterVisa = '';
+    const handlerFilterSpouse = '';
 
     // NOTE: id is NOT listed — Zoho COQL returns it automatically; explicit `id` in SELECT causes SYNTAX_ERROR
     const selectFieldsVisa = 'Name, Email, Phone, Created_Time, Application_Handled_By, DMS_Application_Status, Package_Finalize, Checklist_Requested, Deadline_For_Lodgment, Record_Type, Application_Stage, Quality_Check_From';
