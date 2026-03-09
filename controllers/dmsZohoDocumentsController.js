@@ -1159,11 +1159,6 @@ exports.searchZohoApplications = async (req, res) => {
 
 const ALLOWED_GLOBAL_SEARCH_ROLES = ['master_admin', 'supervisor', 'team_leader', 'admin'];
 
-/**
- * Global search: single `search` parameter, returns category-wise results (applications, requestedReview, checklistRequested, qualityCheck).
- * Allowed roles: admin, team_leader, supervisor, master_admin. All of these roles see all clients and applications (no handler filter).
- * All roles receive the same response shape (full client info: Name, Email, Phone, client_name, etc.).
- */
 exports.globalSearch = async (req, res) => {
   try {
     const username = req.user?.username;

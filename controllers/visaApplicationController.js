@@ -225,9 +225,19 @@ const getVisaApplicationById = async (req, res) => {
     const application = zohoResponseData[0];
     const record_id = application.id;
 
-    const [documentsCount, client] = await Promise.all([
+    const spouseName = application.Spouse_Name?.trim() || null;
+
+    const [documentsCount, client, spouseClient] = await Promise.all([
       dmsZohoDocument.countDocuments({ record_id }),
       DmsZohoClient.findOne({ lead_id: record_id }).select('notes online_status last_communication_activity').lean(),
+      spouseName
+        ? DmsZohoClient.findOne({
+            name: new RegExp(`^${spouseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'),
+            record_type: 'spouse_skill_assessment',
+          })
+            .select('lead_id')
+            .lean()
+        : Promise.resolve(null),
     ]);
 
     res.json({
@@ -237,6 +247,7 @@ const getVisaApplicationById = async (req, res) => {
         notes: client?.notes ?? [],
         online_status: client?.online_status ?? false,
         last_communication_activity: client?.last_communication_activity ?? null,
+        spouse_lead_id: spouseClient?.lead_id ?? null,
       },
     });
   } catch (err) {

@@ -115,6 +115,7 @@ dmsZohoClientSchema.methods.correctPassword = async function (
 dmsZohoClientSchema.index({ lead_owner: 1 });
 dmsZohoClientSchema.index({ created_at: -1 });
 dmsZohoClientSchema.index({ name: 'text', email: 'text', phone: 'text', lead_id: 'text' });
+dmsZohoClientSchema.index({ name: 1, record_type: 1 });
 
 const DmsZohoClient = mongoose.model('DmsZohoClient', dmsZohoClientSchema);
 
