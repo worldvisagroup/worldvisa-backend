@@ -1,6 +1,24 @@
 const logger = require('../../../utils/logger');
 
 /**
+ * Resolve sender profile_image_url from users table by sender type and id.
+ * Staff: ZohoDmsUser.profile_image_url; client: no field, returns null.
+ */
+async function getSenderProfileImageUrl(senderType, senderId) {
+  if (!senderType || !senderId) return null;
+  try {
+    if (senderType === 'staff') {
+      const ZohoDmsUser = require('../../../models/zohoDmsUser');
+      const u = await ZohoDmsUser.findById(senderId).select('profile_image_url').lean();
+      return u?.profile_image_url ?? null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Helper to add a notification and trigger websocket.
  * Optionally creates an email notification record (non-blocking).
  *
@@ -12,6 +30,8 @@ const logger = require('../../../utils/logger');
  * @param {String} [params.category='general'] - Notification category
  * @param {String} [params.source='general'] - Origin: document_review, requested_reviews, quality_check, requested_checklist, general
  * @param {String|null} [params.link=null] - Optional link
+ * @param {String} [params.sender_type=null] - For chat: 'staff' | 'client'
+ * @param {ObjectId} [params.sender_id=null] - For chat: sender user/client id (resolved from users table for profile_image_url)
  * @param {String|null} [params.emailNotificationType=null] - If set, triggers an email notification
  * @param {String|null} [params.emailSubject=null] - Email subject line override
  * @param {Object} [params.emailTemplateData={}] - Extra data for email template rendering
@@ -30,6 +50,8 @@ async function addNotificationAndEmit({
   link = null,
   documentName = '',
   applicationType = 'Visa_Applications',
+  sender_type = null,
+  sender_id = null,
   // Email notification params (optional — set to trigger email delivery)
   emailNotificationType = null,
   emailSubject = null,
@@ -50,6 +72,8 @@ async function addNotificationAndEmit({
       documentId,
       documentName,
       applicationType,
+      sender_type: sender_type || undefined,
+      sender_id: sender_id || undefined,
     });
 
     await notification.save();
@@ -57,6 +81,9 @@ async function addNotificationAndEmit({
     // WebSocket emit (non-fatal if it fails)
     try {
       const io = req.app.get('io');
+      const senderProfileImageUrl = (notification.sender_id && notification.sender_type)
+        ? await getSenderProfileImageUrl(notification.sender_type, notification.sender_id)
+        : null;
       const notificationPayload = {
         _id: notification._id,
         title: notification.title ?? null,
@@ -71,6 +98,7 @@ async function addNotificationAndEmit({
         documentId: notification.documentId ?? null,
         documentName: notification.documentName ?? null,
         applicationType: notification.applicationType ?? null,
+        sender_profile_image_url: senderProfileImageUrl,
       };
 
       io?.to(`user:${userId}`).emit('notification:new', notificationPayload);

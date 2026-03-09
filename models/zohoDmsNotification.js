@@ -57,6 +57,15 @@ const zohoDmsNotificationSchema = new mongoose.Schema({
   applicationType: {
     type: String,
   },
+  sender_type: {
+    type: String,
+    enum: ['staff', 'client'],
+    default: null,
+  },
+  sender_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: null,
+  },
 });
 
 zohoDmsNotificationSchema.index({ user: 1, createdAt: -1 });

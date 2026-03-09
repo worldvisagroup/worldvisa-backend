@@ -563,7 +563,8 @@ exports.getAllNotifications = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const ZohoDmsNotification = require('../models/zohoDmsNotification');
-    const selectFields = 'title message type category source isRead createdAt link leadId documentId documentName applicationType';
+    const ZohoDmsUser = require('../models/zohoDmsUser');
+    const selectFields = 'title message type category source isRead createdAt link leadId documentId documentName applicationType sender_type sender_id';
 
     const [notifications, totalRecords] = await Promise.all([
       ZohoDmsNotification.find({ user: req.user._id })
@@ -577,9 +578,31 @@ exports.getAllNotifications = async (req, res, next) => {
 
     const totalPages = Math.ceil(totalRecords / limit);
 
+    // Resolve sender_profile_image_url from users table for notifications with sender_id
+    const staffSenderIds = [...new Set(
+      notifications
+        .filter((n) => n.sender_type === 'staff' && n.sender_id)
+        .map((n) => n.sender_id)
+    )];
+    const senderProfileMap = {};
+    if (staffSenderIds.length) {
+      const staffUsers = await ZohoDmsUser.find({ _id: { $in: staffSenderIds } })
+        .select('_id profile_image_url')
+        .lean();
+      staffUsers.forEach((u) => {
+        senderProfileMap[u._id.toString()] = u.profile_image_url ?? null;
+      });
+    }
+    const data = notifications.map((n) => ({
+      ...n,
+      sender_profile_image_url: n.sender_id && n.sender_type === 'staff'
+        ? (senderProfileMap[n.sender_id.toString()] ?? null)
+        : null,
+    }));
+
     res.status(200).json({
       status: 'success',
-      data: notifications,
+      data,
       pagination: {
         currentPage: page,
         totalPages,

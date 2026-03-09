@@ -412,6 +412,8 @@ exports.sendMessage = async (req, res) => {
             type: 'info',
             category: 'chat',
             source: 'chat',
+            sender_type: actor.type,
+            sender_id: actor.id,
           })
         )
       );
