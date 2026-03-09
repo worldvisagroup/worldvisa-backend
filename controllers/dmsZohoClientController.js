@@ -11,6 +11,12 @@ const signToken = (id, lead_id, email) => {
   });
 };
 
+function chunkArray(arr, size) {
+  const chunks = [];
+  for (let i = 0; i < arr.length; i += size) chunks.push(arr.slice(i, i + size));
+  return chunks;
+}
+
 
 exports.signup = async (req, res) => {
   try {
@@ -81,8 +87,7 @@ exports.login = async (req, res) => {
       });
     }
 
-    // 4) If everything is ok, set online and send token to client
-    await DmsZohoClient.findByIdAndUpdate(client._id, { online_status: true });
+    // 4) If everything is ok, send token to client
     const token = signToken(client._id, client.lead_id, client.email);
 
     res.status(200).json({
@@ -102,6 +107,15 @@ exports.login = async (req, res) => {
       status: 'error',
       message: error.message || 'Something went wrong during login',
     });
+  }
+};
+
+exports.logout = async (req, res) => {
+  try {
+    await DmsZohoClient.findByIdAndUpdate(req.client._id, { online_status: false });
+    res.status(200).json({ status: 'success', message: 'Logged out successfully' });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message || 'Something went wrong during logout' });
   }
 };
 
@@ -202,111 +216,86 @@ exports.resetPassword = async (req, res) => {
 
 exports.getAllClients = async (req, res) => {
   try {
-    const page   = Math.max(parseInt(req.query.page,  10) || 1, 1);
-    const limit  = Math.min(parseInt(req.query.limit, 10) || 20, 100);
-    const offset = (page - 1) * limit;
+    const page  = Math.max(parseInt(req.query.page,  10) || 1, 1);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+    const skip  = (page - 1) * limit;
 
     const { search, lead_owner } = req.query;
 
-    // ── Build Zoho WHERE clause ────────────────────────────────────────────
-    const conditions = [];
+    // ── Phase 1: MongoDB — paginate + document stats ───────────────────────
+    const matchStage = {};
 
-    if (req.user.role === 'admin') {
-      conditions.push(`Application_Handled_By like '${req.user.username}'`);
-    } else if (lead_owner) {
-      conditions.push(`Application_Handled_By like '${lead_owner.trim()}'`);
+    if (lead_owner) {
+      matchStage.lead_owner = lead_owner.trim();
     }
 
     if (search) {
-      const s = search.trim();
-      conditions.push(`(Name like '${s}' or Email like '${s}')`);
+      const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex   = new RegExp(escaped, 'i');
+      matchStage.$or = [
+        { name:    regex },
+        { email:   regex },
+        { phone:   regex },
+        { lead_id: regex },
+      ];
     }
 
-    if (conditions.length === 0) conditions.push('id is not null');
-
-    const whereClause = `where ${conditions.join(' and ')}`;
-
-    const VISA_FIELDS   = 'id, Name, Email, Phone, Application_Handled_By, DMS_Application_Status, Application_Stage, Deadline_For_Lodgment, Record_Type, Recent_Activity, Package_Finalize, Qualified_Country, Application_State, Created_Time';
-    const SPOUSE_FIELDS = VISA_FIELDS + ', Assessing_Authority, Suggested_Anzsco, Spouse_Name';
-
-    // ── Phase 1: Zoho — paginated primary data + counts ───────────────────
-    const [visaCountRes, spouseCountRes, visaDataRes, spouseDataRes] = await Promise.allSettled([
-      zohoRequest('coql', 'POST', { select_query: `select COUNT(id) as total from Visa_Applications ${whereClause}` }),
-      zohoRequest('coql', 'POST', { select_query: `select COUNT(id) as total from Spouse_Skill_Assessment ${whereClause}` }),
-      zohoRequest('coql', 'POST', { select_query: `select ${VISA_FIELDS} from Visa_Applications ${whereClause} order by Created_Time desc limit ${limit} offset ${offset}` }),
-      zohoRequest('coql', 'POST', { select_query: `select ${SPOUSE_FIELDS} from Spouse_Skill_Assessment ${whereClause} order by Created_Time desc limit ${limit} offset ${offset}` }),
+    const [result] = await DmsZohoClient.aggregate([
+      { $match: matchStage },
+      {
+        $facet: {
+          data: [
+            { $sort: { created_at: -1 } },
+            { $skip: skip },
+            { $limit: limit },
+            { $project: { password: 0, checklist: 0 } },
+            // $lookup scoped to the page slice — runs for at most `limit` docs
+            {
+              $lookup: {
+                from: 'dmszohodocuments',
+                let:  { lid: '$lead_id' },
+                pipeline: [
+                  { $match: { $expr: { $eq: ['$record_id', '$$lid'] } } },
+                  { $group: { _id: '$status', count: { $sum: 1 } } },
+                ],
+                as: 'document_stats',
+              },
+            },
+            {
+              $addFields: {
+                total_documents: { $sum: '$document_stats.count' },
+                documents_by_status: {
+                  $arrayToObject: {
+                    $map: {
+                      input: '$document_stats',
+                      as:    's',
+                      in:    { k: '$$s._id', v: '$$s.count' },
+                    },
+                  },
+                },
+              },
+            },
+            { $project: { document_stats: 0 } },
+          ],
+          totalCount: [{ $count: 'count' }],
+        },
+      },
     ]);
 
-    const visaCount   = visaCountRes.status   === 'fulfilled' ? (visaCountRes.value?.data?.[0]?.total   ?? 0) : 0;
-    const spouseCount = spouseCountRes.status === 'fulfilled' ? (spouseCountRes.value?.data?.[0]?.total ?? 0) : 0;
-    const total       = visaCount + spouseCount;
+    const clients    = result.data;
+    const total      = result.totalCount[0]?.count ?? 0;
+    const totalPages = Math.ceil(total / limit);
 
-    const visaApps   = (visaDataRes.status   === 'fulfilled' ? visaDataRes.value?.data   : null) ?? [];
-    const spouseApps = (spouseDataRes.status === 'fulfilled' ? spouseDataRes.value?.data : null) ?? [];
-
-    const allApps = [
-      ...visaApps.map(a   => ({ ...a, _record_type: 'visa_application' })),
-      ...spouseApps.map(a => ({ ...a, _record_type: 'spouse_skill_assessment' })),
-    ];
-
-    if (allApps.length === 0) {
-      return res.status(200).json({
-        status: 'success',
-        results: 0,
-        pagination: { currentPage: page, totalPages: Math.ceil(total / limit), totalRecords: total, limit },
-        data: { clients: [] },
-      });
-    }
-
-    // ── Phase 2: MongoDB — enrich with DMS data + document stats ──────────
-    const pageIds = allApps.map(a => a.id);
-
-    const [clientDocs, docStats] = await Promise.all([
-      DmsZohoClient.find({ lead_id: { $in: pageIds } })
-        .select('lead_id online_status last_communication_activity')
-        .lean(),
-      DmsZohoDocument.aggregate([
-        { $match: { record_id: { $in: pageIds } } },
-        { $group: { _id: { record_id: '$record_id', status: '$status' }, count: { $sum: 1 } } },
-      ]),
-    ]);
-
-    const clientMap = new Map(clientDocs.map(c => [c.lead_id, c]));
-
-    const docMap = new Map();
-    for (const d of docStats) {
-      const rid = d._id.record_id;
-      if (!docMap.has(rid)) docMap.set(rid, { total: 0, documents_by_status: {} });
-      const entry = docMap.get(rid);
-      entry.total += d.count;
-      entry.documents_by_status[d._id.status] = d.count;
-    }
-
-    // ── Merge ──────────────────────────────────────────────────────────────
-    const enriched = allApps.map(app => {
-      const client = clientMap.get(app.id);
-      const docs   = docMap.get(app.id);
-      return {
-        ...app,
-        dms_registered:              !!client,
-        online_status:               client?.online_status               ?? false,
-        last_communication_activity: client?.last_communication_activity ?? null,
-        total_documents:             docs?.total                         ?? 0,
-        documents_by_status:         docs?.documents_by_status           ?? {},
-      };
-    });
-
-    // ── Response ───────────────────────────────────────────────────────────
     res.status(200).json({
       status: 'success',
-      results: enriched.length,
+      results: clients.length,
       pagination: {
         currentPage:  page,
-        totalPages:   Math.ceil(total / limit),
+        totalPages,
         totalRecords: total,
         limit,
       },
-      data: { clients: enriched },
+      data: { clients },
     });
   } catch (error) {
     res.status(500).json({
@@ -381,15 +370,6 @@ exports.protectClient = async (req, res, next) => {
       status: 'fail',
       message: 'Invalid token. Please log in again.',
     });
-  }
-};
-
-exports.logout = async (req, res) => {
-  try {
-    await DmsZohoClient.findByIdAndUpdate(req.user._id, { online_status: false });
-    res.status(200).json({ status: 'success', message: 'Logged out successfully' });
-  } catch (err) {
-    res.status(500).json({ status: 'error', message: 'Logout failed' });
   }
 };
 
@@ -895,5 +875,113 @@ exports.addClientNote = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ status: 'error', message: error.message || 'Something went wrong' });
+  }
+};
+
+exports.checkAndSyncLeadOwner = async (req, res) => {
+  try {
+    const dry_run = req.query.dry_run === 'true';
+    const record_type_filter = req.query.record_type || null;
+    const VALID = ['visa_application', 'spouse_skill_assessment'];
+
+    if (record_type_filter && !VALID.includes(record_type_filter)) {
+      return res.status(400).json({ status: 'fail', message: 'Invalid record_type. Must be visa_application or spouse_skill_assessment' });
+    }
+
+    const mongoQuery = record_type_filter ? { record_type: record_type_filter } : {};
+    const mongoClients = await DmsZohoClient.find(mongoQuery)
+      .select('lead_id lead_owner record_type').lean();
+
+    if (!mongoClients.length) {
+      return res.status(200).json({
+        status: 'success',
+        summary: { total_checked: 0, mismatched: 0, updated: 0, not_found_in_zoho: 0, errors: 0 },
+        mismatches: [],
+        dry_run,
+      });
+    }
+
+    const ZOHO_MODULE = {
+      visa_application: 'Visa_Applications',
+      spouse_skill_assessment: 'Spouse_Skill_Assessment',
+    };
+    const grouped = { visa_application: [], spouse_skill_assessment: [] };
+    for (const c of mongoClients) grouped[c.record_type]?.push(c.lead_id);
+
+    const BATCH_SIZE = 100;
+    const batchPromises = [];
+    for (const [rtype, ids] of Object.entries(grouped)) {
+      if (!ids.length) continue;
+      for (const chunk of chunkArray(ids, BATCH_SIZE)) {
+        const idList = chunk.map(id => `'${id}'`).join(', ');
+        const query = `select id, Application_Handled_By from ${ZOHO_MODULE[rtype]} where id in (${idList}) limit ${BATCH_SIZE}`;
+        batchPromises.push(
+          zohoRequest('coql', 'POST', { select_query: query })
+            .then(r => ({ data: r?.data ?? [] }))
+            .catch(() => ({ data: [], error: true }))
+        );
+      }
+    }
+
+    const batchResults = await Promise.allSettled(batchPromises);
+    const zohoMap = new Map();
+    let batchErrors = 0;
+    for (const r of batchResults) {
+      if (r.status === 'fulfilled') {
+        if (r.value.error) { batchErrors++; continue; }
+        for (const rec of r.value.data) zohoMap.set(rec.id, rec.Application_Handled_By ?? null);
+      } else {
+        batchErrors++;
+      }
+    }
+
+    const mismatches = [];
+    const not_found_details = [];
+    const updateOps = [];
+
+    for (const { lead_id, lead_owner, record_type } of mongoClients) {
+      if (!zohoMap.has(lead_id)) {
+        not_found_details.push({ lead_id, record_type, mongodb_lead_owner: lead_owner });
+        continue;
+      }
+      const zoho_value = zohoMap.get(lead_id);
+      if ((lead_owner ?? '').trim() !== (zoho_value ?? '').trim()) {
+        mismatches.push({ lead_id, record_type, mongodb_lead_owner: lead_owner, zoho_application_handled_by: zoho_value, updated: false });
+        if (!dry_run) updateOps.push({ lead_id, zoho_value });
+      }
+    }
+
+    let updated_count = 0;
+    if (!dry_run && updateOps.length) {
+      const updateResults = await Promise.allSettled(
+        updateOps.map(({ lead_id, zoho_value }) =>
+          DmsZohoClient.updateOne({ lead_id }, { $set: { lead_owner: zoho_value } })
+        )
+      );
+      updateResults.forEach((r, i) => {
+        if (r.status === 'fulfilled' && r.value.modifiedCount > 0) {
+          updated_count++;
+          mismatches[i].updated = true;
+        } else if (r.status === 'rejected') {
+          batchErrors++;
+        }
+      });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      dry_run,
+      summary: {
+        total_checked: mongoClients.length,
+        mismatched: mismatches.length,
+        updated: updated_count,
+        not_found_in_zoho: not_found_details.length,
+        errors: batchErrors,
+      },
+      mismatches,
+      not_found_in_zoho: not_found_details,
+    });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message || 'Something went wrong during lead owner sync' });
   }
 };

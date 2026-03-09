@@ -55,6 +55,9 @@ router.get('/admin/check/:record_id', protect, dmsZohoClientController.getClient
 // Admin: Update client account by record_id
 router.patch('/admin/update/:record_id', protect, dmsZohoClientController.updateClientAccountByRecordId);
 
+// Sync: check and fix lead_owner mismatches between MongoDB and Zoho
+router.get('/sync/lead-owner', protect, dmsZohoClientController.checkAndSyncLeadOwner);
+
 // Client details by MongoDB _id — must be last to avoid conflicts with named routes
 router.get('/:id', protect, dmsZohoClientController.getClientById);
 
