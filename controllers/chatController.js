@@ -333,6 +333,15 @@ exports.sendMessage = async (req, res) => {
     conv.lastMessageAt = msg.createdAt;
     await conv.save();
 
+    // Update last_communication_activity for client participants (fire-and-forget)
+    const clientParticipants = conv.participants.filter(p => p.type === 'client');
+    if (clientParticipants.length) {
+      DmsZohoClient.updateMany(
+        { _id: { $in: clientParticipants.map(p => p.id) } },
+        { last_communication_activity: msg.createdAt }
+      ).catch(() => {});
+    }
+
     const io = req.app.get('io');
     if (io) {
       conv.participants.forEach((p) => {

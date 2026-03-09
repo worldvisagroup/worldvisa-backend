@@ -227,7 +227,7 @@ const getVisaApplicationById = async (req, res) => {
 
     const [documentsCount, client] = await Promise.all([
       dmsZohoDocument.countDocuments({ record_id }),
-      DmsZohoClient.findOne({ lead_id: record_id }).select('notes').lean(),
+      DmsZohoClient.findOne({ lead_id: record_id }).select('notes online_status last_communication_activity').lean(),
     ]);
 
     res.json({
@@ -235,6 +235,8 @@ const getVisaApplicationById = async (req, res) => {
         ...application,
         AttachmentCount: documentsCount,
         notes: client?.notes ?? [],
+        online_status: client?.online_status ?? false,
+        last_communication_activity: client?.last_communication_activity ?? null,
       },
     });
   } catch (err) {
@@ -461,7 +463,7 @@ const getSpouseVisaApplicationById = async (req, res) => {
 
     const [documentsCount, client] = await Promise.all([
       dmsZohoDocument.countDocuments({ record_id }),
-      DmsZohoClient.findOne({ lead_id: record_id }).select('notes').lean(),
+      DmsZohoClient.findOne({ lead_id: record_id }).select('notes online_status last_communication_activity').lean(),
     ]);
 
     res.json({
@@ -469,6 +471,8 @@ const getSpouseVisaApplicationById = async (req, res) => {
         ...application,
         AttachmentCount: documentsCount,
         notes: client?.notes ?? [],
+        online_status: client?.online_status ?? false,
+        last_communication_activity: client?.last_communication_activity ?? null,
       },
     });
   } catch (err) {

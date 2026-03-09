@@ -451,8 +451,8 @@ exports.login = async (req, res, next) => {
       });
     }
 
-    // 3) Record last login, then send token
-    await ZohoDmsUser.findByIdAndUpdate(user._id, { last_login: new Date() });
+    // 3) Record last login, set online, then send token
+    await ZohoDmsUser.findByIdAndUpdate(user._id, { last_login: new Date(), online_status: true });
     createSendToken(user, 200, res);
   } catch (error) {
     res.status(400).json({
@@ -504,6 +504,15 @@ exports.protect = async (req, res, next) => {
 };
 
 const DMS_ADMIN_ROLES = ['master_admin', 'supervisor', 'team_leader', 'admin'];
+
+exports.logout = async (req, res) => {
+  try {
+    await ZohoDmsUser.findByIdAndUpdate(req.user._id, { online_status: false });
+    res.status(200).json({ status: 'success', message: 'Logged out successfully' });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Logout failed' });
+  }
+};
 
 exports.restrictToAdmin = (req, res, next) => {
   if (!req.user || !DMS_ADMIN_ROLES.includes(req.user.role)) {

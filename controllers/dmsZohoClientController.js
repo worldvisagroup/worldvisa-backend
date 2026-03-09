@@ -81,7 +81,8 @@ exports.login = async (req, res) => {
       });
     }
 
-    // 4) If everything is ok, send token to client
+    // 4) If everything is ok, set online and send token to client
+    await DmsZohoClient.findByIdAndUpdate(client._id, { online_status: true });
     const token = signToken(client._id, client.lead_id, client.email);
 
     res.status(200).json({
@@ -391,6 +392,15 @@ exports.protectClient = async (req, res, next) => {
       status: 'fail',
       message: 'Invalid token. Please log in again.',
     });
+  }
+};
+
+exports.logout = async (req, res) => {
+  try {
+    await DmsZohoClient.findByIdAndUpdate(req.user._id, { online_status: false });
+    res.status(200).json({ status: 'success', message: 'Logged out successfully' });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: 'Logout failed' });
   }
 };
 

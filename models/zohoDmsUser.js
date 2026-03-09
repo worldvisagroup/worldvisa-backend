@@ -27,6 +27,10 @@ const zohoDmsUserSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
+  online_status: {
+    type: Boolean,
+    default: false,
+  },
 });
 
 // Hash password before saving

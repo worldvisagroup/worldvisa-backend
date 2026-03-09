@@ -14,6 +14,7 @@ router.get('/all', protect, dmsZohoClientController.getAllClients);
 
 router.post('/signup', protect, dmsZohoClientController.signup);
 router.post('/login', dmsZohoClientController.login);
+router.post('/logout', protectClient, dmsZohoClientController.logout);
 
 router.get('/user-exists/:lead_id', dmsZohoClientController.userExistsWithLeadId);
 

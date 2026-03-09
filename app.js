@@ -11,6 +11,8 @@ const logger = require('./utils/logger');
 const server = http.createServer(app);
 const { Server } = require("socket.io");
 const jwt = require('jsonwebtoken');
+const ZohoDmsUser = require('./models/zohoDmsUser');
+const DmsZohoClient = require('./models/dmsZohoClient');
 
 var cors = require("cors");
 require("dotenv").config();
@@ -294,8 +296,16 @@ io.on('connection', (socket) => {
     if (socket.chatRoom) socket.join(socket.chatRoom);
   }
 
-  socket.on('disconnect', () => {
-    console.log(`User disconnected with socket.id: ${socket.id}`);
+  socket.on('disconnect', async () => {
+    if (socket.userId && socket.chatActorType) {
+      try {
+        if (socket.chatActorType === 'client') {
+          await DmsZohoClient.findByIdAndUpdate(socket.userId, { online_status: false });
+        } else {
+          await ZohoDmsUser.findByIdAndUpdate(socket.userId, { online_status: false });
+        }
+      } catch (e) { /* non-fatal */ }
+    }
   });
 });
 

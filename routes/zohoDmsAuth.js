@@ -6,6 +6,7 @@ const router = express.Router();
 
 router.post('/signup', zohoDmsAuthController.signup);
 router.post('/login', zohoDmsAuthController.login);
+router.post('/logout', zohoDmsAuthController.protect, zohoDmsAuthController.logout);
 router.get("/all", zohoDmsAuthController.getAllUsers);
 router.get("/notifications", zohoDmsAuthController.protect, zohoDmsAuthController.getAllNotifications);
 router.delete("/remove", zohoDmsAuthController.protect, zohoDmsAuthController.deleteUser);

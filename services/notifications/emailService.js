@@ -2,6 +2,7 @@
 
 const { Resend } = require('resend');
 const EmailNotification = require('../../models/emailNotification');
+const DmsZohoClient = require('../../models/dmsZohoClient');
 const logger = require('../../utils/logger');
 
 // Template renderers
@@ -144,11 +145,19 @@ async function sendSingle(notificationId) {
 
     if (error) throw new Error(error.message || JSON.stringify(error));
 
+    const sentAt = new Date();
     await EmailNotification.findByIdAndUpdate(notificationId, {
       status: 'sent',
-      sentAt: new Date(),
+      sentAt,
       resendId: data?.id || null,
     });
+
+    if (record.recipientRole === 'client') {
+      DmsZohoClient.findOneAndUpdate(
+        { email: record.recipientEmail },
+        { last_communication_activity: sentAt }
+      ).catch(() => {});
+    }
 
     logger.info('[Email] Sent immediate notification', {
       notificationId,
@@ -218,10 +227,18 @@ async function sendBatch(notificationIds) {
 
     if (error) throw new Error(error.message || JSON.stringify(error));
 
+    const sentAt = new Date();
     await EmailNotification.updateMany(
       { _id: { $in: notificationIds } },
-      { status: 'sent', sentAt: new Date(), resendId: data?.id || null }
+      { status: 'sent', sentAt, resendId: data?.id || null }
     );
+
+    if (records[0]?.recipientRole === 'client') {
+      DmsZohoClient.findOneAndUpdate(
+        { email: recipientEmail },
+        { last_communication_activity: sentAt }
+      ).catch(() => {});
+    }
 
     logger.info('[Email] Sent batch notification', {
       batchId,

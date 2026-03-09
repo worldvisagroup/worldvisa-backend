@@ -84,6 +84,14 @@ const dmsZohoClientSchema = new mongoose.Schema({
       },
     },
   ],
+  online_status: {
+    type: Boolean,
+    default: false,
+  },
+  last_communication_activity: {
+    type: Date,
+    default: null,
+  },
 });
 
 // Hash password before saving
