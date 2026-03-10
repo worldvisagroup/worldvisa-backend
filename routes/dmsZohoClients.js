@@ -4,6 +4,7 @@ const { protectClient } = require('../controllers/dmsZohoClientController'); // 
 const dmsZohoDocumentsController = require("../controllers/dmsZohoDocumentsController");
 const { getVisaApplication } = require('../controllers/visaApplicationController');
 const { protect, addNotificationByClient } = require('../controllers/zohoDmsAuthController');
+const { apiKeyMiddleware } = require('../utils/helperFunction');
 const multer = require('multer');
 const router = express.Router();
 
@@ -57,6 +58,9 @@ router.patch('/admin/update/:record_id', protect, dmsZohoClientController.update
 
 // Sync: check and fix lead_owner mismatches between MongoDB and Zoho
 router.get('/sync/lead-owner', protect, dmsZohoClientController.checkAndSyncLeadOwner);
+
+// Zoho webhook: update lead_owner when Application_Handled_By changes in Zoho
+router.post('/webhook/update-lead-owner', apiKeyMiddleware, dmsZohoClientController.updateLeadOwnerFromZoho);
 
 // Client details by MongoDB _id — must be last to avoid conflicts with named routes
 router.get('/:id', protect, dmsZohoClientController.getClientById);

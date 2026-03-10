@@ -985,3 +985,31 @@ exports.checkAndSyncLeadOwner = async (req, res) => {
     res.status(500).json({ status: 'error', message: error.message || 'Something went wrong during lead owner sync' });
   }
 };
+
+exports.updateLeadOwnerFromZoho = async (req, res) => {
+  const { lead_id, application_handled_by } = req.body;
+
+  if (!lead_id || !application_handled_by) {
+    return res.status(400).json({ status: 'fail', message: 'lead_id and application_handled_by are required' });
+  }
+
+  try {
+    const updated = await DmsZohoClient.findOneAndUpdate(
+      { lead_id },
+      { $set: { lead_owner: application_handled_by.trim() } },
+      { new: true, select: 'lead_id lead_owner record_type name' }
+    );
+
+    if (!updated) {
+      return res.status(404).json({ status: 'fail', message: `No client found with lead_id: ${lead_id}` });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      message: 'lead_owner updated successfully',
+      data: { lead_id: updated.lead_id, lead_owner: updated.lead_owner, record_type: updated.record_type, name: updated.name },
+    });
+  } catch (error) {
+    res.status(500).json({ status: 'error', message: error.message || 'Something went wrong' });
+  }
+};
