@@ -34,6 +34,7 @@
         "express-validator": "^7.2.1",
         "form-data": "^4.0.0",
         "fs": "^0.0.1-security",
+        "googleapis": "^171.4.0",
         "helmet": "^8.1.0",
         "image-size": "^1.0.2",
         "ioredis": "^5.8.1",
@@ -61,6 +62,7 @@
         "sharp": "^0.32.5",
         "socket.io": "^4.8.1",
         "socket.io-client": "^4.8.1",
+        "svix": "^1.87.0",
         "tesseract.js": "^5.1.1",
         "typescript": "^5.3.3",
         "uuid": "^13.0.0"

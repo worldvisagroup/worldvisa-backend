@@ -19,7 +19,9 @@ try {
     redisDisabled = true;
     console.log("⏭️ Redis disabled in production (REDIS_URL/REDIS_HOST not set)");
   } else if (process.env.REDIS_URL) {
-    console.log("🔗 Using REDIS_URL to connect to Redis");
+    const redisUrl = process.env.REDIS_URL;
+    const useTls = redisUrl.startsWith("rediss://");
+    console.log("🔗 Using REDIS_URL to connect to Redis", useTls ? "(TLS)" : "(plain TCP)");
     const redisOptions = {
       retryDelayOnFailover: 1000,
       maxRetriesPerRequest: null, // Required for BullMQ compatibility
@@ -36,11 +38,15 @@ try {
         return err.message.includes("READONLY");
       },
       enableOfflineQueue: true,
-      tls: {
-        rejectUnauthorized: false,
-      },
     };
-    redis = new IoRedis(process.env.REDIS_URL, redisOptions);
+    // Only enable TLS for rediss:// (e.g. Upstash); plain redis:// (e.g. Dokploy) uses TCP.
+    // For redis://, explicitly disable TLS so production never uses TLSSocket by mistake.
+    if (useTls) {
+      redisOptions.tls = { rejectUnauthorized: false };
+    } else {
+      redisOptions.tls = false;
+    }
+    redis = new IoRedis(redisUrl, redisOptions);
     redis.connect().catch((err) => {
       console.warn('Redis initial connect error (will retry automatically):', err.message);
     });

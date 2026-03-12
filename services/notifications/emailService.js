@@ -2,6 +2,7 @@
 
 const { Resend } = require('resend');
 const EmailNotification = require('../../models/emailNotification');
+const Email = require('../../models/email');
 const DmsZohoClient = require('../../models/dmsZohoClient');
 const logger = require('../../utils/logger');
 
@@ -37,6 +38,39 @@ function getFromAddress() {
   const name = process.env.EMAIL_FROM_NAME || 'WorldVisa Group';
   const email = process.env.EMAIL_FROM || 'notifications@worldvisagroup.com';
   return `${name} <${email}>`;
+}
+
+/**
+ * Persist a sent email to the Email collection (best-effort; does not fail send flow).
+ * @param {Object} opts - provider_email_id, from, to, subject, html, text (optional), client_id (optional)
+ */
+function createEmailRecord(opts) {
+  const {
+    provider_email_id,
+    from,
+    to,
+    subject,
+    html,
+    text = null,
+    client_id = null,
+  } = opts;
+  const toArr = Array.isArray(to) ? to : (to ? [to] : []);
+  Email.create({
+    provider: 'resend',
+    provider_email_id: provider_email_id || null,
+    direction: 'outbound',
+    email_type: 'system',
+    from,
+    to: toArr,
+    subject: subject || '',
+    html: html || null,
+    text,
+    last_event: 'sent',
+    created_at: new Date(),
+    client_id,
+  }).catch((err) => {
+    logger.error('[Email] Failed to create Email record', { error: err.message, provider_email_id });
+  });
 }
 
 /**
@@ -159,6 +193,20 @@ async function sendSingle(notificationId) {
       ).catch(() => {});
     }
 
+    let clientId = null;
+    if (record.recipientRole === 'client') {
+      const client = await DmsZohoClient.findOne({ email: record.recipientEmail }, { _id: 1 }).lean();
+      clientId = client?._id || null;
+    }
+    createEmailRecord({
+      provider_email_id: data?.id,
+      from: getFromAddress(),
+      to: [record.recipientEmail],
+      subject: record.subject || rendered.subject,
+      html: rendered.html,
+      client_id: clientId,
+    });
+
     logger.info('[Email] Sent immediate notification', {
       notificationId,
       type: record.notificationType,
@@ -239,6 +287,20 @@ async function sendBatch(notificationIds) {
         { last_communication_activity: sentAt }
       ).catch(() => {});
     }
+
+    let clientId = null;
+    if (records[0]?.recipientRole === 'client') {
+      const client = await DmsZohoClient.findOne({ email: recipientEmail }, { _id: 1 }).lean();
+      clientId = client?._id || null;
+    }
+    createEmailRecord({
+      provider_email_id: data?.id,
+      from: getFromAddress(),
+      to: [recipientEmail],
+      subject: rendered.subject,
+      html: rendered.html,
+      client_id: clientId,
+    });
 
     logger.info('[Email] Sent batch notification', {
       batchId,

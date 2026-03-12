@@ -41,6 +41,8 @@ const visaReferenceFormController = require("./routes/visaReferenceForm");
 const pdfRoutes = require('./routes/worldvisa2.0/pdf/pdf.routes');
 const meetingRouter = require('./routes/worldvisa2.0/meeting/meeting.routes');
 const anabinRouter = require('./routes/anabin');
+const emailController = require('./controllers/emailController');
+const emailRouter = require('./routes/email');
 
 // Visa News Cron Job
 const visaNewsCron = require("./utils/visaNewsCron");
@@ -297,6 +299,9 @@ io.on('connection', (socket) => {
 
 app.set('io', io);
 
+// Resend webhook
+app.post('/api/email/webhook/resend', express.raw({ type: 'application/json' }), emailController.handleResendWebhook);
+
 app.use(express.json({ limit: '10mb' })); 
 app.use(compression());
 app.use(express.urlencoded({ extended: true }));
@@ -368,6 +373,7 @@ app.use("/blogs", blogsRouter);
 app.use("/news", newsRouter);
 
 app.use("/api/visa-news", apiKeyMiddleware, visaNewsRouter);
+app.use('/api/email', emailRouter);
 
 app.use("/payment", paymentRouter);
 
