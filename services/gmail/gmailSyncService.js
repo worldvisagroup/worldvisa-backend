@@ -146,34 +146,59 @@ function decodeBase64url(str) {
  *
  * A flat one-level scan misses everything inside multipart containers.
  */
-function extractBody(payload) {
+async function extractBody(payload, gmail, messageId) {
   let html = null;
   let text = null;
 
-  function walk(part) {
+  async function walk(part) {
     if (!part) return;
     const mime        = (part.mimeType ?? '').toLowerCase();
     const disposition = (getPartHeader(part, 'content-disposition') ?? '').toLowerCase();
 
     // Recurse into multipart containers — never try to read their body directly
     if (mime.startsWith('multipart/')) {
-      for (const child of part.parts ?? []) walk(child);
+      for (const child of part.parts ?? []) await walk(child);
       return;
     }
 
     // Skip anything that is explicitly an attachment
     if (part.filename || disposition.startsWith('attachment')) return;
 
-    // Skip parts with no inline data
-    if (!part.body?.data) return;
+    // Get inline data, or fetch via attachmentId if the body was stored externally
+    // (Gmail API stores large/externally-structured body parts under body.attachmentId
+    //  per official docs — requires a separate messages.attachments.get() call)
+    let rawData = part.body?.data ?? null;
 
-    const decoded = decodeBase64url(part.body.data).toString('utf8');
+    if (!rawData && part.body?.attachmentId && gmail && messageId) {
+      try {
+        const res = await withRetry(
+          () => gmail.users.messages.attachments.get({
+            userId:    'me',
+            messageId,
+            id:        part.body.attachmentId,
+          }),
+          `body:${messageId}/${part.body.attachmentId}`
+        );
+        rawData = res.data.data ?? null;
+      } catch (err) {
+        logger.warn('[Gmail Sync] Failed to fetch external body part', {
+          messageId,
+          attachmentId: part.body.attachmentId,
+          error:        err.message,
+        });
+        return;
+      }
+    }
 
-    if (mime.includes('html') && !html)  html = decoded;
+    if (!rawData) return;
+
+    const decoded = decodeBase64url(rawData).toString('utf8');
+
+    if (mime.includes('html') && !html)       html = decoded;
     else if (mime.includes('plain') && !text) text = decoded;
   }
 
-  walk(payload);
+  await walk(payload);
   return { html, text };
 }
 
@@ -301,12 +326,12 @@ async function fetchAndUploadAttachments(gmail, messageId, payload) {
  * Attachments are intentionally left empty here — they are populated
  * separately in the fetch loop via fetchAndUploadAttachments().
  */
-function mapGmailMessageToEmail(msg) {
+async function mapGmailMessageToEmail(msg, gmail) {
   const payload     = msg.payload ?? {};
   const headers     = payload.headers ?? [];
   const labelIds    = msg.labelIds ?? [];
   const direction   = labelIds.includes('SENT') ? 'outbound' : 'inbound';
-  const { html, text } = extractBody(payload);
+  const { html, text } = await extractBody(payload, gmail, msg.id);
   const internalDate   = msg.internalDate
     ? new Date(parseInt(msg.internalDate, 10))
     : null;
@@ -333,7 +358,7 @@ function mapGmailMessageToEmail(msg) {
     html,
     text,
     attachments:       [],   // populated after R2 upload
-    headers:           {},
+    headers:           Object.fromEntries(headers.map((h) => [h.name.toLowerCase(), h.value])),
     last_event:        'delivered',
     created_at:        internalDate ?? new Date(),
     received_at:       internalDate,
@@ -479,7 +504,7 @@ async function processMessage(gmail, messageId) {
     const payload = msg.payload ?? {};
 
     // ── Map to Email shape ────────────────────────────────────────────────────
-    const doc = mapGmailMessageToEmail(msg);
+    const doc = await mapGmailMessageToEmail(msg, gmail);
 
     // ── Fetch + upload attachments ────────────────────────────────────────────
     doc.attachments = await fetchAndUploadAttachments(gmail, msg.id, payload);

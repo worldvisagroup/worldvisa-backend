@@ -97,7 +97,7 @@ const emailSchema = new mongoose.Schema(
           filename: { type: String, default: '' },
           content_type: { type: String, default: '' },
           size: { type: Number, default: 0 },
-          storage_url: { type: String, default: '' },
+          storage_key: { type: String, default: '' },
           provider_attachment_id: { type: String, default: null },
           content_disposition: { type: String, default: null },
           content_id: { type: String, default: null },

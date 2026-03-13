@@ -23,6 +23,7 @@ const logger           = require('../utils/logger');
 const gmailSyncService = require('../services/gmail/gmailSyncService');
 const emailService     = require('../services/notifications/emailService');
 const { redis }        = require('../services/redis');
+const { uploadToR2, getEmailAttachmentKey } = require('../services/r2Client');
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -83,6 +84,121 @@ function resolveRedirectUri(req) {
   );
 }
 
+// ─── Resend inbound: fetch full content + upload attachments ─────────────────
+
+async function processInboundEmail(emailId, eventData) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error('RESEND_API_KEY not set');
+
+  const headers = { Authorization: `Bearer ${apiKey}` };
+
+  // 1. Full email content (html, text, headers)
+  const emailRes = await fetch(
+    `https://api.resend.com/emails/receiving/${emailId}`,
+    { headers }
+  );
+  if (!emailRes.ok) {
+    throw new Error(`Resend email fetch failed: ${emailRes.status} ${emailRes.statusText}`);
+  }
+  const emailData = await emailRes.json();
+
+  // 2. Attachment list
+  const attachRes = await fetch(
+    `https://api.resend.com/emails/receiving/${emailId}/attachments`,
+    { headers }
+  );
+  const attachBody  = attachRes.ok ? await attachRes.json() : { data: [] };
+  const attachList  = Array.isArray(attachBody.data) ? attachBody.data : [];
+
+  // 3. Download each attachment and upload to R2
+  const msgId            = emailData.message_id ?? emailId;
+  const storedAttachments = [];
+
+  for (const att of attachList) {
+    const meta = {
+      filename:               att.filename    ?? 'attachment',
+      content_type:           att.content_type ?? 'application/octet-stream',
+      size:                   att.size         ?? 0,
+      storage_key:            '',
+      provider_attachment_id: att.id           ?? null,
+    };
+
+    try {
+      const fileRes = await fetch(att.download_url);
+      if (!fileRes.ok) throw new Error(`Download failed: ${fileRes.status}`);
+      const buffer = Buffer.from(await fileRes.arrayBuffer());
+
+      const key = getEmailAttachmentKey({
+        direction:    'inbound',
+        messageId:    msgId,
+        attachmentId: att.id ?? att.filename,
+        filename:     att.filename,
+      });
+
+      await uploadToR2(key, buffer, meta.content_type);
+      storedAttachments.push({ ...meta, size: buffer.length, storage_key: key });
+    } catch (err) {
+      logger.warn('[Email Webhook] Attachment upload failed', {
+        email_id: emailId,
+        filename: att.filename,
+        error:    err.message,
+      });
+      storedAttachments.push(meta); // soft-fail: keep metadata, leave storage_key empty
+    }
+  }
+
+  // 4. Thread resolution via In-Reply-To header
+  const inReplyTo = emailData.headers?.['in-reply-to'] ?? null;
+  let threadId    = null;
+
+  if (inReplyTo) {
+    const parent = await Email.findOne({ message_id: inReplyTo }).lean();
+    threadId     = parent?.thread_id ?? parent?.message_id ?? null;
+  }
+
+  // 5. References header (space-separated string → array)
+  const rawRefs  = emailData.headers?.['references'] ?? null;
+  const references = rawRefs
+    ? rawRefs.split(/\s+/).filter(Boolean)
+    : [];
+
+  // 6. Build doc and upsert (idempotent — safe to replay)
+  const inboundDoc = {
+    provider:          'resend',
+    provider_email_id: emailId,
+    direction:         'inbound',
+    email_type:        'client',
+    message_id:        eventData.message_id ?? null,
+    in_reply_to:       inReplyTo,
+    references,
+    thread_id:         threadId,
+    from:              eventData.from    ?? '',
+    to:                Array.isArray(eventData.to)  ? eventData.to  : [eventData.to].filter(Boolean),
+    cc:                Array.isArray(eventData.cc)  ? eventData.cc  : [],
+    bcc:               Array.isArray(eventData.bcc) ? eventData.bcc : [],
+    subject:           eventData.subject ?? '',
+    html:              emailData.html    ?? null,
+    text:              emailData.text    ?? null,
+    headers:           emailData.headers ?? {},
+    attachments:       storedAttachments,
+    last_event:        'received',
+    received_at:       eventData.created_at ? new Date(eventData.created_at) : new Date(),
+    created_at:        new Date(),
+  };
+
+  await Email.findOneAndUpdate(
+    { provider: 'resend', provider_email_id: emailId },
+    { $setOnInsert: inboundDoc },
+    { upsert: true, new: false }
+  );
+
+  logger.info('[Email Webhook] Inbound email stored', {
+    email_id:    emailId,
+    attachments: storedAttachments.length,
+    thread_id:   threadId,
+  });
+}
+
 // ─── POST /api/email/webhook/resend ──────────────────────────────────────────
 
 async function handleResendWebhook(req, res) {
@@ -131,57 +247,19 @@ async function handleResendWebhook(req, res) {
 
   logger.info('[Email Webhook] Event received', { type, email_id: emailId });
 
-  // ── Inbound: create email record ──────────────────────────────────────────
+  // ── Inbound: fetch full content + store (background) ─────────────────────
   if (type === 'email.received' && emailId) {
-    try {
-      const inboundDoc = {
-        provider:          'resend',
-        provider_email_id: emailId,
-        direction:         'inbound',
-        email_type:        'client',
-        message_id:        data.message_id  ?? null,
-        in_reply_to:       data.in_reply_to ?? null,
-        thread_id:         data.thread_id   ?? null,
-        from:              data.from  ?? '',
-        to:                Array.isArray(data.to)  ? data.to  : [data.to].filter(Boolean),
-        cc:                Array.isArray(data.cc)  ? data.cc  : [],
-        bcc:               Array.isArray(data.bcc) ? data.bcc : [],
-        subject:           data.subject ?? '',
-        html:              data.html    ?? null,
-        text:              data.text    ?? null,
-        attachments: Array.isArray(data.attachments)
-          ? data.attachments.map((a) => ({
-              filename:               a.filename            ?? '',
-              content_type:           a.content_type        ?? 'application/octet-stream',
-              size:                   a.size                ?? 0,
-              storage_key:            '',   // R2 upload disabled — re-enable when needed
-              provider_attachment_id: a.id  ?? null,
-              content_disposition:    a.content_disposition ?? null,
-              content_id:             a.content_id          ?? null,
-            }))
-          : [],
-        last_event:  'received',
-        received_at: data.created_at ? new Date(data.created_at) : new Date(),
-        created_at:  new Date(),
-      };
+    // Respond immediately — Resend retries on non-2xx, so never block here
+    res.status(200).json({ received: true });
 
-      // $setOnInsert: idempotent — safe to replay webhooks without creating duplicates
-      await Email.findOneAndUpdate(
-        { provider: 'resend', provider_email_id: emailId },
-        { $setOnInsert: inboundDoc },
-        { upsert: true, new: false }
-      );
-
-      logger.info('[Email Webhook] Inbound email stored', { email_id: emailId });
-    } catch (err) {
-      // Log but still return 200 — non-2xx causes Resend to retry, risking duplicates
-      logger.error('[Email Webhook] Failed to store inbound email', {
+    // Fire-and-forget: fetch full email, upload attachments, resolve thread, upsert
+    processInboundEmail(emailId, data).catch((err) =>
+      logger.error('[Email Webhook] processInboundEmail failed', {
         email_id: emailId,
         error:    err.message,
-      });
-    }
-
-    return res.status(200).json({ received: true });
+      })
+    );
+    return;
   }
 
   // ── Outbound delivery event updates ───────────────────────────────────────
