@@ -15,20 +15,13 @@ const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
 const GMAIL_SYNC_REDIS_KEY = 'gmail_sync_lock';
 const GMAIL_SYNC_COOLDOWN_SEC = 5 * 60; // 5 minutes
 
-/** Resend event type -> Email.last_event */
+/** Resend event type -> Email.last_event (email.delivered intentionally excluded) */
 const EVENT_MAP = {
-  'email.sent': 'sent',
-  'email.delivered': 'delivered',
-  'email.opened': 'opened',
-  'email.bounced': 'bounced',
-  'email.complained': 'complained',
-  'email.clicked': 'clicked',
-  'email.delivery_delayed': 'delivery_delayed',
   'email.received': 'received',
 };
 
-/** Event order for deduplication: only update if new event is later (or terminal). */
-const EVENT_ORDER = { queued: 0, sent: 1, delivered: 2, opened: 3, bounced: 4, complained: 5, clicked: 6, delivery_delayed: 7, received: 8 };
+/** Event order for deduplication*/
+const EVENT_ORDER = { queued: 0, received: 1 };
 
 const DEFAULT_EMAIL_LIMIT = 20;
 const MAX_EMAIL_LIMIT = 50;
@@ -341,6 +334,10 @@ async function listEmails(req, res) {
       match.$and = match.$and || [];
       match.$and.push({ $or: searchOr });
     }
+
+    // Exclude emails with neither html nor text
+    match.$and = match.$and || [];
+    match.$and.push({ $or: [{ html: { $ne: null } }, { text: { $ne: null } }] });
 
     const sortTime = { $cond: [{ $ne: ['$received_at', null] }, '$received_at', '$created_at'] };
     const skip = (page - 1) * limit;
