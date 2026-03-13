@@ -468,7 +468,7 @@ async function listEmails(req, res) {
     // Always exclude messages with no readable body (delivery receipts / drafts)
     match.$and = [
       ...(match.$and ?? []),
-      { $or: [{ html: { $ne: null } }, { text: { $ne: null } }] },
+      { $or: [{ html: { $ne: null } }] },
     ];
 
     const sortTime = { $cond: [{ $ne: ['$received_at', null] }, '$received_at', '$created_at'] };
