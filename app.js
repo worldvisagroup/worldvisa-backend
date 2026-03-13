@@ -222,12 +222,12 @@ mongoose
       logger.error('Failed to reset stuck ZIP jobs', { error: err.message });
     }
 
-    // Start visa news cron job after successful DB connection
-    try {
-      visaNewsCron.startCronJob();
-    } catch (error) {
-      logger.error("Failed to start visa news cron job", { error: error.message });
-    }
+    // Start visa news cron job after successful DB connection (disabled - comment back in to re-enable)
+    // try {
+    //   visaNewsCron.startCronJob();
+    // } catch (error) {
+    //   logger.error("Failed to start visa news cron job", { error: error.message });
+    // }
 
 
     // Start ZIP cleanup cron

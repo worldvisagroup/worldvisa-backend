@@ -98,6 +98,9 @@ const emailSchema = new mongoose.Schema(
           content_type: { type: String, default: '' },
           size: { type: Number, default: 0 },
           storage_url: { type: String, default: '' },
+          provider_attachment_id: { type: String, default: null },
+          content_disposition: { type: String, default: null },
+          content_id: { type: String, default: null },
         },
       ],
       default: [],
@@ -112,7 +115,7 @@ const emailSchema = new mongoose.Schema(
     // Events
     last_event: {
       type: String,
-      enum: ['queued', 'sent', 'delivered', 'opened', 'bounced'],
+      enum: ['queued', 'sent', 'delivered', 'opened', 'bounced', 'received', 'complained', 'clicked', 'delivery_delayed'],
       default: 'queued',
     },
 
@@ -132,6 +135,8 @@ const emailSchema = new mongoose.Schema(
 );
 
 emailSchema.index({ client_id: 1, created_at: -1 });
+emailSchema.index({ direction: 1, received_at: -1 });
+emailSchema.index({ client_id: 1, direction: 1, received_at: -1 });
 emailSchema.index({ thread_id: 1 });
 emailSchema.index({ provider_email_id: 1 }, { sparse: true });
 emailSchema.index({ provider: 1, provider_email_id: 1 }, { unique: true });

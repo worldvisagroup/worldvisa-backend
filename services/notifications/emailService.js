@@ -5,6 +5,7 @@ const EmailNotification = require('../../models/emailNotification');
 const Email = require('../../models/email');
 const DmsZohoClient = require('../../models/dmsZohoClient');
 const logger = require('../../utils/logger');
+const { getEmailAttachmentKey, uploadToR2 } = require('../r2Client');
 
 // Template renderers
 const documentRejectedTpl = require('../../emailTemplates/documentRejected');
@@ -40,10 +41,6 @@ function getFromAddress() {
   return `${name} <${email}>`;
 }
 
-/**
- * Persist a sent email to the Email collection (best-effort; does not fail send flow).
- * @param {Object} opts - provider_email_id, from, to, subject, html, text (optional), client_id (optional)
- */
 function createEmailRecord(opts) {
   const {
     provider_email_id,
@@ -53,8 +50,10 @@ function createEmailRecord(opts) {
     html,
     text = null,
     client_id = null,
+    attachments = [],
   } = opts;
   const toArr = Array.isArray(to) ? to : (to ? [to] : []);
+  const attachmentList = Array.isArray(attachments) ? attachments : [];
   Email.create({
     provider: 'resend',
     provider_email_id: provider_email_id || null,
@@ -65,6 +64,7 @@ function createEmailRecord(opts) {
     subject: subject || '',
     html: html || null,
     text,
+    attachments: attachmentList,
     last_event: 'sent',
     created_at: new Date(),
     client_id,
@@ -73,10 +73,7 @@ function createEmailRecord(opts) {
   });
 }
 
-/**
- * Choose the correct template renderer and invoke it.
- * Returns { html, subject } or null if type is not recognised.
- */
+
 function renderTemplate(notification) {
   const { notificationType, templateData, recipientName, entityParentId, entityName } = notification;
 
@@ -170,12 +167,24 @@ async function sendSingle(notificationId) {
     }
 
     const resend = getResend();
-    const { data, error } = await resend.emails.send({
+    const attachmentList = Array.isArray(record.attachments) ? record.attachments : [];
+    const resendAttachments = attachmentList
+      .filter((a) => a && a.storage_url)
+      .map((a) => ({
+        filename: a.filename || 'attachment',
+        url: a.storage_url,
+        contentType: a.content_type || 'application/octet-stream',
+      }));
+
+    const sendPayload = {
       from: getFromAddress(),
       to: record.recipientEmail,
       subject: record.subject || rendered.subject,
       html: rendered.html,
-    });
+    };
+    if (resendAttachments.length) Object.assign(sendPayload, { attachments: resendAttachments });
+
+    const { data, error } = await resend.emails.send(sendPayload);
 
     if (error) throw new Error(error.message || JSON.stringify(error));
 
@@ -205,6 +214,7 @@ async function sendSingle(notificationId) {
       subject: record.subject || rendered.subject,
       html: rendered.html,
       client_id: clientId,
+      attachments: attachmentList,
     });
 
     logger.info('[Email] Sent immediate notification', {
@@ -266,12 +276,24 @@ async function sendBatch(notificationIds) {
     }
 
     const resend = getResend();
-    const { data, error } = await resend.emails.send({
+    const attachmentList = Array.isArray(records[0]?.attachments) ? records[0].attachments : [];
+    const resendAttachments = attachmentList
+      .filter((a) => a && a.storage_url)
+      .map((a) => ({
+        filename: a.filename || 'attachment',
+        url: a.storage_url,
+        contentType: a.content_type || 'application/octet-stream',
+      }));
+
+    const sendPayload = {
       from: getFromAddress(),
       to: recipientEmail,
       subject: rendered.subject,
       html: rendered.html,
-    });
+    };
+    if (resendAttachments.length) Object.assign(sendPayload, { attachments: resendAttachments });
+
+    const { data, error } = await resend.emails.send(sendPayload);
 
     if (error) throw new Error(error.message || JSON.stringify(error));
 
@@ -300,6 +322,7 @@ async function sendBatch(notificationIds) {
       subject: rendered.subject,
       html: rendered.html,
       client_id: clientId,
+      attachments: attachmentList,
     });
 
     logger.info('[Email] Sent batch notification', {
@@ -328,4 +351,112 @@ async function sendBatch(notificationIds) {
   }
 }
 
-module.exports = { sendSingle, sendBatch };
+const MAX_ATTACHMENTS_TOTAL_BYTES = 25 * 1024 * 1024; // 25 MB (Resend allows 40 MB per email)
+
+/**
+ * Send email from frontend: upload attachments to R2, send via Resend, persist Email (email_type client).
+ * @param {Object} opts - to (string or array), subject, html, text (optional), cc, bcc, client_id, attachments: [{ buffer, filename, mimetype }]
+ * @returns {Promise<{ id: string }>} Resend email id
+ */
+async function sendEmailFromFrontend(opts) {
+  const {
+    to,
+    subject,
+    html = null,
+    text = null,
+    cc = null,
+    bcc = null,
+    client_id = null,
+    in_reply_to = null,
+    message_id = null,
+    attachments = [],
+  } = opts;
+
+  const toArr = Array.isArray(to) ? to : (to ? String(to).split(',').map((e) => e.trim()).filter(Boolean) : []);
+  if (!toArr.length) throw new Error('Missing or invalid "to"');
+  if (!subject || typeof subject !== 'string' || !subject.trim()) throw new Error('Missing or invalid "subject"');
+  const hasBody = (html && typeof html === 'string' && html.trim()) || (text && typeof text === 'string' && text.trim());
+  if (!hasBody) throw new Error('At least one of "html" or "text" is required');
+
+  // Resolve thread_id for replies so the outbound email is grouped with its conversation
+  let threadId = null;
+  if (in_reply_to) {
+    const parent = await Email.findOne(
+      { $or: [{ message_id: in_reply_to }, { provider_email_id: in_reply_to }] },
+      { _id: 1, thread_id: 1 }
+    ).lean();
+    if (parent) {
+      threadId = parent.thread_id || parent._id.toString();
+      // Backfill thread_id on the parent if it was a standalone email (e.g. inbound with no prior thread)
+      if (!parent.thread_id) {
+        await Email.updateOne({ _id: parent._id }, { $set: { thread_id: threadId } });
+      }
+    }
+  }
+
+  const storedAttachments = [];
+  let totalSize = 0;
+  for (const att of attachments) {
+    if (!att || !Buffer.isBuffer(att.buffer) || !att.filename) continue;
+    totalSize += att.buffer.length;
+    if (totalSize > MAX_ATTACHMENTS_TOTAL_BYTES) throw new Error('Total attachment size exceeds 25 MB');
+    const key = getEmailAttachmentKey({ direction: 'outbound', filename: att.filename });
+    const storage_url = await uploadToR2(key, att.buffer, att.mimetype || 'application/octet-stream');
+    storedAttachments.push({
+      filename: att.filename,
+      content_type: att.mimetype || 'application/octet-stream',
+      size: att.buffer.length,
+      storage_url,
+    });
+  }
+
+  const resend = getResend();
+  const ccArr = cc ? (Array.isArray(cc) ? cc : String(cc).split(',').map((e) => e.trim()).filter(Boolean)) : [];
+  const bccArr = bcc ? (Array.isArray(bcc) ? bcc : String(bcc).split(',').map((e) => e.trim()).filter(Boolean)) : [];
+  const headers = {};
+  if (in_reply_to) headers['In-Reply-To'] = in_reply_to;
+  if (message_id) headers['References'] = message_id;
+
+  const payload = {
+    from: getFromAddress(),
+    to: toArr,
+    subject: subject.trim(),
+    ...(html && html.trim() ? { html: html.trim() } : {}),
+    ...(text && text.trim() ? { text: text.trim() } : {}),
+    ...(ccArr.length ? { cc: ccArr } : {}),
+    ...(bccArr.length ? { bcc: bccArr } : {}),
+    ...(Object.keys(headers).length ? { headers } : {}),
+  };
+  if (storedAttachments.length) {
+    payload.attachments = storedAttachments.map((a) => ({ filename: a.filename, path: a.storage_url }));
+  }
+
+  const { data, error } = await resend.emails.send(payload);
+  if (error) throw new Error(error.message || JSON.stringify(error));
+
+  await Email.create({
+    provider: 'resend',
+    provider_email_id: data?.id || null,
+    direction: 'outbound',
+    email_type: 'client',
+    from: getFromAddress(),
+    to: toArr,
+    cc: ccArr,
+    bcc: bccArr,
+    subject: subject.trim(),
+    html: html && html.trim() ? html.trim() : null,
+    text: text && text.trim() ? text.trim() : null,
+    attachments: storedAttachments,
+    last_event: 'sent',
+    ...(client_id != null ? { client_id } : {}),
+    ...(threadId ? { thread_id: threadId } : {}),
+    ...(in_reply_to ? { in_reply_to } : {}),
+    ...(message_id ? { message_id } : {}),
+  }).catch((err) => {
+    logger.error('[Email] Failed to create Email record (send from frontend)', { error: err.message, provider_email_id: data?.id });
+  });
+
+  return { id: data?.id };
+}
+
+module.exports = { sendSingle, sendBatch, sendEmailFromFrontend };

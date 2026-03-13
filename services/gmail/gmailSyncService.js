@@ -3,6 +3,7 @@
 const { google } = require('googleapis');
 const Email = require('../../models/email');
 const logger = require('../../utils/logger');
+const { uploadToR2, getEmailAttachmentKey } = require('../r2Client');
 
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
 const LIST_DELAY_MS = 350;
@@ -63,6 +64,80 @@ function mapAttachments(payload) {
       storage_url: '',
     });
   }
+  return attachments;
+}
+
+const ATTACHMENT_UPLOAD_DELAY_MS = 100;
+
+
+async function fetchAttachmentsAndUploadToR2(gmail, messageId, payload) {
+  const attachments = [];
+  if (!payload.parts) return attachments;
+
+  for (const part of payload.parts) {
+    if (!part.filename) continue;
+
+    let buffer;
+    if (part.body && part.body.data) {
+      buffer = decodeBase64url(part.body.data);
+    } else if (part.body && part.body.attachmentId) {
+      try {
+        const res = await gmail.users.messages.attachments.get({
+          userId: 'me',
+          messageId,
+          id: part.body.attachmentId,
+        });
+        buffer = decodeBase64url(res.data.data);
+      } catch (err) {
+        logger.warn('[Gmail Sync] Failed to fetch attachment', {
+          messageId,
+          attachmentId: part.body.attachmentId,
+          error: err.message,
+        });
+        attachments.push({
+          filename: part.filename,
+          content_type: part.mimeType || 'application/octet-stream',
+          size: part.body?.size || 0,
+          storage_url: '',
+        });
+        continue;
+      }
+    } else {
+      continue;
+    }
+
+    const key = getEmailAttachmentKey({
+      direction: 'inbound',
+      messageId,
+      attachmentId: part.body?.attachmentId,
+      filename: part.filename,
+    });
+
+    try {
+      const url = await uploadToR2(key, buffer, part.mimeType || 'application/octet-stream');
+      attachments.push({
+        filename: part.filename,
+        content_type: part.mimeType || 'application/octet-stream',
+        size: part.body?.size || buffer.length,
+        storage_url: url,
+      });
+    } catch (err) {
+      logger.warn('[Gmail Sync] R2 upload failed for attachment', {
+        messageId,
+        filename: part.filename,
+        error: err.message,
+      });
+      attachments.push({
+        filename: part.filename,
+        content_type: part.mimeType || 'application/octet-stream',
+        size: part.body?.size || 0,
+        storage_url: '',
+      });
+    }
+
+    await sleep(ATTACHMENT_UPLOAD_DELAY_MS);
+  }
+
   return attachments;
 }
 
@@ -203,6 +278,15 @@ async function fetchAndStoreHistory(options = {}) {
               gmail.users.messages.get({ userId: 'me', id: m.id, format: 'full' })
             );
             const doc = gmailMessageToEmail(full.data);
+
+            if (doc.attachments && doc.attachments.length > 0) {
+              doc.attachments = await fetchAttachmentsAndUploadToR2(
+                gmail,
+                full.data.id,
+                full.data.payload || {}
+              );
+            }
+
             await Email.findOneAndUpdate(
               { provider: 'gmail', provider_email_id: doc.provider_email_id },
               { $set: doc },

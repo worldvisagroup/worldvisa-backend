@@ -10,6 +10,17 @@ const r2Client = new S3Client({
 });
 
 
+function getEmailAttachmentKey(opts) {
+  const { direction, messageId, attachmentId, filename } = opts;
+  const safe = (s) => (s || '').replace(/[^a-zA-Z0-9.-]/g, '_').slice(0, 200);
+  if (direction === 'inbound' && messageId) {
+    const prefix = `email-attachments/inbound/${messageId}`;
+    const suffix = attachmentId ? `${attachmentId}-${safe(filename) || 'attachment'}` : `${Date.now()}-${safe(filename) || 'attachment'}`;
+    return `${prefix}/${suffix}`;
+  }
+  return `email-attachments/outbound/${Date.now()}-${safe(filename) || 'attachment'}`;
+}
+
 async function uploadToR2(key, body, contentType = 'application/zip') {
   const command = new PutObjectCommand({
     Bucket: process.env.R2_BUCKET_NAME,
@@ -35,4 +46,4 @@ async function deleteFromR2(key) {
   await r2Client.send(command);
 }
 
-module.exports = { uploadToR2, deleteFromR2, r2Client };
+module.exports = { uploadToR2, deleteFromR2, r2Client, getEmailAttachmentKey };
