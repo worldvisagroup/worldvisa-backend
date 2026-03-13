@@ -1,31 +1,64 @@
 'use strict';
 
-const mongoose = require('mongoose');
-const axios = require('axios');
-const { Webhook } = require('svix');
-const { google } = require('googleapis');
-const Email = require('../models/email');
-const logger = require('../utils/logger');
-const gmailSyncService = require('../services/gmail/gmailSyncService');
-const emailService = require('../services/notifications/emailService');
-const { redis } = require('../services/redis');
-// const { uploadToR2, getEmailAttachmentKey } = require('../services/r2Client'); // disabled for inbound webhook — re-enable when restoring attachment storage
+/**
+ * Email Controller — Production Ready
+ *
+ * Handles:
+ *  - Resend inbound webhook (email.received) + outbound delivery events
+ *  - Gmail OAuth flow (one-time refresh_token acquisition)
+ *  - Gmail history sync (admin, Redis-locked)
+ *  - Email CRUD: list (threaded), get by id, get with thread, send
+ *
+ * Attachment URL strategy:
+ *  - Gmail attachments: storage_key stored in MongoDB → signed URL hydrated at read time
+ *  - Resend inbound attachments: provider_attachment_id stored → R2 upload re-enable when needed
+ */
 
-const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
-const GMAIL_SYNC_REDIS_KEY = 'gmail_sync_lock';
+const mongoose      = require('mongoose');
+const { Webhook }   = require('svix');
+const { google }    = require('googleapis');
+
+const Email            = require('../models/email');
+const logger           = require('../utils/logger');
+const gmailSyncService = require('../services/gmail/gmailSyncService');
+const emailService     = require('../services/notifications/emailService');
+const { redis }        = require('../services/redis');
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const GMAIL_SCOPE             = 'https://www.googleapis.com/auth/gmail.readonly';
+const GMAIL_SYNC_REDIS_KEY    = 'gmail:sync:lock';
 const GMAIL_SYNC_COOLDOWN_SEC = 5 * 60; // 5 minutes
 
-/** Resend event type -> Email.last_event (email.delivered intentionally excluded) */
+const DEFAULT_EMAIL_LIMIT  = 20;
+const MAX_EMAIL_LIMIT       = 50;
+const MAX_THREAD_MESSAGES   = 100;
+const MAX_ATTACHMENTS       = 10;
+const MAX_ATTACHMENT_BYTES  = 25 * 1024 * 1024; // 25 MB
+
+/**
+ * Resend event type → Email.last_event value.
+ * Add entries here as you enable more Resend webhook events.
+ */
 const EVENT_MAP = {
-  'email.received': 'received',
+  'email.received':   'received',
+  'email.bounced':    'bounced',
+  'email.complained': 'complained',
 };
 
-/** Event order for deduplication*/
-const EVENT_ORDER = { queued: 0, received: 1 };
+/**
+ * Lifecycle order — prevents an out-of-order webhook from overwriting
+ * a later event with an earlier one (e.g. "queued" arriving after "delivered").
+ */
+const EVENT_ORDER = {
+  queued:     0,
+  delivered:  1,
+  received:   2,
+  bounced:    3,
+  complained: 4,
+};
 
-const DEFAULT_EMAIL_LIMIT = 20;
-const MAX_EMAIL_LIMIT = 50;
-const MAX_THREAD_MESSAGES = 100;
+// ─── Shared helpers ───────────────────────────────────────────────────────────
 
 function escapeRegex(str) {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -35,321 +68,343 @@ function isValidObjectId(id) {
   return typeof id === 'string' && /^[a-fA-F0-9]{24}$/.test(id);
 }
 
+function buildOAuthClient(redirectUri) {
+  const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } = process.env;
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    throw new Error('GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not set');
+  }
+  return new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, redirectUri);
+}
 
-/*
- * R2 inbound attachment storage disabled for now — keep for sending API only.
- *
- * async function downloadAndStoreResendAttachments(emailDocId, resendEmailId, rawAttachments, messageId) {
- *   ...
- * }
- */
+function resolveRedirectUri(req) {
+  return (
+    process.env.GMAIL_OAUTH_REDIRECT_URI ??
+    `${req.protocol}://${req.get('host')}/api/email/oauth/callback`
+  );
+}
+
+// ─── POST /api/email/webhook/resend ──────────────────────────────────────────
 
 async function handleResendWebhook(req, res) {
-  const secret = process.env.RESEND_WEBHOOK_SECRET;
-  const rawBody = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : (req.body || '');
+  const secret  = process.env.RESEND_WEBHOOK_SECRET;
+  const rawBody = Buffer.isBuffer(req.body)
+    ? req.body.toString('utf8')
+    : (req.body ?? '');
 
+  // ── Svix signature verification ───────────────────────────────────────────
   if (secret) {
-    const headers = {
-      'svix-id': req.headers['svix-id'],
+    const svixHeaders = {
+      'svix-id':        req.headers['svix-id'],
       'svix-timestamp': req.headers['svix-timestamp'],
       'svix-signature': req.headers['svix-signature'],
     };
-    if (!headers['svix-id'] || !headers['svix-timestamp'] || !headers['svix-signature']) {
+
+    if (!svixHeaders['svix-id'] || !svixHeaders['svix-timestamp'] || !svixHeaders['svix-signature']) {
       logger.warn('[Email Webhook] Missing Svix headers');
       return res.status(401).send('Missing webhook signature headers');
     }
+
     try {
-      const wh = new Webhook(secret);
-      wh.verify(rawBody, headers);
+      new Webhook(secret).verify(rawBody, svixHeaders);
     } catch (err) {
-      logger.warn('[Email Webhook] Verification failed', { error: err.message });
+      logger.warn('[Email Webhook] Signature verification failed', { error: err.message });
       return res.status(401).send('Invalid webhook signature');
     }
   } else if (process.env.NODE_ENV === 'production') {
-    logger.error('[Email Webhook] RESEND_WEBHOOK_SECRET not set in production — rejecting request');
+    logger.error('[Email Webhook] RESEND_WEBHOOK_SECRET not set in production — rejecting');
     return res.status(500).send('Webhook secret not configured');
   } else {
-    logger.warn('[Email Webhook] RESEND_WEBHOOK_SECRET not set — skipping verification');
+    logger.warn('[Email Webhook] RESEND_WEBHOOK_SECRET not set — skipping verification (dev only)');
   }
 
+  // ── Parse payload ─────────────────────────────────────────────────────────
   let payload;
   try {
     payload = JSON.parse(rawBody);
-  } catch (err) {
-    logger.warn('[Email Webhook] Invalid JSON', { error: err.message });
+  } catch {
+    logger.warn('[Email Webhook] Malformed JSON body');
     return res.status(400).send('Invalid JSON');
   }
 
-  const { type, data } = payload || {};
+  const { type, data } = payload ?? {};
   const emailId = data?.email_id;
 
   logger.info('[Email Webhook] Event received', { type, email_id: emailId });
 
-  // Handle inbound email: create a new Email record if one doesn't exist
+  // ── Inbound: create email record ──────────────────────────────────────────
   if (type === 'email.received' && emailId) {
     try {
       const inboundDoc = {
-        provider: 'resend',
+        provider:          'resend',
         provider_email_id: emailId,
-        direction: 'inbound',
-        email_type: 'client',
-        message_id: data.message_id || null,
-        from: data.from || '',
-        to: Array.isArray(data.to) ? data.to : [data.to].filter(Boolean),
-        cc: Array.isArray(data.cc) ? data.cc : [],
-        bcc: Array.isArray(data.bcc) ? data.bcc : [],
-        subject: data.subject || '',
-        html: data.html || null,
-        text: data.text || null,
+        direction:         'inbound',
+        email_type:        'client',
+        message_id:        data.message_id  ?? null,
+        in_reply_to:       data.in_reply_to ?? null,
+        thread_id:         data.thread_id   ?? null,
+        from:              data.from  ?? '',
+        to:                Array.isArray(data.to)  ? data.to  : [data.to].filter(Boolean),
+        cc:                Array.isArray(data.cc)  ? data.cc  : [],
+        bcc:               Array.isArray(data.bcc) ? data.bcc : [],
+        subject:           data.subject ?? '',
+        html:              data.html    ?? null,
+        text:              data.text    ?? null,
         attachments: Array.isArray(data.attachments)
           ? data.attachments.map((a) => ({
-              filename: a.filename || '',
-              content_type: a.content_type || '',
-              size: 0,
-              storage_url: '',
-              provider_attachment_id: a.id || null,
-              content_disposition: a.content_disposition || null,
-              content_id: a.content_id || null,
+              filename:               a.filename            ?? '',
+              content_type:           a.content_type        ?? 'application/octet-stream',
+              size:                   a.size                ?? 0,
+              storage_key:            '',   // R2 upload disabled — re-enable when needed
+              provider_attachment_id: a.id  ?? null,
+              content_disposition:    a.content_disposition ?? null,
+              content_id:             a.content_id          ?? null,
             }))
           : [],
-        last_event: 'received',
+        last_event:  'received',
         received_at: data.created_at ? new Date(data.created_at) : new Date(),
-        created_at: new Date(),
+        created_at:  new Date(),
       };
+
+      // $setOnInsert: idempotent — safe to replay webhooks without creating duplicates
       await Email.findOneAndUpdate(
         { provider: 'resend', provider_email_id: emailId },
         { $setOnInsert: inboundDoc },
         { upsert: true, new: false }
       );
-      logger.info('[Email Webhook] Inbound email stored', { email_id: emailId });
 
-      // R2 inbound attachment storage disabled — re-enable when restoring
-      // if (existing === null && Array.isArray(data.attachments) && data.attachments.length > 0) {
-      //   const stored = await Email.findOne({ provider: 'resend', provider_email_id: emailId }, { _id: 1 }).lean();
-      //   if (stored) {
-      //     downloadAndStoreResendAttachments(stored._id, emailId, data.attachments, data.message_id).catch((err) => {
-      //       logger.error('[Email Attachments] Unhandled error in attachment pipeline', { error: err.message });
-      //     });
-      //   }
-      // }
+      logger.info('[Email Webhook] Inbound email stored', { email_id: emailId });
     } catch (err) {
+      // Log but still return 200 — non-2xx causes Resend to retry, risking duplicates
       logger.error('[Email Webhook] Failed to store inbound email', {
         email_id: emailId,
-        error: err.message,
+        error:    err.message,
       });
     }
+
     return res.status(200).json({ received: true });
   }
 
-  // Handle outbound delivery-event updates
+  // ── Outbound delivery event updates ───────────────────────────────────────
   const lastEvent = EVENT_MAP[type];
   if (lastEvent && emailId) {
     try {
       const newOrder = EVENT_ORDER[lastEvent];
-      // Build a query that only matches if the new event is higher priority (or unordered events)
-      const query = { provider: 'resend', provider_email_id: emailId };
+      const query    = { provider: 'resend', provider_email_id: emailId };
+
       if (newOrder !== undefined) {
+        // Only advance state — never go backwards in the lifecycle
         const lowerEvents = Object.entries(EVENT_ORDER)
           .filter(([, order]) => order < newOrder)
           .map(([evt]) => evt);
+
         query.$or = [
           { last_event: { $exists: false } },
           { last_event: { $in: [...lowerEvents, lastEvent] } },
         ];
       }
+
       const result = await Email.updateOne(query, { $set: { last_event: lastEvent } });
+
       if (result.matchedCount === 0) {
-        logger.warn('[Email Webhook] No matching email doc for event (possible race or unknown id)', {
-          email_id: emailId,
-          type,
+        logger.warn('[Email Webhook] No doc matched for delivery event (race or unknown id)', {
+          email_id: emailId, type,
         });
       }
     } catch (err) {
-      logger.error('[Email Webhook] Failed to update Email last_event', {
-        email_id: emailId,
-        error: err.message,
+      logger.error('[Email Webhook] Failed to update last_event', {
+        email_id: emailId, type, error: err.message,
       });
     }
   }
 
-  res.status(200).json({ received: true });
+  return res.status(200).json({ received: true });
 }
 
-/**
- * GET /api/email/oauth
- * Redirects to Google consent URL for gmail.readonly. One-time use to obtain refresh_token.
- */
+// ─── GET /api/email/oauth ─────────────────────────────────────────────────────
+
 function oauthRedirect(req, res) {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  if (!clientId || !clientSecret) {
-    return res.status(500).json({ error: 'GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not set' });
+  try {
+    const redirectUri  = resolveRedirectUri(req);
+    const oauth2Client = buildOAuthClient(redirectUri);
+    const url = oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      scope:       [GMAIL_SCOPE],
+      prompt:      'consent', // ensures refresh_token is returned every time
+    });
+    return res.redirect(url);
+  } catch (err) {
+    logger.error('[Gmail OAuth] Redirect failed', { error: err.message });
+    return res.status(500).json({ error: err.message });
   }
-  const redirectUri =
-    process.env.GMAIL_OAUTH_REDIRECT_URI ||
-    `${req.protocol}://${req.get('host')}/api/email/oauth/callback`;
-  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
-  const url = oauth2Client.generateAuthUrl({
-    access_type: 'offline',
-    scope: [GMAIL_SCOPE],
-    prompt: 'consent',
-  });
-  res.redirect(url);
 }
 
-/**
- * GET /api/email/oauth/callback?code=...
- * Exchanges code for tokens. Returns refresh_token for admin to add to .env as GMAIL_REFRESH_TOKEN.
- */
+// ─── GET /api/email/oauth/callback ───────────────────────────────────────────
+
 async function oauthCallback(req, res) {
-  const code = req.query.code;
+  const { code } = req.query;
   if (!code) {
-    return res.status(400).send('Missing code. Run GET /api/email/oauth first.');
+    return res.status(400).send('Missing ?code param. Visit GET /api/email/oauth first.');
   }
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri =
-    process.env.GMAIL_OAUTH_REDIRECT_URI ||
-    `${req.protocol}://${req.get('host')}/api/email/oauth/callback`;
-  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri);
+
   try {
-    const { tokens } = await oauth2Client.getToken(code);
-    const refreshToken = tokens.refresh_token;
-    if (!refreshToken) {
-      return res.status(400).send('No refresh_token in response. Revoke app access and try again with prompt=consent.');
+    const redirectUri  = resolveRedirectUri(req);
+    const oauth2Client = buildOAuthClient(redirectUri);
+    const { tokens }   = await oauth2Client.getToken(code);
+
+    if (!tokens.refresh_token) {
+      return res.status(400).send(
+        'No refresh_token returned. Revoke app access at myaccount.google.com/permissions and retry.'
+      );
     }
-    res.set('Content-Type', 'text/plain');
-    res.send(
-      `Add this to your .env:\nGMAIL_REFRESH_TOKEN=${refreshToken}\n\nDo not share this value.`
+
+    return res.type('text').send(
+      `✅ Add this to your .env:\n\nGMAIL_REFRESH_TOKEN=${tokens.refresh_token}\n\n⚠️  Keep this secret.`
     );
   } catch (err) {
-    logger.error('[Gmail OAuth] Callback error', { error: err.message });
-    res.status(500).send('Token exchange failed: ' + err.message);
+    logger.error('[Gmail OAuth] Token exchange failed', { error: err.message });
+    return res.status(500).send(`Token exchange failed: ${err.message}`);
   }
 }
 
-/**
- * POST /api/email/sync/gmail
- * Admin-only. Body: { afterDate?, pageToken?, maxPages?, maxMessages? }.
- * Runs fetchAndStoreHistory; returns processed/skipped/failed and optional nextPageToken/nextRunAfterDate.
- * Uses a Redis SET NX lock for distributed cooldown; falls back to a no-op when Redis is unavailable.
- */
+// ─── POST /api/email/sync/gmail ───────────────────────────────────────────────
+
 async function syncGmailHistory(req, res) {
+  // Redis lock: prevents overlapping syncs across multiple app instances
   if (redis) {
-    const acquired = await redis.set(GMAIL_SYNC_REDIS_KEY, '1', 'EX', GMAIL_SYNC_COOLDOWN_SEC, 'NX');
+    const acquired = await redis.set(
+      GMAIL_SYNC_REDIS_KEY, '1', 'EX', GMAIL_SYNC_COOLDOWN_SEC, 'NX'
+    );
     if (!acquired) {
       return res.status(429).json({
-        error: 'Sync in progress or recently run',
-        message: 'Try again in a few minutes.',
+        error:   'Sync already in progress or recently completed.',
+        message: `Try again in ${GMAIL_SYNC_COOLDOWN_SEC}s.`,
       });
     }
   }
-  const { afterDate, pageToken, maxPages, maxMessages } = req.body || {};
+
+  const {
+    afterDate,
+    pageToken,
+    maxPages    = 1000,
+    maxMessages = 50000,
+  } = req.body ?? {};
+
   try {
     const result = await gmailSyncService.fetchAndStoreHistory({
-      afterDate: afterDate || undefined,
-      pageToken: pageToken || undefined,
-      maxPages: maxPages != null ? Number(maxPages) : undefined,
-      maxMessages: maxMessages != null ? Number(maxMessages) : undefined,
+      afterDate:   afterDate ?? undefined,
+      pageToken:   pageToken ?? undefined,
+      maxPages:    Number(maxPages),
+      maxMessages: Number(maxMessages),
     });
-    let message;
+
+    const response = {
+      processed:        result.processed,
+      skipped:          result.skipped,
+      failed:           result.failed,
+      stoppedReason:    result.stoppedReason   ?? undefined,
+      nextPageToken:    result.nextPageToken    ?? undefined,
+      nextRunAfterDate: result.nextRunAfterDate ?? undefined,
+    };
+
     if (result.stoppedReason === 'dailyLimitExceeded') {
-      message =
-        'Daily limit reached. Stored ' +
-        result.processed +
-        ' emails. Run again tomorrow or with afterDate to continue.';
+      response.message =
+        `Daily Gmail quota reached. Stored ${result.processed} emails. ` +
+        `Resume tomorrow with nextPageToken or nextRunAfterDate.`;
+    } else if (result.nextPageToken) {
+      response.message = `More emails available — pass nextPageToken to continue.`;
     }
-    res.status(200).json({
-      processed: result.processed,
-      skipped: result.skipped,
-      failed: result.failed,
-      stoppedReason: result.stoppedReason || undefined,
-      nextPageToken: result.nextPageToken || undefined,
-      nextRunAfterDate: result.nextRunAfterDate || undefined,
-      message,
-    });
+
+    return res.status(200).json(response);
   } catch (err) {
-    logger.error('[Gmail Sync] API error', { error: err.message });
-    res.status(500).json({
-      error: 'Gmail sync failed',
-      message: err.message,
-    });
+    logger.error('[Gmail Sync] Controller error', { error: err.message });
+    return res.status(500).json({ error: 'Gmail sync failed', message: err.message });
   }
 }
+
+// ─── GET /api/email ───────────────────────────────────────────────────────────
 
 async function listEmails(req, res) {
   try {
-    const { page: pageParam, limit: limitParam, direction, client_id: clientIdParam, email: emailParam, provider, q } = req.query;
+    const {
+      page: pageParam,
+      limit: limitParam,
+      direction,
+      filter: filterParam,
+      client_id: clientIdParam,
+      email: emailParam,
+      provider,
+      q,
+    } = req.query;
 
-    let page = parseInt(pageParam, 10) || 1;
-    let limit = parseInt(limitParam, 10) || DEFAULT_EMAIL_LIMIT;
-    if (page < 1) page = 1;
-    if (limit < 1) limit = DEFAULT_EMAIL_LIMIT;
-    if (limit > MAX_EMAIL_LIMIT) limit = MAX_EMAIL_LIMIT;
+    const page  = Math.max(parseInt(pageParam,  10) || 1, 1);
+    const limit = Math.min(
+      Math.max(parseInt(limitParam, 10) || DEFAULT_EMAIL_LIMIT, 1),
+      MAX_EMAIL_LIMIT
+    );
 
     const match = {};
 
-    if (direction != null && direction !== '') {
+    if (direction) {
       if (direction !== 'inbound' && direction !== 'outbound') {
-        return res.status(400).json({ error: 'Invalid direction. Allowed: inbound, outbound' });
+        return res.status(400).json({ error: 'direction must be "inbound" or "outbound"' });
       }
       match.direction = direction;
     }
 
-    if (clientIdParam != null && clientIdParam !== '') {
+    if (filterParam) {
+      if (filterParam !== 'system') {
+        return res.status(400).json({ error: 'filter must be "system"' });
+      }
+      match.email_type = 'system';
+    } else if (direction === 'outbound') {
+      match.email_type = { $ne: 'system' };
+    }
+
+    if (clientIdParam) {
       if (!isValidObjectId(clientIdParam)) {
-        return res.status(400).json({ error: 'Invalid client_id. Must be a 24-character hex ObjectId.' });
+        return res.status(400).json({ error: 'client_id must be a 24-character hex ObjectId' });
       }
       match.client_id = new mongoose.Types.ObjectId(clientIdParam);
     }
 
-    if (emailParam != null && typeof emailParam === 'string') {
-      const participant = emailParam.trim();
-      if (!participant) {
-        return res.status(400).json({ error: 'Invalid email. Must be non-empty.' });
-      }
-      const participantRegex = { $regex: escapeRegex(participant), $options: 'i' };
-      match.$or = [
-        { from: participantRegex },
-        { to: participantRegex },
-        { cc: participantRegex },
-        { bcc: participantRegex },
-      ];
-    }
-
-    if (provider != null && provider !== '') {
+    if (provider) {
       if (provider !== 'resend' && provider !== 'gmail') {
-        return res.status(400).json({ error: 'Invalid provider. Allowed: resend, gmail' });
+        return res.status(400).json({ error: 'provider must be "resend" or "gmail"' });
       }
       match.provider = provider;
     }
 
-    if (q != null && typeof q === 'string' && q.trim()) {
-      const escaped = escapeRegex(q.trim());
-      const searchOr = [
-        { subject: { $regex: escaped, $options: 'i' } },
-        { from: { $regex: escaped, $options: 'i' } },
-        { to: { $regex: escaped, $options: 'i' } },
-      ];
-      match.$and = match.$and || [];
-      match.$and.push({ $or: searchOr });
+    if (emailParam?.trim()) {
+      const re = { $regex: escapeRegex(emailParam.trim()), $options: 'i' };
+      match.$or = [{ from: re }, { to: re }, { cc: re }, { bcc: re }];
     }
 
-    // Exclude emails with neither html nor text
-    match.$and = match.$and || [];
-    match.$and.push({ $or: [{ html: { $ne: null } }, { text: { $ne: null } }] });
+    if (q?.trim()) {
+      const re   = { $regex: escapeRegex(q.trim()), $options: 'i' };
+      match.$and = [
+        ...(match.$and ?? []),
+        { $or: [{ subject: re }, { from: re }, { to: re }] },
+      ];
+    }
+
+    // Always exclude messages with no readable body (delivery receipts / drafts)
+    match.$and = [
+      ...(match.$and ?? []),
+      { $or: [{ html: { $ne: null } }, { text: { $ne: null } }] },
+    ];
 
     const sortTime = { $cond: [{ $ne: ['$received_at', null] }, '$received_at', '$created_at'] };
-    const skip = (page - 1) * limit;
+    const skip     = (page - 1) * limit;
 
-    const dataPipeline = [
-      { $match: Object.keys(match).length ? match : {} },
+    // Group by thread_id so the inbox shows one row per conversation thread
+    const basePipeline = [
+      { $match: match },
       { $addFields: { _sortTime: sortTime } },
-      { $sort: { _sortTime: -1 } },
+      { $sort:  { _sortTime: -1 } },
       {
         $group: {
-          _id: { $ifNull: ['$thread_id', '$_id'] },
-          doc: { $first: '$$ROOT' },
+          _id:          { $ifNull: ['$thread_id', { $toString: '$_id' }] },
+          doc:          { $first: '$$ROOT' },
           messageCount: { $sum: 1 },
         },
       },
@@ -359,124 +414,159 @@ async function listEmails(req, res) {
         },
       },
       { $sort: { _sortTime: -1 } },
-      { $project: { html: 0, text: 0, _sortTime: 0 } },
-      { $skip: skip },
-      { $limit: limit },
     ];
 
-    const countPipeline = [
-      { $match: Object.keys(match).length ? match : {} },
-      { $addFields: { _sortTime: sortTime } },
-      { $sort: { _sortTime: -1 } },
-      { $group: { _id: { $ifNull: ['$thread_id', '$_id'] } } },
-      { $count: 'count' },
-    ];
-
-    const [facetResult, countResult] = await Promise.all([
-      Email.aggregate([...dataPipeline]),
-      Email.aggregate(countPipeline),
+    const [rows, countResult] = await Promise.all([
+      Email.aggregate([
+        ...basePipeline,
+        { $project: { html: 0, text: 0, _sortTime: 0 } }, // never send body in list responses
+        { $skip: skip },
+        { $limit: limit },
+      ]),
+      Email.aggregate([...basePipeline, { $count: 'count' }]),
     ]);
 
-    const total = countResult[0]?.count ?? 0;
-    const totalPages = Math.ceil(total / limit);
-
     return res.status(200).json({
-      data: facetResult,
-      pagination: { total, page, limit, totalPages },
+      data: rows,
+      pagination: {
+        total:      countResult[0]?.count ?? 0,
+        page,
+        limit,
+        totalPages: Math.ceil((countResult[0]?.count ?? 0) / limit),
+      },
     });
   } catch (err) {
     logger.error('[Email] listEmails failed', { error: err.message });
-    return res.status(500).json({ error: 'Failed to fetch email list', details: err.message });
+    return res.status(500).json({ error: 'Failed to fetch email list' });
   }
 }
+
+// ─── GET /api/email/thread/:threadId ─────────────────────────────────────────
 
 async function getThreadMessages(req, res) {
   try {
     const { threadId } = req.params;
-    const limit = Math.min(parseInt(req.query.limit, 10) || MAX_THREAD_MESSAGES, MAX_THREAD_MESSAGES);
+
+    if (!threadId?.trim()) {
+      return res.status(400).json({ error: 'threadId is required' });
+    }
+
+    const limit = Math.min(
+      parseInt(req.query.limit, 10) || MAX_THREAD_MESSAGES,
+      MAX_THREAD_MESSAGES
+    );
 
     const messages = await Email.find({ thread_id: threadId })
       .sort({ received_at: 1 })
       .limit(limit)
       .lean();
 
-    return res.status(200).json({ data: messages });
+    // Hydrate signed attachment URLs for every message in the thread
+    const hydrated = await Promise.all(
+      messages.map((m) => gmailSyncService.hydrateAttachmentUrls(m))
+    );
+
+    return res.status(200).json({ data: hydrated });
   } catch (err) {
     logger.error('[Email] getThreadMessages failed', { error: err.message });
-    return res.status(500).json({ error: 'Failed to fetch thread', details: err.message });
+    return res.status(500).json({ error: 'Failed to fetch thread' });
   }
 }
+
+// ─── GET /api/email/:id ───────────────────────────────────────────────────────
 
 async function getEmailById(req, res) {
   try {
     const { id } = req.params;
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: 'Invalid email id' });
     }
+
     const email = await Email.findById(id).lean();
     if (!email) {
       return res.status(404).json({ error: 'Email not found' });
     }
-    return res.status(200).json(email);
+
+    // Resolve storage_key → short-lived signed URL for each attachment
+    const hydrated = await gmailSyncService.hydrateAttachmentUrls(email);
+
+    return res.status(200).json(hydrated);
   } catch (err) {
-    logger.error('[Email] getEmailById failed', { error: err.message });
-    return res.status(500).json({ error: 'Failed to fetch email', details: err.message });
+    logger.error('[Email] getEmailById failed', { id: req.params.id, error: err.message });
+    return res.status(500).json({ error: 'Failed to fetch email' });
   }
 }
+
+// ─── GET /api/email/:id/thread ────────────────────────────────────────────────
 
 async function getEmailWithThread(req, res) {
   try {
     const { id } = req.params;
+
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ error: 'Invalid email id' });
     }
+
     const email = await Email.findById(id).lean();
     if (!email) {
       return res.status(404).json({ error: 'Email not found' });
     }
 
-    const threadId = email.thread_id || null;
-    if (!threadId) {
-      const minimal = { ...email };
-      delete minimal.html;
-      delete minimal.text;
-      return res.status(200).json({ email, thread: [minimal] });
+    // Hydrate the opened message's attachments
+    const hydratedEmail = await gmailSyncService.hydrateAttachmentUrls(email);
+
+    if (!email.thread_id) {
+      // Standalone message — wrap in a one-element thread
+      const { html: _h, text: _t, ...minimal } = hydratedEmail;
+      return res.status(200).json({ email: hydratedEmail, thread: [minimal] });
     }
 
-    const thread = await Email.find({ thread_id: threadId })
+    const threadDocs = await Email.find({ thread_id: email.thread_id })
       .sort({ received_at: 1 })
-      .select('-html -text')
+      .select('-html -text')        // thread list only needs metadata
       .limit(MAX_THREAD_MESSAGES)
       .lean();
 
-    return res.status(200).json({ email, thread });
+    // Hydrate attachment URLs across all thread messages
+    const hydratedThread = await Promise.all(
+      threadDocs.map((m) => gmailSyncService.hydrateAttachmentUrls(m))
+    );
+
+    return res.status(200).json({ email: hydratedEmail, thread: hydratedThread });
   } catch (err) {
-    logger.error('[Email] getEmailWithThread failed', { error: err.message });
-    return res.status(500).json({ error: 'Failed to fetch email with thread', details: err.message });
+    logger.error('[Email] getEmailWithThread failed', { id: req.params.id, error: err.message });
+    return res.status(500).json({ error: 'Failed to fetch email with thread' });
   }
 }
 
-const MAX_ATTACHMENTS = 10;
-const MAX_ATTACHMENTS_TOTAL_BYTES = 25 * 1024 * 1024; // 25 MB
+// ─── POST /api/email/send ─────────────────────────────────────────────────────
 
 async function sendEmail(req, res) {
   try {
-    const { to, subject, html, text, cc, bcc, client_id, in_reply_to, message_id } = req.body || {};
-    const files = req.files || [];
+    const {
+      to, subject, html, text,
+      cc, bcc,
+      client_id,
+      in_reply_to,
+      message_id,
+    } = req.body ?? {};
 
+    const files = req.files ?? [];
+
+    // ── Input validation ──────────────────────────────────────────────────────
     if (!to || (typeof to === 'string' && !to.trim())) {
-      return res.status(400).json({ error: 'Missing or invalid "to"' });
+      return res.status(400).json({ error: '"to" is required' });
     }
-    if (!subject || typeof subject !== 'string' || !subject.trim()) {
-      return res.status(400).json({ error: 'Missing or invalid "subject"' });
+    if (!subject?.trim()) {
+      return res.status(400).json({ error: '"subject" is required' });
     }
-    const hasBody = (html && typeof html === 'string' && html.trim()) || (text && typeof text === 'string' && text.trim());
-    if (!hasBody) {
+    if (!html?.trim() && !text?.trim()) {
       return res.status(400).json({ error: 'At least one of "html" or "text" is required' });
     }
 
     let clientId = null;
-    if (client_id != null && client_id !== '') {
+    if (client_id) {
       if (!mongoose.Types.ObjectId.isValid(client_id)) {
         return res.status(400).json({ error: 'Invalid "client_id"' });
       }
@@ -484,49 +574,43 @@ async function sendEmail(req, res) {
     }
 
     if (files.length > MAX_ATTACHMENTS) {
-      return res.status(400).json({ error: `At most ${MAX_ATTACHMENTS} attachments allowed` });
+      return res.status(400).json({ error: `Maximum ${MAX_ATTACHMENTS} attachments allowed` });
     }
-    let totalSize = 0;
-    for (const f of files) {
-      totalSize += (f.size || f.buffer?.length || 0);
-    }
-    if (totalSize > MAX_ATTACHMENTS_TOTAL_BYTES) {
+
+    const totalSize = files.reduce((sum, f) => sum + (f.size ?? f.buffer?.length ?? 0), 0);
+    if (totalSize > MAX_ATTACHMENT_BYTES) {
       return res.status(400).json({ error: 'Total attachment size exceeds 25 MB' });
     }
 
-    const attachments = files.map((f) => ({
-      buffer: f.buffer,
-      filename: f.originalname || f.name || 'attachment',
-      mimetype: f.mimetype || 'application/octet-stream',
-    }));
-
+    // ── Delegate to email service ─────────────────────────────────────────────
     const result = await emailService.sendEmailFromFrontend({
       to,
       subject,
-      html: html || undefined,
-      text: text || undefined,
-      cc: cc || undefined,
-      bcc: bcc || undefined,
-      client_id: clientId,
+      html:        html        || undefined,
+      text:        text        || undefined,
+      cc:          cc          || undefined,
+      bcc:         bcc         || undefined,
+      client_id:   clientId,
       in_reply_to: in_reply_to || undefined,
-      message_id: message_id || undefined,
-      attachments,
+      message_id:  message_id  || undefined,
+      attachments: files.map((f) => ({
+        buffer:   f.buffer,
+        filename: f.originalname ?? f.name ?? 'attachment',
+        mimetype: f.mimetype ?? 'application/octet-stream',
+      })),
     });
 
-    return res.status(200).json({
-      success: true,
-      id: result.id,
-      message: 'Sent',
-    });
+    return res.status(200).json({ success: true, id: result.id });
   } catch (err) {
     logger.error('[Email] sendEmail failed', { error: err.message });
-    const msg = err.message || 'Failed to send email';
-    if (msg.includes('Missing') || msg.includes('invalid') || msg.includes('required') || msg.includes('exceeds')) {
-      return res.status(400).json({ error: msg });
-    }
-    return res.status(500).json({ error: 'Failed to send email', message: msg });
+    const isClientError = /missing|invalid|required|exceeds/i.test(err.message ?? '');
+    return res
+      .status(isClientError ? 400 : 500)
+      .json({ error: err.message || 'Failed to send email' });
   }
 }
+
+// ─── Exports ──────────────────────────────────────────────────────────────────
 
 module.exports = {
   handleResendWebhook,

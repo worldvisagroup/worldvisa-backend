@@ -1,21 +1,122 @@
 'use strict';
 
-const { google } = require('googleapis');
-const Email = require('../../models/email');
-const logger = require('../../utils/logger');
-const { uploadToR2, getEmailAttachmentKey } = require('../r2Client');
+/**
+ * Gmail Sync Service — Production Ready
+ *
+ * Responsibilities:
+ *  1. Fetch full Gmail message history (paginated, rate-limit safe)
+ *  2. Recursively parse nested MIME trees → extract html/text body
+ *  3. Collect attachment parts → fetch raw bytes → upload to R2
+ *  4. Store the R2 *key* (not URL) in MongoDB for long-term stability
+ *  5. Upsert Email documents with full deduplication
+ *
+ * Attachment URL strategy:
+ *  - storage_key is stored in MongoDB (env/bucket agnostic)
+ *  - Call getSignedAttachmentUrl(key) at read time to generate short-lived URLs
+ *  - See r2Client.js for getSignedAttachmentUrl()
+ */
 
-const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
-const LIST_DELAY_MS = 350;
-const BATCH_SIZE = 12;
-const BATCH_DELAY_MS = 300;
-const MAX_RETRIES = 3;
-const BACKOFF_MS = [1000, 2000, 4000];
+const { google }   = require('googleapis');
+const Email        = require('../../models/email');
+const logger       = require('../../utils/logger');
+const { uploadToR2, getEmailAttachmentKey, getSignedAttachmentUrl } = require('../r2Client');
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const GMAIL_SCOPE            = 'https://www.googleapis.com/auth/gmail.readonly';
+const LIST_PAGE_SIZE         = 100;   // max Gmail allows per page
+const LIST_DELAY_MS          = 350;   // pause between list pages
+const BATCH_SIZE             = 12;    // concurrent message fetches
+const BATCH_DELAY_MS         = 300;   // pause between batches
+const ATTACHMENT_DELAY_MS    = 100;   // pause between R2 uploads
+const MAX_RETRIES            = 3;
+const BACKOFF_MS             = [1000, 2000, 4000];
+
+// ─── OAuth client ─────────────────────────────────────────────────────────────
+
+/**
+ * Build an OAuth2 client from env vars.
+ * Throws clearly if any required var is missing.
+ */
+function getOAuth2Client() {
+  const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GMAIL_REFRESH_TOKEN } = process.env;
+
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !GMAIL_REFRESH_TOKEN) {
+    throw new Error(
+      'Missing required env vars: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GMAIL_REFRESH_TOKEN'
+    );
+  }
+
+  const client = new google.auth.OAuth2(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, undefined);
+  client.setCredentials({ refresh_token: GMAIL_REFRESH_TOKEN });
+  return client;
+}
+
+// ─── Retry / rate-limit helpers ───────────────────────────────────────────────
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isDailyLimitError(err) {
+  const code = err?.code ?? err?.response?.status;
+  return (
+    code === 403 &&
+    (err?.message?.includes('dailyLimitExceeded') ||
+      (err?.errors ?? []).some((e) => e?.reason?.toLowerCase().includes('daily')))
+  );
+}
+
+function isRateLimitError(err) {
+  const code = err?.code ?? err?.response?.status;
+  return (
+    code === 429 ||
+    err?.message?.includes('rateLimitExceeded') ||
+    err?.message?.includes('userRateLimitExceeded')
+  );
+}
+
+/**
+ * Retry wrapper with exponential backoff.
+ * - Bails immediately on daily-limit (non-recoverable within the day).
+ * - Retries on transient rate-limit errors up to MAX_RETRIES times.
+ */
+async function withRetry(fn, context = '') {
+  let lastErr;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+
+      if (isDailyLimitError(err)) throw err;
+
+      if (!isRateLimitError(err) || attempt === MAX_RETRIES) throw err;
+
+      const delay = BACKOFF_MS[Math.min(attempt, BACKOFF_MS.length - 1)];
+      logger.warn('[Gmail Sync] Rate-limited, retrying', { context, attempt: attempt + 1, delayMs: delay });
+      await sleep(delay);
+    }
+  }
+  throw lastErr;
+}
+
+// ─── MIME / header helpers ────────────────────────────────────────────────────
+
+/**
+ * Find a top-level message header value by name (case-insensitive).
+ */
 function getHeader(headers, name) {
   if (!Array.isArray(headers)) return null;
-  const h = headers.find((x) => x.name && x.name.toLowerCase() === name.toLowerCase());
-  return h ? h.value : null;
+  const lower = name.toLowerCase();
+  return headers.find((h) => h?.name?.toLowerCase() === lower)?.value ?? null;
+}
+
+/**
+ * Find a part-level header (e.g. Content-Disposition).
+ */
+function getPartHeader(part, name) {
+  return getHeader(part?.headers ?? [], name);
 }
 
 function parseAddressList(value) {
@@ -25,230 +126,248 @@ function parseAddressList(value) {
 
 function decodeBase64url(str) {
   if (!str) return Buffer.alloc(0);
-  let base64 = String(str).replace(/-/g, '+').replace(/_/g, '/');
-  const pad = base64.length % 4;
-  if (pad) base64 += '='.repeat(4 - pad);
-  return Buffer.from(base64, 'base64');
+  let b64 = String(str).replace(/-/g, '+').replace(/_/g, '/');
+  const pad = b64.length % 4;
+  if (pad) b64 += '='.repeat(4 - pad);
+  return Buffer.from(b64, 'base64');
 }
 
-function getBodyFromPayload(payload) {
+// ─── Recursive MIME tree walkers ──────────────────────────────────────────────
+
+/**
+ * Recursively walk the MIME tree and extract the best html + text body parts.
+ *
+ * Gmail frequently nests content like:
+ *   multipart/mixed
+ *     └─ multipart/alternative
+ *          ├─ text/plain
+ *          └─ text/html
+ *     └─ application/pdf  (attachment)
+ *
+ * A flat one-level scan misses everything inside multipart containers.
+ */
+function extractBody(payload) {
   let html = null;
   let text = null;
-  if (payload.body && payload.body.data) {
-    const decoded = decodeBase64url(payload.body.data).toString('utf8');
-    const mime = (payload.mimeType || '').toLowerCase();
-    if (mime.includes('html')) html = decoded;
-    else text = decoded;
-  }
-  if (payload.parts && payload.parts.length) {
-    for (const part of payload.parts) {
-      if (!part.body || !part.body.data) continue;
-      const decoded = decodeBase64url(part.body.data).toString('utf8');
-      const mime = (part.mimeType || '').toLowerCase();
-      if (mime.includes('html') && !html) html = decoded;
-      else if ((mime.includes('plain') || !part.filename) && !text) text = decoded;
+
+  function walk(part) {
+    if (!part) return;
+    const mime        = (part.mimeType ?? '').toLowerCase();
+    const disposition = (getPartHeader(part, 'content-disposition') ?? '').toLowerCase();
+
+    // Recurse into multipart containers — never try to read their body directly
+    if (mime.startsWith('multipart/')) {
+      for (const child of part.parts ?? []) walk(child);
+      return;
     }
+
+    // Skip anything that is explicitly an attachment
+    if (part.filename || disposition.startsWith('attachment')) return;
+
+    // Skip parts with no inline data
+    if (!part.body?.data) return;
+
+    const decoded = decodeBase64url(part.body.data).toString('utf8');
+
+    if (mime.includes('html') && !html)  html = decoded;
+    else if (mime.includes('plain') && !text) text = decoded;
   }
+
+  walk(payload);
   return { html, text };
 }
 
-function mapAttachments(payload) {
-  const attachments = [];
-  if (!payload.parts) return attachments;
-  for (const part of payload.parts) {
-    if (!part.filename) continue;
-    attachments.push({
-      filename: part.filename,
-      content_type: part.mimeType || 'application/octet-stream',
-      size: part.body?.size || 0,
-      storage_url: '',
-    });
+/**
+ * Recursively walk the MIME tree and collect all attachment parts.
+ * A part is an attachment if it has a filename OR an "attachment" Content-Disposition.
+ */
+function collectAttachmentParts(payload) {
+  const parts = [];
+
+  function walk(part) {
+    if (!part) return;
+    const mime        = (part.mimeType ?? '').toLowerCase();
+    const disposition = (getPartHeader(part, 'content-disposition') ?? '').toLowerCase();
+
+    if (mime.startsWith('multipart/')) {
+      for (const child of part.parts ?? []) walk(child);
+      return;
+    }
+
+    if (part.filename || disposition.startsWith('attachment')) {
+      parts.push(part);
+    }
   }
-  return attachments;
+
+  walk(payload);
+  return parts;
 }
 
-const ATTACHMENT_UPLOAD_DELAY_MS = 100;
+// ─── Attachment fetch + R2 upload ─────────────────────────────────────────────
 
+/**
+ * For every attachment part in the message:
+ *   1. Fetch raw bytes (inline data or via attachments.get API)
+ *   2. Upload to R2
+ *   3. Return metadata with storage_key (NOT a URL)
+ *
+ * storage_key is stable across env changes; generate signed URLs at read time.
+ *
+ * Failures are soft — a failed attachment gets storage_key: '' so the rest
+ * of the email is not blocked.
+ */
+async function fetchAndUploadAttachments(gmail, messageId, payload) {
+  const attachmentParts = collectAttachmentParts(payload);
+  if (attachmentParts.length === 0) return [];
 
-async function fetchAttachmentsAndUploadToR2(gmail, messageId, payload) {
-  const attachments = [];
-  if (!payload.parts) return attachments;
+  const results = [];
 
-  for (const part of payload.parts) {
-    if (!part.filename) continue;
+  for (const part of attachmentParts) {
+    const meta = {
+      filename:     part.filename,
+      content_type: part.mimeType ?? 'application/octet-stream',
+      size:         part.body?.size ?? 0,
+      storage_key:  '',
+    };
 
+    // ── 1. Get raw bytes ──────────────────────────────────────────────────────
     let buffer;
-    if (part.body && part.body.data) {
+
+    if (part.body?.data) {
+      // Small attachment inlined in the message response
       buffer = decodeBase64url(part.body.data);
-    } else if (part.body && part.body.attachmentId) {
+    } else if (part.body?.attachmentId) {
       try {
-        const res = await gmail.users.messages.attachments.get({
-          userId: 'me',
-          messageId,
-          id: part.body.attachmentId,
-        });
+        const res = await withRetry(
+          () =>
+            gmail.users.messages.attachments.get({
+              userId:    'me',
+              messageId,
+              id:        part.body.attachmentId,
+            }),
+          `attachment:${messageId}/${part.body.attachmentId}`
+        );
         buffer = decodeBase64url(res.data.data);
       } catch (err) {
-        logger.warn('[Gmail Sync] Failed to fetch attachment', {
+        logger.warn('[Gmail Sync] Failed to fetch attachment bytes', {
           messageId,
           attachmentId: part.body.attachmentId,
-          error: err.message,
+          filename:     part.filename,
+          error:        err.message,
         });
-        attachments.push({
-          filename: part.filename,
-          content_type: part.mimeType || 'application/octet-stream',
-          size: part.body?.size || 0,
-          storage_url: '',
-        });
+        results.push(meta); // push with empty storage_key
         continue;
       }
     } else {
+      // No data source — skip silently
       continue;
     }
 
+    // ── 2. Upload to R2 ───────────────────────────────────────────────────────
     const key = getEmailAttachmentKey({
-      direction: 'inbound',
+      direction:    'inbound',
       messageId,
-      attachmentId: part.body?.attachmentId,
-      filename: part.filename,
+      attachmentId: part.body?.attachmentId ?? part.filename,
+      filename:     part.filename,
     });
 
     try {
-      const url = await uploadToR2(key, buffer, part.mimeType || 'application/octet-stream');
-      attachments.push({
-        filename: part.filename,
-        content_type: part.mimeType || 'application/octet-stream',
-        size: part.body?.size || buffer.length,
-        storage_url: url,
+      await uploadToR2(key, buffer, meta.content_type);
+      results.push({
+        ...meta,
+        size:        part.body?.size ?? buffer.length,
+        storage_key: key,   // ← store key, NOT url
       });
     } catch (err) {
-      logger.warn('[Gmail Sync] R2 upload failed for attachment', {
+      logger.warn('[Gmail Sync] R2 upload failed', {
         messageId,
         filename: part.filename,
-        error: err.message,
+        error:    err.message,
       });
-      attachments.push({
-        filename: part.filename,
-        content_type: part.mimeType || 'application/octet-stream',
-        size: part.body?.size || 0,
-        storage_url: '',
-      });
+      results.push(meta); // push with empty storage_key
     }
 
-    await sleep(ATTACHMENT_UPLOAD_DELAY_MS);
+    // Small pause to avoid slamming R2
+    await sleep(ATTACHMENT_DELAY_MS);
   }
 
-  return attachments;
+  return results;
 }
 
-function gmailMessageToEmail(msg) {
-  const payload = msg.payload || {};
-  const headers = payload.headers || [];
-  const from = getHeader(headers, 'From') || '';
-  const labelIds = msg.labelIds || [];
-  const direction = labelIds.includes('SENT') ? 'outbound' : 'inbound';
-  const { html, text } = getBodyFromPayload(payload);
-  const internalDate = msg.internalDate ? new Date(parseInt(msg.internalDate, 10)) : null;
+// ─── Message → Email document ─────────────────────────────────────────────────
+
+/**
+ * Map a raw Gmail API message to the shape expected by the Email model.
+ * Attachments are intentionally left empty here — they are populated
+ * separately in the fetch loop via fetchAndUploadAttachments().
+ */
+function mapGmailMessageToEmail(msg) {
+  const payload     = msg.payload ?? {};
+  const headers     = payload.headers ?? [];
+  const labelIds    = msg.labelIds ?? [];
+  const direction   = labelIds.includes('SENT') ? 'outbound' : 'inbound';
+  const { html, text } = extractBody(payload);
+  const internalDate   = msg.internalDate
+    ? new Date(parseInt(msg.internalDate, 10))
+    : null;
 
   return {
-    provider: 'gmail',
+    provider:          'gmail',
     provider_email_id: String(msg.id),
-    message_id: getHeader(headers, 'Message-ID') || null,
-    in_reply_to: getHeader(headers, 'In-Reply-To') || null,
-    references: (getHeader(headers, 'References') || '').split(/\s+/).map((s) => s.trim()).filter(Boolean),
-    thread_id: msg.threadId ? String(msg.threadId) : null,
-    client_id: null,
+    message_id:        getHeader(headers, 'Message-ID'),
+    in_reply_to:       getHeader(headers, 'In-Reply-To'),
+    references:        (getHeader(headers, 'References') ?? '')
+                         .split(/\s+/)
+                         .map((s) => s.trim())
+                         .filter(Boolean),
+    thread_id:         msg.threadId ? String(msg.threadId) : null,
+    client_id:         null,
     direction,
-    email_type: 'client',
-    from,
-    to: parseAddressList(getHeader(headers, 'To')),
-    cc: parseAddressList(getHeader(headers, 'Cc')),
-    bcc: parseAddressList(getHeader(headers, 'Bcc')),
-    reply_to: parseAddressList(getHeader(headers, 'Reply-To')),
-    subject: getHeader(headers, 'Subject') || '',
+    email_type:        'client',
+    from:              getHeader(headers, 'From') ?? '',
+    to:                parseAddressList(getHeader(headers, 'To')),
+    cc:                parseAddressList(getHeader(headers, 'Cc')),
+    bcc:               parseAddressList(getHeader(headers, 'Bcc')),
+    reply_to:          parseAddressList(getHeader(headers, 'Reply-To')),
+    subject:           getHeader(headers, 'Subject') ?? '',
     html,
     text,
-    attachments: mapAttachments(payload),
-    headers: {},
-    last_event: 'delivered',
-    created_at: internalDate || new Date(),
-    received_at: internalDate,
+    attachments:       [],   // populated after R2 upload
+    headers:           {},
+    last_event:        'delivered',
+    created_at:        internalDate ?? new Date(),
+    received_at:       internalDate,
   };
 }
 
-function isDailyLimitError(err) {
-  const msg = (err && err.message) || '';
-  const code = err.code || (err.response && err.response.status);
-  return (
-    code === 403 ||
-    msg.includes('dailyLimitExceeded') ||
-    msg.includes('daily limit') ||
-    (err.errors && err.errors.some((e) => (e.reason || '').toLowerCase().includes('daily')))
-  );
-}
-
-function isRateLimitError(err) {
-  const msg = (err && err.message) || '';
-  const code = err.code || (err.response && err.response.status);
-  return (
-    code === 429 ||
-    msg.includes('rateLimitExceeded') ||
-    msg.includes('userRateLimitExceeded') ||
-    msg.includes('rate limit')
-  );
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function withRetry(fn) {
-  let lastErr;
-  for (let i = 0; i <= MAX_RETRIES; i++) {
-    try {
-      return await fn();
-    } catch (err) {
-      lastErr = err;
-      if (isDailyLimitError(err)) throw err;
-      if (!isRateLimitError(err) || i === MAX_RETRIES) throw err;
-      const delay = BACKOFF_MS[Math.min(i, BACKOFF_MS.length - 1)];
-      logger.warn('[Gmail Sync] Rate limit, retrying', { attempt: i + 1, delayMs: delay });
-      await sleep(delay);
-    }
-  }
-  throw lastErr;
-}
-
-function getOAuth2Client() {
-  const clientId = process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
-  if (!clientId || !clientSecret || !refreshToken) {
-    throw new Error('Missing GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, or GMAIL_REFRESH_TOKEN');
-  }
-  const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, undefined);
-  oauth2Client.setCredentials({ refresh_token: refreshToken });
-  return oauth2Client;
-}
+// ─── Core sync function ───────────────────────────────────────────────────────
 
 async function fetchAndStoreHistory(options = {}) {
-  const { afterDate, pageToken, maxPages = 1000, maxMessages = 50000 } = options;
-  const auth = getOAuth2Client();
+  const {
+    afterDate,
+    pageToken,
+    maxPages    = 1000,
+    maxMessages = 50000,
+  } = options;
+
+  const auth  = getOAuth2Client();
   const gmail = google.gmail({ version: 'v1', auth });
 
-  let processed = 0;
-  let skipped = 0;
-  let failed = 0;
-  let stoppedReason = null;
-  let nextPageToken = pageToken || null;
+  let processed       = 0;
+  let skipped         = 0;
+  let failed          = 0;
+  let stoppedReason   = null;
+  let nextPageToken   = null;
   let nextRunAfterDate = null;
-  let currentPageToken = pageToken || undefined;
-  let pagesDone = 0;
 
+  let currentPageToken = pageToken ?? undefined;
+  let pagesDone        = 0;
+
+  // Gmail query: optionally filter to messages after a date
   const query = afterDate ? `after:${afterDate.replace(/-/g, '/')}` : undefined;
 
   logger.info('[Gmail Sync] Starting fetchAndStoreHistory', {
-    afterDate: afterDate || null,
+    afterDate:    afterDate ?? null,
     hasPageToken: !!pageToken,
     maxPages,
     maxMessages,
@@ -256,59 +375,42 @@ async function fetchAndStoreHistory(options = {}) {
 
   try {
     while (pagesDone < maxPages && processed + skipped + failed < maxMessages) {
-      const listRes = await withRetry(() =>
-        gmail.users.messages.list({
-          userId: 'me',
-          maxResults: 100,
-          pageToken: currentPageToken,
-          q: query,
-        })
+
+      // ── List a page of message IDs ──────────────────────────────────────────
+      const listRes = await withRetry(
+        () =>
+          gmail.users.messages.list({
+            userId:     'me',
+            maxResults: LIST_PAGE_SIZE,
+            pageToken:  currentPageToken,
+            q:          query,
+          }),
+        'messages.list'
       );
 
-      const messages = listRes.data.messages || [];
-      currentPageToken = listRes.data.nextPageToken || null;
+      const messages       = listRes.data.messages ?? [];
+      const nextToken      = listRes.data.nextPageToken ?? null;
 
-      if (messages.length === 0 && !currentPageToken) break;
+      if (messages.length === 0) break;
 
+      // ── Process messages in concurrent batches ──────────────────────────────
       for (let i = 0; i < messages.length; i += BATCH_SIZE) {
         const batch = messages.slice(i, i + BATCH_SIZE);
-        const promises = batch.map(async (m) => {
-          try {
-            const full = await withRetry(() =>
-              gmail.users.messages.get({ userId: 'me', id: m.id, format: 'full' })
-            );
-            const doc = gmailMessageToEmail(full.data);
 
-            if (doc.attachments && doc.attachments.length > 0) {
-              doc.attachments = await fetchAttachmentsAndUploadToR2(
-                gmail,
-                full.data.id,
-                full.data.payload || {}
-              );
-            }
+        const batchResults = await Promise.all(
+          batch.map((m) => processMessage(gmail, m.id))
+        );
 
-            await Email.findOneAndUpdate(
-              { provider: 'gmail', provider_email_id: doc.provider_email_id },
-              { $set: doc },
-              { upsert: true }
-            );
-            return { ok: true };
-          } catch (err) {
-            if (isDailyLimitError(err)) throw err;
-            logger.warn('[Gmail Sync] Message fetch failed', { messageId: m.id, error: err.message });
-            return { ok: false };
-          }
-        });
-
-        const results = await Promise.all(promises);
-        for (const r of results) {
-          if (r.ok) processed++;
-          else failed++;
+        for (const r of batchResults) {
+          if (r === 'ok')      processed++;
+          else if (r === 'skip') skipped++;
+          else                   failed++;
         }
 
-        if (processed + failed + skipped >= maxMessages) {
+        // Check caps after every batch
+        if (processed + skipped + failed >= maxMessages) {
           stoppedReason = 'maxMessages';
-          nextPageToken = currentPageToken;
+          nextPageToken = nextToken;
           break;
         }
 
@@ -318,48 +420,133 @@ async function fetchAndStoreHistory(options = {}) {
       pagesDone++;
       if (stoppedReason) break;
 
+      // Advance pagination
+      currentPageToken = nextToken;
       if (!currentPageToken) break;
+
       nextPageToken = currentPageToken;
       await sleep(LIST_DELAY_MS);
     }
 
+    // If we consumed all pages, record a cursor date for the next incremental sync
     if (!nextPageToken && processed > 0) {
-      const last = await Email.findOne(
+      const latest = await Email.findOne(
         { provider: 'gmail' },
         { received_at: 1 },
         { sort: { received_at: -1 } }
       ).lean();
-      if (last && last.received_at) {
-        const d = new Date(last.received_at);
-        nextRunAfterDate = `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+
+      if (latest?.received_at) {
+        const d = new Date(latest.received_at);
+        nextRunAfterDate = [
+          d.getFullYear(),
+          String(d.getMonth() + 1).padStart(2, '0'),
+          String(d.getDate()).padStart(2, '0'),
+        ].join('/');
       }
     }
   } catch (err) {
     if (isDailyLimitError(err)) {
       stoppedReason = 'dailyLimitExceeded';
-      logger.warn('[Gmail Sync] Daily limit reached', { processed, failed });
+      logger.warn('[Gmail Sync] Daily quota reached', { processed, failed });
     } else {
-      logger.error('[Gmail Sync] fetchAndStoreHistory error', { error: err.message });
+      logger.error('[Gmail Sync] Unexpected error', { error: err.message, stack: err.stack });
       throw err;
     }
   }
 
-  logger.info('[Gmail Sync] Completed', {
-    processed,
-    skipped,
-    failed,
-    stoppedReason,
-    nextPageToken: nextPageToken || null,
-  });
+  logger.info('[Gmail Sync] Completed', { processed, skipped, failed, stoppedReason, nextPageToken });
 
-  return {
-    processed,
-    skipped,
-    failed,
-    stoppedReason,
-    nextPageToken,
-    nextRunAfterDate,
-  };
+  return { processed, skipped, failed, stoppedReason, nextPageToken, nextRunAfterDate };
 }
 
-module.exports = { getOAuth2Client, fetchAndStoreHistory };
+/**
+ * Fetch, enrich, and upsert a single Gmail message.
+ * Returns 'ok' | 'skip' | 'fail'
+ *
+ * Extracted into its own function so the batch map stays clean and each
+ * message failure is fully isolated.
+ */
+async function processMessage(gmail, messageId) {
+  try {
+    // ── Fetch full message ────────────────────────────────────────────────────
+    const full = await withRetry(
+      () => gmail.users.messages.get({ userId: 'me', id: messageId, format: 'full' }),
+      `messages.get:${messageId}`
+    );
+
+    const msg     = full.data;
+    const payload = msg.payload ?? {};
+
+    // ── Map to Email shape ────────────────────────────────────────────────────
+    const doc = mapGmailMessageToEmail(msg);
+
+    // ── Fetch + upload attachments ────────────────────────────────────────────
+    doc.attachments = await fetchAndUploadAttachments(gmail, msg.id, payload);
+
+    // ── Upsert into MongoDB ───────────────────────────────────────────────────
+    await Email.findOneAndUpdate(
+      { provider: 'gmail', provider_email_id: doc.provider_email_id },
+      { $set: doc },
+      { upsert: true, new: false }   // new:false avoids returning the full doc (perf)
+    );
+
+    return 'ok';
+  } catch (err) {
+    // Re-throw daily-limit errors so the outer loop can stop cleanly
+    if (isDailyLimitError(err)) throw err;
+
+    logger.warn('[Gmail Sync] Failed to process message', {
+      messageId,
+      error: err.message,
+    });
+    return 'fail';
+  }
+}
+
+// ─── Read-time: hydrate signed attachment URLs ────────────────────────────────
+
+/**
+ * Given an email document from MongoDB, replace each attachment's storage_key
+ * with a short-lived signed URL for the frontend.
+ *
+ * Call this in your GET /api/email/:id handler — never store the signed URL.
+ *
+ * @param {object} emailDoc  - Raw Mongoose/lean document
+ * @param {number} [ttl=3600] - Signed URL TTL in seconds (default 1 hour)
+ * @returns {object}  emailDoc with attachments[*].url populated
+ */
+async function hydrateAttachmentUrls(emailDoc, ttl = 3600) {
+  if (!emailDoc?.attachments?.length) return emailDoc;
+
+  const attachments = await Promise.all(
+    emailDoc.attachments.map(async (att) => {
+      if (!att.storage_key) return { ...att, url: null };
+      try {
+        const url = await getSignedAttachmentUrl(att.storage_key, ttl);
+        return { ...att, url };
+      } catch (err) {
+        logger.warn('[Gmail Sync] Failed to generate signed URL', {
+          storage_key: att.storage_key,
+          error: err.message,
+        });
+        return { ...att, url: null };
+      }
+    })
+  );
+
+  return { ...emailDoc, attachments };
+}
+
+// ─── Exports ──────────────────────────────────────────────────────────────────
+
+module.exports = {
+  getOAuth2Client,
+  fetchAndStoreHistory,
+  hydrateAttachmentUrls,
+
+  // Exposed for unit testing
+  extractBody,
+  collectAttachmentParts,
+  mapGmailMessageToEmail,
+};
