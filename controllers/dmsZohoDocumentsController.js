@@ -753,7 +753,7 @@ exports.getQualityCheckApplications = async (req, res) => {
     if (data.length > 0) {
       const leadIds = data.map(r => r.id);
       const qcDocs = await QualityCheckRequest.find({ leadId: { $in: leadIds } })
-        .select('leadId status messages migrated requested_at')
+        .select('leadId status messages migrated requested_at requested_by requested_to')
         .lean();
 
       const qcByLeadId = {};
@@ -765,11 +765,13 @@ exports.getQualityCheckApplications = async (req, res) => {
         const qc = qcByLeadId[record.id] || null;
         return {
           ...record,
-          qcId:         qc ? qc._id : null,
-          qcStatus:     qc ? qc.status : null,
-          messageCount: qc ? qc.messages.length : 0,
-          migrated:     qc ? qc.migrated : false,
-          qcRequestedAt: qc ? qc.requested_at : null,
+          qcId:           qc ? qc._id : null,
+          qcStatus:       qc ? qc.status : null,
+          messageCount:   qc ? qc.messages.length : 0,
+          migrated:       qc ? qc.migrated : false,
+          qcRequestedAt:  qc ? qc.requested_at : null,
+          qcRequestedBy:  qc ? qc.requested_by : null,
+          qcRequestedTo:  qc ? qc.requested_to : null,
         };
       });
 
