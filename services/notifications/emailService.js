@@ -36,8 +36,8 @@ function getResend() {
 }
 
 function getFromAddress() {
-  const name = process.env.EMAIL_FROM_NAME || 'WorldVisa Group';
-  const email = process.env.EMAIL_FROM || 'notifications@worldvisagroup.com';
+  const name = process.env.EMAIL_FROM_NAME || 'WorldVisa Australia';
+  const email = process.env.EMAIL_FROM || 'australia@worldvisa.in';
   return `${name} <${email}>`;
 }
 
