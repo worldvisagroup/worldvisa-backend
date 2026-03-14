@@ -41,23 +41,7 @@ const MAX_ATTACHMENT_BYTES  = 25 * 1024 * 1024; // 25 MB
  * Resend event type → Email.last_event value.
  * Add entries here as you enable more Resend webhook events.
  */
-const EVENT_MAP = {
-  'email.received':   'received',
-  'email.bounced':    'bounced',
-  'email.complained': 'complained',
-};
-
-/**
- * Lifecycle order — prevents an out-of-order webhook from overwriting
- * a later event with an earlier one (e.g. "queued" arriving after "delivered").
- */
-const EVENT_ORDER = {
-  queued:     0,
-  delivered:  1,
-  received:   2,
-  bounced:    3,
-  complained: 4,
-};
+// Only inbound emails are stored via webhook; outbound emails are stored at send time.
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -182,6 +166,7 @@ async function processInboundEmail(emailId, eventData) {
     headers:           emailData.headers ?? {},
     attachments:       storedAttachments,
     last_event:        'received',
+    is_read:           false,
     received_at:       eventData.created_at ? new Date(eventData.created_at) : new Date(),
     created_at:        new Date(),
   };
@@ -260,39 +245,6 @@ async function handleResendWebhook(req, res) {
       })
     );
     return;
-  }
-
-  // ── Outbound delivery event updates ───────────────────────────────────────
-  const lastEvent = EVENT_MAP[type];
-  if (lastEvent && emailId) {
-    try {
-      const newOrder = EVENT_ORDER[lastEvent];
-      const query    = { provider: 'resend', provider_email_id: emailId };
-
-      if (newOrder !== undefined) {
-        // Only advance state — never go backwards in the lifecycle
-        const lowerEvents = Object.entries(EVENT_ORDER)
-          .filter(([, order]) => order < newOrder)
-          .map(([evt]) => evt);
-
-        query.$or = [
-          { last_event: { $exists: false } },
-          { last_event: { $in: [...lowerEvents, lastEvent] } },
-        ];
-      }
-
-      const result = await Email.updateOne(query, { $set: { last_event: lastEvent } });
-
-      if (result.matchedCount === 0) {
-        logger.warn('[Email Webhook] No doc matched for delivery event (race or unknown id)', {
-          email_id: emailId, type,
-        });
-      }
-    } catch (err) {
-      logger.error('[Email Webhook] Failed to update last_event', {
-        email_id: emailId, type, error: err.message,
-      });
-    }
   }
 
   return res.status(200).json({ received: true });
@@ -412,6 +364,8 @@ async function listEmails(req, res) {
       email: emailParam,
       provider,
       q,
+      unread,
+      today,
     } = req.query;
 
     const page  = Math.max(parseInt(pageParam,  10) || 1, 1);
@@ -465,6 +419,24 @@ async function listEmails(req, res) {
       ];
     }
 
+    if (unread === 'true' || unread === '1') {
+      match.is_read = false;
+    }
+
+    if (today === 'true' || today === '1') {
+      const startOfToday = new Date();
+      startOfToday.setUTCHours(0, 0, 0, 0);
+      match.$and = [
+        ...(match.$and ?? []),
+        {
+          $or: [
+            { received_at: { $gte: startOfToday } },
+            { received_at: null, created_at: { $gte: startOfToday } },
+          ],
+        },
+      ];
+    }
+
     // Always exclude messages with no readable body (delivery receipts / drafts)
     match.$and = [
       ...(match.$and ?? []),
@@ -494,7 +466,14 @@ async function listEmails(req, res) {
       { $sort: { _sortTime: -1 } },
     ];
 
-    const [rows, countResult] = await Promise.all([
+    const matchUnread = { ...match, is_read: false };
+    const unreadTotalPipeline = [
+      { $match: matchUnread },
+      { $group: { _id: { $ifNull: ['$thread_id', { $toString: '$_id' }] } } },
+      { $count: 'count' },
+    ];
+
+    const [rows, countResult, unreadResult] = await Promise.all([
       Email.aggregate([
         ...basePipeline,
         { $project: { html: 0, text: 0, _sortTime: 0 } }, // never send body in list responses
@@ -502,7 +481,10 @@ async function listEmails(req, res) {
         { $limit: limit },
       ]),
       Email.aggregate([...basePipeline, { $count: 'count' }]),
+      Email.aggregate(unreadTotalPipeline),
     ]);
+
+    const unreadTotal = unreadResult[0]?.count ?? 0;
 
     return res.status(200).json({
       data: rows,
@@ -512,6 +494,7 @@ async function listEmails(req, res) {
         limit,
         totalPages: Math.ceil((countResult[0]?.count ?? 0) / limit),
       },
+      unreadTotal,
     });
   } catch (err) {
     logger.error('[Email] listEmails failed', { error: err.message });
@@ -639,8 +622,8 @@ async function sendEmail(req, res) {
     if (!subject?.trim()) {
       return res.status(400).json({ error: '"subject" is required' });
     }
-    if (!html?.trim() && !text?.trim()) {
-      return res.status(400).json({ error: 'At least one of "html" or "text" is required' });
+    if (!html?.trim()) {
+      return res.status(400).json({ error: '"html" is required' });
     }
 
     let clientId = null;
@@ -688,6 +671,25 @@ async function sendEmail(req, res) {
   }
 }
 
+// ─── PATCH /api/email/:id/read ────────────────────────────────────────────────
+
+async function markAsRead(req, res) {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid email id' });
+    }
+    const result = await Email.updateOne({ _id: id }, { $set: { is_read: true } });
+    if (result.matchedCount === 0) {
+      return res.status(404).json({ error: 'Email not found' });
+    }
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    logger.error('[Email] markAsRead failed', { id: req.params.id, error: err.message });
+    return res.status(500).json({ error: 'Failed to mark email as read' });
+  }
+}
+
 // ─── Exports ──────────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -700,4 +702,5 @@ module.exports = {
   getThreadMessages,
   getEmailById,
   getEmailWithThread,
+  markAsRead,
 };

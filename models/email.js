@@ -119,6 +119,12 @@ const emailSchema = new mongoose.Schema(
       default: 'queued',
     },
 
+    // Read state
+    is_read: {
+      type: Boolean,
+      default: true, // existing docs without the field → treated as read
+    },
+
     // Timestamps
     created_at: {
       type: Date,

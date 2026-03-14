@@ -66,6 +66,7 @@ function createEmailRecord(opts) {
     text,
     attachments: attachmentList,
     last_event: 'sent',
+    is_read: true,
     created_at: new Date(),
     client_id,
   }).catch((err) => {
@@ -353,11 +354,6 @@ async function sendBatch(notificationIds) {
 
 const MAX_ATTACHMENTS_TOTAL_BYTES = 25 * 1024 * 1024; // 25 MB (Resend allows 40 MB per email)
 
-/**
- * Send email from frontend: upload attachments to R2, send via Resend, persist Email (email_type client).
- * @param {Object} opts - to (string or array), subject, html, text (optional), cc, bcc, client_id, attachments: [{ buffer, filename, mimetype }]
- * @returns {Promise<{ id: string }>} Resend email id
- */
 async function sendEmailFromFrontend(opts) {
   const {
     to,
@@ -375,15 +371,15 @@ async function sendEmailFromFrontend(opts) {
   const toArr = Array.isArray(to) ? to : (to ? String(to).split(',').map((e) => e.trim()).filter(Boolean) : []);
   if (!toArr.length) throw new Error('Missing or invalid "to"');
   if (!subject || typeof subject !== 'string' || !subject.trim()) throw new Error('Missing or invalid "subject"');
-  const hasBody = (html && typeof html === 'string' && html.trim()) || (text && typeof text === 'string' && text.trim());
-  if (!hasBody) throw new Error('At least one of "html" or "text" is required');
+  if (!html || typeof html !== 'string' || !html.trim()) throw new Error('Missing or invalid "html"');
 
   // Resolve thread_id for replies so the outbound email is grouped with its conversation
   let threadId = null;
+  let replyReferences = [];
   if (in_reply_to) {
     const parent = await Email.findOne(
       { $or: [{ message_id: in_reply_to }, { provider_email_id: in_reply_to }] },
-      { _id: 1, thread_id: 1 }
+      { _id: 1, thread_id: 1, message_id: 1, references: 1 }
     ).lean();
     if (parent) {
       threadId = parent.thread_id || parent._id.toString();
@@ -391,6 +387,11 @@ async function sendEmailFromFrontend(opts) {
       if (!parent.thread_id) {
         await Email.updateOne({ _id: parent._id }, { $set: { thread_id: threadId } });
       }
+      // Build full References chain: all ancestor IDs + parent's own message_id
+      replyReferences = [
+        ...(Array.isArray(parent.references) ? parent.references : []),
+        parent.message_id,
+      ].filter(Boolean);
     }
   }
 
@@ -414,8 +415,10 @@ async function sendEmailFromFrontend(opts) {
   const ccArr = cc ? (Array.isArray(cc) ? cc : String(cc).split(',').map((e) => e.trim()).filter(Boolean)) : [];
   const bccArr = bcc ? (Array.isArray(bcc) ? bcc : String(bcc).split(',').map((e) => e.trim()).filter(Boolean)) : [];
   const headers = {};
-  if (in_reply_to) headers['In-Reply-To'] = in_reply_to;
-  if (message_id) headers['References'] = message_id;
+  if (in_reply_to) {
+    headers['In-Reply-To'] = in_reply_to;
+    if (replyReferences.length) headers['References'] = replyReferences.join(' ');
+  }
 
   const payload = {
     from: getFromAddress(),
@@ -448,10 +451,11 @@ async function sendEmailFromFrontend(opts) {
     text: text && text.trim() ? text.trim() : null,
     attachments: storedAttachments,
     last_event: 'sent',
+    is_read: true,
     ...(client_id != null ? { client_id } : {}),
     ...(threadId ? { thread_id: threadId } : {}),
     ...(in_reply_to ? { in_reply_to } : {}),
-    ...(message_id ? { message_id } : {}),
+    ...(replyReferences.length ? { references: replyReferences } : {}),
   }).catch((err) => {
     logger.error('[Email] Failed to create Email record (send from frontend)', { error: err.message, provider_email_id: data?.id });
   });

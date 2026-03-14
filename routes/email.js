@@ -27,6 +27,7 @@ router.post('/send', protect, upload.array('attachments', 10), emailController.s
 // List (one per thread), thread messages, single email, email + thread (order: more specific first)
 router.get('/', protect, emailController.listEmails);
 router.get('/threads/:threadId', protect, emailController.getThreadMessages);
+router.patch('/:id/read', protect, emailController.markAsRead);
 router.get('/:id/with-thread', protect, emailController.getEmailWithThread);
 router.get('/:id', protect, emailController.getEmailById);
 
