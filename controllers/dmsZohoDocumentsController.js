@@ -23,6 +23,7 @@ const { capitalizeFn } = require('../utils/helperFunction');
 const { escapeRegexForMongo, escapeString, sanitizeUsername, sanitizeSearchTerm } = require('../utils/querySanitizer');
 const { processWithRetry } = require('../workers/zipExportWorker');
 const ZipExportJob = require('../models/zipExportJob');
+const QualityCheckRequest = require('../models/qualityCheckRequest');
 
 // Configure Multer for file uploads
 const upload = multer({ storage: multer.memoryStorage() });
@@ -673,7 +674,7 @@ exports.getQualityCheckApplications = async (req, res) => {
   try {
     const username = req.user.username;
     const role = req.user.role;
-    const { country } = req.query;
+    const { country, search, status, recordType } = req.query;
 
     // Extract pagination parameters
     const page = parseInt(req.query.page, 10) || 1;
@@ -693,67 +694,105 @@ exports.getQualityCheckApplications = async (req, res) => {
       return res.status(400).json({ success: false, message: `Invalid country parameter. Supported values: ${SUPPORTED_COUNTRIES.join(', ')}` });
     }
 
-    // Build conditional WHERE clause based on role
-    const conditions = [];
+    const VALID_STATUSES = ['pending', 'reviewed', 'removed'];
+    if (status && !VALID_STATUSES.includes(status)) {
+      return res.status(400).json({ success: false, message: `Invalid status. Supported values: ${VALID_STATUSES.join(', ')}` });
+    }
 
-    // Always filter out records where Quality_Check_From is null
-    conditions.push(`Quality_Check_From is not null`);
+    const VALID_RECORD_TYPES = [REQ_MODULE_VISA_APPLICATION, REQ_MODULE_SPOUSE_SKILL_ASSESSMENT];
+    if (recordType && !VALID_RECORD_TYPES.includes(recordType)) {
+      return res.status(400).json({ success: false, message: `Invalid recordType. Supported values: ${VALID_RECORD_TYPES.join(', ')}` });
+    }
 
-    // Filter by username for all roles except master_admin
+    // Build base conditions
+    const baseConditions = [];
+    baseConditions.push(`Quality_Check_From is not null`);
+
     if (role !== 'master_admin') {
-      conditions.push(`Quality_Check_From like '${username}'`);
+      baseConditions.push(`Quality_Check_From like '${username}'`);
     }
 
-    // Optional country filter (only applies to Visa_Applications — Spouse module has no Qualified_Country)
-    if (country) {
-      conditions.push(`Qualified_Country = '${country}'`);
+    if (search) {
+      const safeTerm = sanitizeSearchTerm(search).substring(0, SEARCH_TERM_MAX_LENGTH);
+      baseConditions.push(`Name like '%${safeTerm}%'`);
     }
 
-    // Build WHERE clause
-    const whereClause = ` where ${conditions.join(' and ')}`;
+    // Visa Applications conditions (includes optional country filter)
+    const visaConditions = [...baseConditions];
+    if (country) visaConditions.push(`Qualified_Country = '${country}'`);
+    const visaWhere = ` where ${visaConditions.join(' and ')}`;
 
-    // Spouse query uses base conditions without country filter
-    const spouseConditions = conditions.filter(c => !c.startsWith('Qualified_Country'));
-    const spouseWhereClause = ` where ${spouseConditions.join(' and ')}`;
+    // Spouse conditions (no Qualified_Country field)
+    const spouseWhere = ` where ${baseConditions.join(' and ')}`;
 
-    // Build queries with pagination and sorting (latest first). COQL syntax: limit offset, limit
-    const selectQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Record_Type from Visa_Applications${whereClause} order by Created_Time desc limit ${offset}, ${limit}`;
+    // Determine which modules to query based on recordType filter
+    const queryVisa   = !recordType || recordType === REQ_MODULE_VISA_APPLICATION;
+    const querySpouse = !recordType || recordType === REQ_MODULE_SPOUSE_SKILL_ASSESSMENT;
 
-    const selectSpouseQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Main_Applicant, Record_Type from Spouse_Skill_Assessment${spouseWhereClause} order by Created_Time desc limit ${offset}, ${limit}`;
+    // Build Zoho queries
+    const visaSelect   = `select id, Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Record_Type from Visa_Applications${visaWhere} order by Created_Time desc limit ${offset}, ${limit}`;
+    const spouseSelect = `select id, Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Main_Applicant, Record_Type from Spouse_Skill_Assessment${spouseWhere} order by Created_Time desc limit ${offset}, ${limit}`;
+    const visaCount    = `select COUNT(id) as count from Visa_Applications${visaWhere}`;
+    const spouseCount  = `select COUNT(id) as count from Spouse_Skill_Assessment${spouseWhere}`;
 
-    // Build count queries for pagination metadata
-    const countQuery = `select COUNT(id) as count from Visa_Applications${whereClause}`;
-    const countSpouseQuery = `select COUNT(id) as count from Spouse_Skill_Assessment${spouseWhereClause}`;
-
-    // Execute all queries in parallel
-    const [response, spouseResponse, countResponse, countSpouseResponse] = await Promise.all([
-      zohoRequest('coql', 'POST', { select_query: selectQuery }),
-      zohoRequest('coql', 'POST', { select_query: selectSpouseQuery }),
-      zohoRequest('coql', 'POST', { select_query: countQuery }),
-      zohoRequest('coql', 'POST', { select_query: countSpouseQuery })
+    // Execute only the needed queries in parallel
+    const [visaRes, spouseRes, visaCountRes, spouseCountRes] = await Promise.all([
+      queryVisa   ? zohoRequest('coql', 'POST', { select_query: visaSelect })   : Promise.resolve({ data: [] }),
+      querySpouse ? zohoRequest('coql', 'POST', { select_query: spouseSelect }) : Promise.resolve({ data: [] }),
+      queryVisa   ? zohoRequest('coql', 'POST', { select_query: visaCount })    : Promise.resolve({ data: [{ count: 0 }] }),
+      querySpouse ? zohoRequest('coql', 'POST', { select_query: spouseCount })  : Promise.resolve({ data: [{ count: 0 }] }),
     ]);
 
-    // Merge and sort data by Created_Time (latest first)
-    const data = [
-      ...(response.data || []),
-      ...(spouseResponse.data || [])
+    // Merge and sort by Created_Time desc
+    let data = [
+      ...(visaRes.data || []),
+      ...(spouseRes.data || [])
     ].sort((a, b) => new Date(b.Created_Time) - new Date(a.Created_Time));
 
-    // Calculate total records
-    const visaCount = countResponse.data?.[0]?.count || 0;
-    const spouseCount = countSpouseResponse.data?.[0]?.count || 0;
-    const totalRecords = visaCount + spouseCount;
+    // Enrich with MongoDB QualityCheckRequest data (status, qcId, messageCount, migrated)
+    if (data.length > 0) {
+      const leadIds = data.map(r => r.id);
+      const qcDocs = await QualityCheckRequest.find({ leadId: { $in: leadIds } })
+        .select('leadId status messages migrated requested_at')
+        .lean();
+
+      const qcByLeadId = {};
+      for (const doc of qcDocs) {
+        qcByLeadId[doc.leadId] = doc;
+      }
+
+      data = data.map(record => {
+        const qc = qcByLeadId[record.id] || null;
+        return {
+          ...record,
+          qcId:         qc ? qc._id : null,
+          qcStatus:     qc ? qc.status : null,
+          messageCount: qc ? qc.messages.length : 0,
+          migrated:     qc ? qc.migrated : false,
+          qcRequestedAt: qc ? qc.requested_at : null,
+        };
+      });
+
+      // Apply status filter in-memory (status lives in MongoDB, not Zoho)
+      if (status) {
+        data = data.filter(r => r.qcStatus === status);
+      }
+    }
+
+    // Calculate totals (Zoho counts; status filter is in-memory so totalRecords reflects Zoho count)
+    const totalZohoRecords = (visaCountRes.data?.[0]?.count || 0) + (spouseCountRes.data?.[0]?.count || 0);
+    const totalRecords = status ? data.length : totalZohoRecords;
     const totalPages = Math.ceil(totalRecords / limit);
 
     return res.status(200).json({
       success: true,
-      data: data,
+      data,
       totalCount: totalRecords,
       pagination: {
         currentPage: page,
         pageSize: limit,
-        totalRecords: totalRecords,
-        totalPages: totalPages,
+        totalRecords,
+        totalPages,
         hasNextPage: page < totalPages,
         hasPreviousPage: page > 1
       }
@@ -824,6 +863,21 @@ exports.requestQualityCheck = async (req, res) => {
     }
 
     if (response.data) {
+      // Create or update QualityCheckRequest document in MongoDB
+      await QualityCheckRequest.findOneAndUpdate(
+        { leadId },
+        {
+          leadId,
+          recordType: moduleName,
+          requested_by: user.username,
+          requested_to: reqUserName,
+          status: 'pending',
+          requested_at: new Date(),
+          messages: [],
+        },
+        { upsert: true, new: true }
+      );
+
       return res.status(200).json({ success: true, message: 'Quality check requested successfully.' });
     } else {
       return res.status(500).json({ success: false, message: 'Failed to request quality check.' });
@@ -868,15 +922,200 @@ exports.removeRequestQualityCheck = async (req, res) => {
     const response = await zohoRequest(moduleName, 'PUT', updatedQualityCheckData);
 
     if (response.data) {
+      await QualityCheckRequest.findOneAndUpdate(
+        { leadId },
+        { status: 'removed' }
+      );
       return res.status(200).json({ success: true, message: 'Quality check removed successfully.' });
     } else {
       return res.status(500).json({ success: false, message: 'Failed to remove quality check.' });
     }
   } catch (error) {
-    console.error('Error in requestQualityCheck controller');
-    return res.status(500).json({ success: false, message: 'An error occurred while requesting quality check.' });
+    console.error('Error in removeRequestQualityCheck controller');
+    return res.status(500).json({ success: false, message: 'An error occurred while removing quality check.' });
   }
 };
+
+// -------------------- Quality Check - MongoDB backed endpoints --------------------
+
+exports.getQualityCheckByLeadId = async (req, res) => {
+  try {
+    const { leadId } = req.params;
+    if (!leadId) {
+      return res.status(400).json({ success: false, message: 'leadId is required.' });
+    }
+    const qcRequest = await QualityCheckRequest.findOne({ leadId }).lean();
+    if (!qcRequest) {
+      return res.status(404).json({ success: false, message: 'Quality check request not found.' });
+    }
+    return res.status(200).json({ success: true, data: qcRequest });
+  } catch (error) {
+    console.error('Error in getQualityCheckByLeadId:', error);
+    return res.status(500).json({ success: false, message: 'Failed to get quality check request.' });
+  }
+};
+
+exports.updateQualityCheckStatus = async (req, res) => {
+  try {
+    const { qcId } = req.params;
+    const { status } = req.body;
+    if (!qcId || !status) {
+      return res.status(400).json({ success: false, message: 'qcId and status are required.' });
+    }
+    const qcRequest = await QualityCheckRequest.findByIdAndUpdate(
+      qcId,
+      { status },
+      { new: true }
+    );
+    if (!qcRequest) {
+      return res.status(404).json({ success: false, message: 'Quality check request not found.' });
+    }
+    return res.status(200).json({ success: true, data: qcRequest });
+  } catch (error) {
+    console.error('Error in updateQualityCheckStatus:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update quality check status.' });
+  }
+};
+
+exports.getQualityCheckMessages = async (req, res) => {
+  try {
+    const { qcId } = req.params;
+    const page  = parseInt(req.query.page, 10)  || 1;
+    const limit = parseInt(req.query.limit, 10) || 20;
+
+    const qcRequest = await QualityCheckRequest.findById(qcId).select('messages').lean();
+    if (!qcRequest) {
+      return res.status(404).json({ success: false, message: 'Quality check request not found.' });
+    }
+
+    // Messages are stored oldest-first; return newest-first for chat pagination
+    const allMessages   = [...qcRequest.messages].sort((a, b) => new Date(b.added_at) - new Date(a.added_at));
+    const totalMessages = allMessages.length;
+    const totalPages    = Math.ceil(totalMessages / limit);
+    const offset        = (page - 1) * limit;
+    const messages      = allMessages.slice(offset, offset + limit);
+
+    return res.status(200).json({
+      success: true,
+      data: messages,
+      pagination: {
+        currentPage:    page,
+        pageSize:       limit,
+        totalMessages,
+        totalPages,
+        hasNextPage:     page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    });
+  } catch (error) {
+    console.error('Error in getQualityCheckMessages:', error);
+    return res.status(500).json({ success: false, message: 'Failed to get quality check messages.' });
+  }
+};
+
+exports.addQualityCheckMessage = async (req, res) => {
+  try {
+    const { qcId } = req.params;
+    const { message } = req.body;
+    const username = req.user.username;
+
+    if (!message) {
+      return res.status(400).json({ success: false, message: 'message is required.' });
+    }
+
+    const qcRequest = await QualityCheckRequest.findById(qcId);
+    if (!qcRequest) {
+      return res.status(404).json({ success: false, message: 'Quality check request not found.' });
+    }
+
+    qcRequest.messages.push({ username, message, added_at: new Date() });
+    await qcRequest.save();
+
+    // Notify the other party
+    const notifyUsername = username === qcRequest.requested_to
+      ? qcRequest.requested_by
+      : qcRequest.requested_to;
+
+    const notifyUser = await ZohoDmsUser.findOne({ username: notifyUsername });
+    if (notifyUser) {
+      await addNotificationAndEmit({
+        req,
+        leadId: qcRequest.leadId,
+        userId: notifyUser._id,
+        title: `Quality check message from ${username}`,
+        message,
+        category: 'quality check',
+        source: 'quality_check',
+        applicationType: qcRequest.recordType,
+      });
+    }
+
+    return res.status(200).json({ success: true, data: qcRequest.messages });
+  } catch (error) {
+    console.error('Error in addQualityCheckMessage:', error);
+    return res.status(500).json({ success: false, message: 'Failed to add quality check message.' });
+  }
+};
+
+exports.updateQualityCheckMessage = async (req, res) => {
+  try {
+    const { qcId } = req.params;
+    const { messageId, message } = req.body;
+
+    if (!messageId || !message) {
+      return res.status(400).json({ success: false, message: 'messageId and message are required.' });
+    }
+
+    const qcRequest = await QualityCheckRequest.findById(qcId);
+    if (!qcRequest) {
+      return res.status(404).json({ success: false, message: 'Quality check request not found.' });
+    }
+
+    const msg = qcRequest.messages.id(messageId);
+    if (!msg) {
+      return res.status(404).json({ success: false, message: 'Message not found.' });
+    }
+
+    msg.message = message;
+    await qcRequest.save();
+
+    return res.status(200).json({ success: true, message: 'Message updated successfully.' });
+  } catch (error) {
+    console.error('Error in updateQualityCheckMessage:', error);
+    return res.status(500).json({ success: false, message: 'Failed to update quality check message.' });
+  }
+};
+
+exports.deleteQualityCheckMessage = async (req, res) => {
+  try {
+    const { qcId } = req.params;
+    const { messageId } = req.body;
+
+    if (!messageId) {
+      return res.status(400).json({ success: false, message: 'messageId is required.' });
+    }
+
+    const qcRequest = await QualityCheckRequest.findById(qcId);
+    if (!qcRequest) {
+      return res.status(404).json({ success: false, message: 'Quality check request not found.' });
+    }
+
+    const msgIndex = qcRequest.messages.findIndex(m => m._id.toString() === messageId);
+    if (msgIndex === -1) {
+      return res.status(404).json({ success: false, message: 'Message not found.' });
+    }
+
+    qcRequest.messages.splice(msgIndex, 1);
+    await qcRequest.save();
+
+    return res.status(200).json({ success: true, message: 'Message deleted successfully.' });
+  } catch (error) {
+    console.error('Error in deleteQualityCheckMessage:', error);
+    return res.status(500).json({ success: false, message: 'Failed to delete quality check message.' });
+  }
+};
+
+// ---------------------------------------------------------------------------------
 
 exports.getChecklistRequestedApplications = async (req, res) => {
   try {
@@ -2243,7 +2482,13 @@ exports.editRequestedReview = async (req, res) => {
     if (requested_by !== undefined) review.requested_by = requested_by;
     if (requested_to !== undefined) review.requested_to = requested_to;
     if (messages !== undefined) review.messages = messages;
-    if (status !== undefined) review.status = status;
+    if (status !== undefined) {
+      review.status = status;
+      if (status === 'pending') {
+        review.requested_at = new Date();   
+      }
+    }
+    
 
     await document.save();
 

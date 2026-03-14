@@ -59,15 +59,7 @@ async function updateRecentActivity(zohoRequest, moduleName, recordId) {
   }
 }
 
-/**
- * Helper function to add a timeline entry to a document.
- * @param {String} docId - The document ID.
- * @param {String} event - The event name (required).
- * @param {String} details - Details for the event (optional).
- * @param {String} triggered_by - Username who triggered the event (required).
- * @returns {Promise<Object>} The added timeline entry.
- * @throws {Error} If any required parameter is missing or document not found.
- */
+
 async function addToTimeline(docId, event, details, triggered_by) {
   if (!dmsZohoDocument) {
     throw new Error('dmsZohoDocument is required.');
@@ -104,15 +96,7 @@ async function addToTimeline(docId, event, details, triggered_by) {
   return timelineEntry;
 }
 
-/**
- * Helper function to add a moved file entry to a document's moved_files array.
- * @param {String} docId - The document ID.
- * @param {String} file_id - The ID of the moved file.
- * @param {String} file_name - The name of the moved file.
- * @param {String} moved_by - Username who moved/deleted the file.
- * @returns {Promise<Object>} The added moved file entry.
- * @throws {Error} If any required parameter is missing or document not found.
- */
+
 async function addMovedFiles(docId, file_id, file_name, moved_by = 'Unknown') {
   if (!dmsZohoDocument) {
     throw new Error('dmsZohoDocument is required.');

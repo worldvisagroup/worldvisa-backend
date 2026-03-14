@@ -28,6 +28,15 @@ router.get('/global-search', protect, dmsZohoDocumentsController.globalSearch);
 router.get('/quality_check', protect, dmsZohoDocumentsController.getQualityCheckApplications);
 router.post('/quality_check', protect, dmsZohoDocumentsController.requestQualityCheck);
 router.delete('/quality_check/:leadId', protect, dmsZohoDocumentsController.removeRequestQualityCheck);
+
+// Quality Check - MongoDB backed (messages & status)
+router.get('/quality_check/:leadId/details', protect, dmsZohoDocumentsController.getQualityCheckByLeadId);
+router.patch('/quality_check/:qcId/status', protect, dmsZohoDocumentsController.updateQualityCheckStatus);
+router.get('/quality_check/:qcId/messages', protect, dmsZohoDocumentsController.getQualityCheckMessages);
+router.post('/quality_check/:qcId/messages', protect, dmsZohoDocumentsController.addQualityCheckMessage);
+router.put('/quality_check/:qcId/messages', protect, dmsZohoDocumentsController.updateQualityCheckMessage);
+router.delete('/quality_check/:qcId/messages', protect, dmsZohoDocumentsController.deleteQualityCheckMessage);
+
 router.put('/update_fields', protect, dmsZohoDocumentsController.updateZohoFields);
 
 // Request Checklist
