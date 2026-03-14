@@ -548,7 +548,11 @@ async function hydrateAttachmentUrls(emailDoc, ttl = 3600) {
     emailDoc.attachments.map(async (att) => {
       if (!att.storage_key) return { ...att, url: null };
       try {
-        const url = await getSignedAttachmentUrl(att.storage_key, ttl);
+        const url = await getSignedAttachmentUrl(att.storage_key, {
+          filename:    att.filename,
+          contentType: att.content_type,
+          expiresIn:   ttl,
+        });
         return { ...att, url };
       } catch (err) {
         logger.warn('[Gmail Sync] Failed to generate signed URL', {

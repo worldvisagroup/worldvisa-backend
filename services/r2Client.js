@@ -54,17 +54,7 @@ function getEmailAttachmentKey({ direction, messageId, attachmentId, filename })
 
 // ─── Upload ───────────────────────────────────────────────────────────────────
 
-/**
- * Upload a Buffer or Readable stream to R2.
- *
- * - Public bucket  (R2_PUBLIC_URL set)  → returns stable CDN URL
- * - Private bucket (R2_PUBLIC_URL unset) → returns the key
- *
- * Always store the KEY in MongoDB, never a signed URL.
- * If you have a public bucket and store the full URL today, you can still
- * switch to private + signed URLs later without a data migration — just
- * store the key and build the URL at read time.
- */
+
 async function uploadToR2(key, body, contentType = 'application/octet-stream') {
   if (!process.env.R2_BUCKET_NAME) throw new Error('R2_BUCKET_NAME env var is not set');
 
@@ -86,22 +76,19 @@ async function uploadToR2(key, body, contentType = 'application/octet-stream') {
 
 // ─── Signed URL ───────────────────────────────────────────────────────────────
 
-/**
- * Generate a pre-signed GET URL for a private R2 object.
- * Call this at read time — never store the result in the database.
- *
- * @param {string} key              - R2 object key (as stored in MongoDB)
- * @param {number} [expiresIn=3600] - TTL in seconds (default 1h, max 7 days)
- * @returns {Promise<string>}       - Pre-signed URL
- */
-async function getSignedAttachmentUrl(key, expiresIn = 3600) {
+
+async function getSignedAttachmentUrl(key, { filename, contentType, expiresIn = 3600 } = {}) {
   if (!process.env.R2_BUCKET_NAME) throw new Error('R2_BUCKET_NAME env var is not set');
 
-  return getSignedUrl(
-    r2Client,
-    new GetObjectCommand({ Bucket: process.env.R2_BUCKET_NAME, Key: key }),
-    { expiresIn }
-  );
+  const params = { Bucket: process.env.R2_BUCKET_NAME, Key: key };
+  if (filename) {
+    params.ResponseContentDisposition = `attachment; filename="${encodeURIComponent(filename)}"`;
+  }
+  if (contentType) {
+    params.ResponseContentType = contentType;
+  }
+
+  return getSignedUrl(r2Client, new GetObjectCommand(params), { expiresIn });
 }
 
 // ─── Delete ───────────────────────────────────────────────────────────────────
@@ -117,12 +104,11 @@ async function deleteFromR2(key) {
   );
 }
 
-// ─── Exports ──────────────────────────────────────────────────────────────────
 
 module.exports = {
   r2Client,
   uploadToR2,
   deleteFromR2,
-  getSignedAttachmentUrl, // ← new export — used by gmailSyncService.hydrateAttachmentUrls()
+  getSignedAttachmentUrl, 
   getEmailAttachmentKey,
 };

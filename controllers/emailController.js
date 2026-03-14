@@ -99,6 +99,16 @@ async function processInboundEmail(emailId, eventData) {
   const storedAttachments = [];
 
   for (const att of attachList) {
+    // Skip inline CID images and known signature assets (logos, Zoho icons)
+    const attDisp = (att.content_disposition ?? '').toLowerCase();
+    const attName = (att.filename ?? '').toLowerCase();
+    if (
+      attDisp === 'inline'       ||
+      att.content_id             ||
+      attName.includes('logo')   ||
+      attName.includes('zoho')
+    ) continue;
+
     const meta = {
       filename:               att.filename    ?? 'attachment',
       content_type:           att.content_type ?? 'application/octet-stream',
