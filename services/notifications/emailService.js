@@ -437,6 +437,18 @@ async function sendEmailFromFrontend(opts) {
   const { data, error } = await resend.emails.send(payload);
   if (error) throw new Error(error.message || JSON.stringify(error));
 
+  // Fetch the RFC Message-ID Resend assigned — required so inbound replies can be threaded back
+  let rfcMessageId = null;
+  try {
+    const details = await resend.emails.get(data.id);
+    rfcMessageId = details?.data?.message_id ?? null;
+  } catch (err) {
+    logger.warn('[Email] Failed to fetch message_id from Resend after send', {
+      provider_email_id: data.id,
+      error: err.message,
+    });
+  }
+
   await Email.create({
     provider: 'resend',
     provider_email_id: data?.id || null,
@@ -454,6 +466,7 @@ async function sendEmailFromFrontend(opts) {
     is_read: true,
     ...(client_id != null ? { client_id } : {}),
     ...(threadId ? { thread_id: threadId } : {}),
+    ...(rfcMessageId ? { message_id: rfcMessageId } : {}),
     ...(in_reply_to ? { in_reply_to } : {}),
     ...(replyReferences.length ? { references: replyReferences } : {}),
   }).catch((err) => {
