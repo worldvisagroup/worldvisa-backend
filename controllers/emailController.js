@@ -527,10 +527,13 @@ async function getThreadMessages(req, res) {
       MAX_THREAD_MESSAGES
     );
 
-    const messages = await Email.find({ thread_id: threadId })
-      .sort({ received_at: 1 })
-      .limit(limit)
-      .lean();
+    const messages = await Email.aggregate([
+      { $match: { thread_id: threadId } },
+      { $addFields: { _sortTime: { $ifNull: ['$received_at', '$created_at'] } } },
+      { $sort: { _sortTime: 1 } },
+      { $limit: limit },
+      { $project: { _sortTime: 0 } },
+    ]);
 
     // Hydrate signed attachment URLs for every message in the thread
     const hydrated = await Promise.all(
@@ -593,11 +596,13 @@ async function getEmailWithThread(req, res) {
       return res.status(200).json({ email: hydratedEmail, thread: [minimal] });
     }
 
-    const threadDocs = await Email.find({ thread_id: email.thread_id })
-      .sort({ received_at: 1 })
-      .select('-html -text')        // thread list only needs metadata
-      .limit(MAX_THREAD_MESSAGES)
-      .lean();
+    const threadDocs = await Email.aggregate([
+      { $match: { thread_id: email.thread_id } },
+      { $addFields: { _sortTime: { $ifNull: ['$received_at', '$created_at'] } } },
+      { $sort: { _sortTime: 1 } },
+      { $limit: MAX_THREAD_MESSAGES },
+      { $project: { html: 0, text: 0, _sortTime: 0 } },
+    ]);
 
     // Hydrate attachment URLs across all thread messages
     const hydratedThread = await Promise.all(
