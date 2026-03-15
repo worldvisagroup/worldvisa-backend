@@ -147,4 +147,15 @@ emailSchema.index({ thread_id: 1 });
 emailSchema.index({ provider_email_id: 1 }, { sparse: true });
 emailSchema.index({ provider: 1, provider_email_id: 1 }, { unique: true });
 
+// ── Performance indexes for listEmails at 10k+ scale ──────────────────────
+// Supports the always-applied { html: { $ne: null } } filter.
+// Sparse: documents with html:null do not consume index space.
+emailSchema.index({ html: 1 }, { sparse: true });
+// Supports ?unread=true filter and the unread-count aggregation pipeline.
+emailSchema.index({ is_read: 1 });
+// Supports email_type equality filter combined with received_at sort.
+emailSchema.index({ email_type: 1, received_at: -1 });
+// Covers the common "inbound unread sorted by time" query in one index scan.
+emailSchema.index({ direction: 1, is_read: 1, received_at: -1 });
+
 module.exports = mongoose.model('Email', emailSchema);

@@ -43,6 +43,29 @@ const MAX_ATTACHMENT_BYTES  = 25 * 1024 * 1024; // 25 MB
  */
 // Only inbound emails are stored via webhook; outbound emails are stored at send time.
 
+// ─── Unread count Redis cache helpers ─────────────────────────────────────────
+
+const UNREAD_CACHE_KEY = 'email:unread:total';
+const UNREAD_CACHE_TTL = 60; // seconds
+
+async function getCachedUnreadCount() {
+  if (!redis) return null;
+  try {
+    const val = await redis.get(UNREAD_CACHE_KEY);
+    return val !== null ? parseInt(val, 10) : null;
+  } catch { return null; }
+}
+
+async function setCachedUnreadCount(count) {
+  if (!redis) return;
+  try { await redis.set(UNREAD_CACHE_KEY, String(count), 'EX', UNREAD_CACHE_TTL); } catch {}
+}
+
+async function invalidateUnreadCache() {
+  if (!redis) return;
+  try { await redis.del(UNREAD_CACHE_KEY); } catch {}
+}
+
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
 function escapeRegex(str) {
@@ -181,11 +204,17 @@ async function processInboundEmail(emailId, eventData) {
     created_at:        new Date(),
   };
 
-  await Email.findOneAndUpdate(
+  // upsertResult is null when a new document is inserted (new:false + upsert).
+  // A non-null result means a duplicate replay — no cache invalidation needed.
+  const upsertResult = await Email.findOneAndUpdate(
     { provider: 'resend', provider_email_id: emailId },
     { $setOnInsert: inboundDoc },
     { upsert: true, new: false }
   );
+
+  if (upsertResult === null) {
+    invalidateUnreadCache().catch(() => {});
+  }
 
   logger.info('[Email Webhook] Inbound email stored', {
     email_id:    emailId,
@@ -456,11 +485,15 @@ async function listEmails(req, res) {
     const sortTime = { $cond: [{ $ne: ['$received_at', null] }, '$received_at', '$created_at'] };
     const skip     = (page - 1) * limit;
 
-    // Group by thread_id so the inbox shows one row per conversation thread
-    const basePipeline = [
+    // Critical memory optimisation: exclude large fields BEFORE $group so that
+    // $$ROOT never carries html/text (10-50 KB each) through the grouping stage.
+    const projectLean = { $project: { html: 0, text: 0, headers: 0 } };
+
+    const preGroupStages = [
       { $match: match },
+      projectLean,
       { $addFields: { _sortTime: sortTime } },
-      { $sort:  { _sortTime: -1 } },
+      { $sort: { _sortTime: -1 } },
       {
         $group: {
           _id:          { $ifNull: ['$thread_id', { $toString: '$_id' }] },
@@ -476,33 +509,51 @@ async function listEmails(req, res) {
       { $sort: { _sortTime: -1 } },
     ];
 
-    const matchUnread = { ...match, is_read: false };
-    const unreadTotalPipeline = [
-      { $match: matchUnread },
-      { $group: { _id: { $ifNull: ['$thread_id', { $toString: '$_id' }] } } },
-      { $count: 'count' },
-    ];
+    // Cache the global (no-filter) unread count for 60 s — the inbox badge pattern.
+    // Per-filter counts always compute live so they remain accurate.
+    const isGlobalQuery = !clientIdParam && !direction && !filterParam && !q && !emailParam && !provider && !today;
+    const cachedUnread  = isGlobalQuery ? await getCachedUnreadCount() : null;
 
-    const [rows, countResult, unreadResult] = await Promise.all([
-      Email.aggregate([
-        ...basePipeline,
-        { $project: { html: 0, text: 0, _sortTime: 0 } }, // never send body in list responses
-        { $skip: skip },
-        { $limit: limit },
-      ]),
-      Email.aggregate([...basePipeline, { $count: 'count' }]),
-      Email.aggregate(unreadTotalPipeline),
-    ]);
+    // Build $facet: data + count in one pipeline pass.
+    // Add unreadCount branch only on cache miss to avoid wasted work.
+    const facets = {
+      data:  [...preGroupStages, { $project: { _sortTime: 0 } }, { $skip: skip }, { $limit: limit }],
+      count: [...preGroupStages, { $count: 'count' }],
+    };
 
-    const unreadTotal = unreadResult[0]?.count ?? 0;
+    if (cachedUnread === null) {
+      const matchUnread = { ...match, is_read: false };
+      facets.unreadCount = [
+        { $match: matchUnread },
+        { $group: { _id: { $ifNull: ['$thread_id', { $toString: '$_id' }] } } },
+        { $count: 'count' },
+      ];
+    }
+
+    // allowDiskUse: safety net for sort stages on 10k+ docs exceeding 100 MB RAM limit
+    const [facetResult] = await Email.aggregate(
+      [{ $facet: facets }],
+      { allowDiskUse: true }
+    );
+
+    const rows  = facetResult.data         ?? [];
+    const total = facetResult.count?.[0]?.count ?? 0;
+
+    let unreadTotal;
+    if (cachedUnread !== null) {
+      unreadTotal = cachedUnread;
+    } else {
+      unreadTotal = facetResult.unreadCount?.[0]?.count ?? 0;
+      if (isGlobalQuery) await setCachedUnreadCount(unreadTotal);
+    }
 
     return res.status(200).json({
       data: rows,
       pagination: {
-        total:      countResult[0]?.count ?? 0,
+        total,
         page,
         limit,
-        totalPages: Math.ceil((countResult[0]?.count ?? 0) / limit),
+        totalPages: Math.ceil(total / limit),
       },
       unreadTotal,
     });
@@ -697,6 +748,10 @@ async function markAsRead(req, res) {
     const result = await Email.updateOne({ _id: id }, { $set: { is_read: true } });
     if (result.matchedCount === 0) {
       return res.status(404).json({ error: 'Email not found' });
+    }
+    // Only invalidate when the doc was actually unread (modifiedCount 0 = already read)
+    if (result.modifiedCount > 0) {
+      invalidateUnreadCache().catch(() => {});
     }
     return res.status(200).json({ success: true });
   } catch (err) {
