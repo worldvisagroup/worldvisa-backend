@@ -7,6 +7,7 @@ const {
   REQ_MODULE_SPOUSE_SKILL_ASSESSMENT, MODULE_SPOUSE_SKILL_ASSESSMENT,
   APPLICATION_STAGES, APPLICATION_STAGES_CANADA, SUPPORTED_COUNTRIES
 } = require("./helper/constants.js");
+const QualityCheckRequest = require('../models/qualityCheckRequest');
 
 // Function to get filtered Visa Applications for a user
 async function getFilteredVisaApplications(username, role, page = 1, limit = 10, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country = 'Australia') {
@@ -227,7 +228,7 @@ const getVisaApplicationById = async (req, res) => {
 
     const spouseName = application.Spouse_Name?.trim() || null;
 
-    const [documentsCount, client, spouseClient] = await Promise.all([
+    const [documentsCount, client, spouseClient, qcRequest] = await Promise.all([
       dmsZohoDocument.countDocuments({ record_id }),
       DmsZohoClient.findOne({ lead_id: record_id }).select('notes online_status last_communication_activity').lean(),
       spouseName
@@ -238,6 +239,9 @@ const getVisaApplicationById = async (req, res) => {
             .select('lead_id')
             .lean()
         : Promise.resolve(null),
+      QualityCheckRequest.findOne({ leadId: record_id, status: 'pending' })
+        .select('_id status requested_at requested_by requested_to')
+        .lean(),
     ]);
 
     res.json({
@@ -248,6 +252,15 @@ const getVisaApplicationById = async (req, res) => {
         online_status: client?.online_status ?? false,
         last_communication_activity: client?.last_communication_activity ?? null,
         spouse_lead_id: spouseClient?.lead_id ?? null,
+        qc_requested: qcRequest
+          ? {
+              qcId: qcRequest._id,
+              status: qcRequest.status,
+              requested_at: qcRequest.requested_at,
+              requested_by: qcRequest.requested_by,
+              requested_to: qcRequest.requested_to,
+            }
+          : null,
       },
     });
   } catch (err) {
@@ -472,9 +485,12 @@ const getSpouseVisaApplicationById = async (req, res) => {
     const application = zohoResponseData[0];
     const record_id = application.id;
 
-    const [documentsCount, client] = await Promise.all([
+    const [documentsCount, client, qcRequest] = await Promise.all([
       dmsZohoDocument.countDocuments({ record_id }),
       DmsZohoClient.findOne({ lead_id: record_id }).select('notes online_status last_communication_activity').lean(),
+      QualityCheckRequest.findOne({ leadId: record_id, status: 'pending' })
+        .select('_id status requested_at requested_by requested_to')
+        .lean(),
     ]);
 
     res.json({
@@ -484,6 +500,15 @@ const getSpouseVisaApplicationById = async (req, res) => {
         notes: client?.notes ?? [],
         online_status: client?.online_status ?? false,
         last_communication_activity: client?.last_communication_activity ?? null,
+        qc_requested: qcRequest
+          ? {
+              qcId: qcRequest._id,
+              status: qcRequest.status,
+              requested_at: qcRequest.requested_at,
+              requested_by: qcRequest.requested_by,
+              requested_to: qcRequest.requested_to,
+            }
+          : null,
       },
     });
   } catch (err) {

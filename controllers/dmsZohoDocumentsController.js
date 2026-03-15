@@ -865,10 +865,18 @@ exports.requestQualityCheck = async (req, res) => {
     }
 
     if (response.data) {
-      // Create or update QualityCheckRequest document in MongoDB
-      await QualityCheckRequest.findOneAndUpdate(
-        { leadId },
-        {
+      const existing = await QualityCheckRequest.findOne({ leadId });
+
+      if (existing) {
+        // Reuse existing record (preserves full message history), reset to pending
+        existing.status = 'pending';
+        existing.requested_at = new Date();
+        existing.requested_by = user.username;
+        existing.requested_to = reqUserName;
+        existing.recordType = moduleName;
+        await existing.save();
+      } else {
+        await QualityCheckRequest.create({
           leadId,
           recordType: moduleName,
           requested_by: user.username,
@@ -876,9 +884,8 @@ exports.requestQualityCheck = async (req, res) => {
           status: 'pending',
           requested_at: new Date(),
           messages: [],
-        },
-        { upsert: true, new: true }
-      );
+        });
+      }
 
       return res.status(200).json({ success: true, message: 'Quality check requested successfully.' });
     } else {
