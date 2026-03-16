@@ -193,7 +193,9 @@ async function processInboundEmail(emailId, eventData) {
       // Backfill parent: store SES Message-ID (from in_reply_to) so future replies
       // match via exact lookup, and set thread_id so both are grouped in listEmails.
       const parentUpdates = {};
-      if (!parent.message_id || parent.message_id !== inReplyTo) {
+      // Only set message_id if not already populated — don't overwrite a stored
+      // SES ID with a different one from a later reply in the same thread.
+      if (!parent.message_id) {
         parentUpdates.message_id = inReplyTo;
       }
       if (!parent.thread_id) {
