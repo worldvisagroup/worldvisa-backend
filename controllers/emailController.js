@@ -298,34 +298,6 @@ async function handleResendWebhook(req, res) {
     return;
   }
 
-  // ── Outbound delivery: fetch RFC message_id and patch the Email doc ─────────
-  // The email.sent payload does NOT include message_id — only email_id, from, subject, to.
-  // Must fetch from Resend API. Safe here because SES has already assigned the
-  // Message-ID by the time this webhook fires (unlike calling it right after send).
-  if ((type === 'email.sent' || type === 'email.delivered') && emailId) {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (apiKey) {
-      fetch(`https://api.resend.com/emails/${emailId}`, {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      })
-        .then((r) => r.json())
-        .then((body) => {
-          const rfcMessageId = body?.message_id ?? null;
-          if (rfcMessageId) {
-            return Email.updateOne(
-              { provider: 'resend', provider_email_id: emailId, message_id: null },
-              { $set: { message_id: rfcMessageId } }
-            );
-          }
-        })
-        .catch((err) =>
-          logger.warn('[Email Webhook] Failed to fetch/store message_id from delivery event', {
-            type, email_id: emailId, error: err.message,
-          })
-        );
-    }
-  }
-
   return res.status(200).json({ received: true });
 }
 
