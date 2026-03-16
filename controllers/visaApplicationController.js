@@ -8,6 +8,7 @@ const {
   APPLICATION_STAGES, APPLICATION_STAGES_CANADA, SUPPORTED_COUNTRIES
 } = require("./helper/constants.js");
 const QualityCheckRequest = require('../models/qualityCheckRequest');
+const { addActivityLog } = require('./helper/service/activityLog');
 
 // Function to get filtered Visa Applications for a user
 async function getFilteredVisaApplications(username, role, page = 1, limit = 10, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country = 'Australia') {
@@ -561,6 +562,16 @@ const addApplicationNote = async (req, res) => {
       return res.status(404).json({ status: 'fail', message: 'Client not found for this application' });
     }
     const newNote = updated.notes[updated.notes.length - 1];
+
+    addActivityLog({
+      lead_id:       leadId,
+      activity_type: 'note_added',
+      summary:       `${addedBy} added a note to this application`,
+      actor_type:    'staff',
+      actor_name:    addedBy,
+      actor_role:    req.user?.role ?? null,
+    });
+
     res.status(201).json({
       status: 'success',
       data: { note: newNote, notes: updated.notes },
@@ -604,6 +615,16 @@ const updateApplicationNote = async (req, res) => {
       });
     }
     const updatedNote = updated.notes.id(noteId);
+
+    addActivityLog({
+      lead_id:       leadId,
+      activity_type: 'note_updated',
+      summary:       `${req.user?.username ?? 'Unknown'} updated a note on this application`,
+      actor_type:    'staff',
+      actor_name:    req.user?.username ?? 'Unknown',
+      actor_role:    req.user?.role ?? null,
+    });
+
     res.status(200).json({
       status: 'success',
       data: { note: updatedNote, notes: updated.notes },
@@ -632,6 +653,15 @@ const deleteApplicationNote = async (req, res) => {
         message: 'Client not found for this application',
       });
     }
+    addActivityLog({
+      lead_id:       leadId,
+      activity_type: 'note_deleted',
+      summary:       `${req.user?.username ?? 'Unknown'} deleted a note from this application`,
+      actor_type:    'staff',
+      actor_name:    req.user?.username ?? 'Unknown',
+      actor_role:    req.user?.role ?? null,
+    });
+
     res.status(200).json({
       status: 'success',
       data: { notes: updated.notes },

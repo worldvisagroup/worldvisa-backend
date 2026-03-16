@@ -17,6 +17,7 @@ const {
 const SEARCH_TERM_MAX_LENGTH = 100;
 const DEFAULT_GLOBAL_SEARCH_LIMIT = 10;
 const { updateRecentActivity, addToTimeline, addMovedFiles } = require('./helper/service/functions');
+const { addActivityLog } = require('./helper/service/activityLog');
 const { getAccessToken, refreshAccessToken } = require('./zohoDms/zohoAuth');
 const DmsMovedDocuments = require('../models/movedDocuments');
 const { capitalizeFn } = require('../utils/helperFunction');
@@ -170,6 +171,19 @@ exports.uploadDocument = async (req, res) => {
         );
       }
 
+      const isClientUpload = Boolean(user?.lead_id);
+      addActivityLog({
+        lead_id:       record_id,
+        activity_type: 'document_uploaded',
+        summary:       `${isClientUpload ? (user.name ?? 'Client') : (user?.username ?? 'Unknown')} uploaded "${doc.document_name}"`,
+        actor_type:    isClientUpload ? 'client' : 'staff',
+        actor_name:    isClientUpload ? (user.name ?? 'Client') : (user?.username ?? 'Unknown'),
+        actor_role:    isClientUpload ? null : (user?.role ?? null),
+        document_id:   doc._id,
+        document_name: doc.document_name,
+        metadata:      { document_category: doc.document_category },
+      });
+
       const clientData = await DmsZohoClient.findOne({ lead_id: record_id });
 
       if (!clientData && !clientData?.record_type) {
@@ -292,6 +306,18 @@ exports.updateDocument = async (req, res) => {
           user?.username ? `${user?.role}: ${user?.username}` : `Client: ${user.name}` || "Unknown");
       }
 
+      const isClientReupload = Boolean(user?.lead_id);
+      addActivityLog({
+        lead_id:       document.record_id,
+        activity_type: 'document_reuploaded',
+        summary:       `${isClientReupload ? (user.name ?? 'Client') : (user?.username ?? 'Unknown')} re-uploaded "${document.document_name}"`,
+        actor_type:    isClientReupload ? 'client' : 'staff',
+        actor_name:    isClientReupload ? (user.name ?? 'Client') : (user?.username ?? 'Unknown'),
+        actor_role:    isClientReupload ? null : (user?.role ?? null),
+        document_id:   document._id,
+        document_name: document.document_name,
+      });
+
       const clientData = await DmsZohoClient.findOne({ lead_id: document.record_id });
 
       let moduleName = MODULE_VISA_APPLICATION;
@@ -378,6 +404,17 @@ exports.updateStatus = async (req, res) => {
       : `Document status updated to: ${capitalizeFn(status)} by ${capitalizeFn(changed_by)} `;
 
     await addToTimeline(document._id, timelineMessage, timelineMessage, changed_by);
+
+    addActivityLog({
+      lead_id:       document.record_id,
+      activity_type: 'document_status_changed',
+      summary:       `${changed_by ?? 'Unknown'} changed "${document.document_name}" status to ${status}`,
+      actor_type:    'staff',
+      actor_name:    changed_by ?? 'Unknown',
+      document_id:   document._id,
+      document_name: document.document_name,
+      metadata:      { new_status: status, reject_message: reject_message ?? null },
+    });
 
     // Send notification to client when document is approved or rejected
     if (status === 'approved' || status === 'rejected') {
@@ -474,6 +511,17 @@ exports.addComment = async (req, res) => {
       // Update Recent Activity
       await updateRecentActivity(zohoRequest, moduleName, document?.record_id);
     }
+
+    addActivityLog({
+      lead_id:       document.record_id,
+      activity_type: 'comment_added',
+      summary:       `${added_by ?? 'Unknown'} added a comment on "${document.document_name}"`,
+      actor_type:    req.user?.lead_id ? 'client' : 'staff',
+      actor_name:    added_by ?? 'Unknown',
+      actor_role:    req.user?.lead_id ? null : (req.user?.role ?? null),
+      document_id:   document._id,
+      document_name: document.document_name,
+    });
 
     res.status(200).json({ success: true, data: document });
   } catch (error) {
@@ -887,6 +935,16 @@ exports.requestQualityCheck = async (req, res) => {
         });
       }
 
+      addActivityLog({
+        lead_id:       leadId,
+        activity_type: 'quality_check_requested',
+        summary:       `${user.username} sent application for quality check to ${reqUserName}`,
+        actor_type:    'staff',
+        actor_name:    user.username,
+        actor_role:    user.role ?? null,
+        metadata:      { requested_to: reqUserName, record_type: recordType ?? null },
+      });
+
       return res.status(200).json({ success: true, message: 'Quality check requested successfully.' });
     } else {
       return res.status(500).json({ success: false, message: 'Failed to request quality check.' });
@@ -935,6 +993,17 @@ exports.removeRequestQualityCheck = async (req, res) => {
         { leadId },
         { status: 'removed' }
       );
+
+      addActivityLog({
+        lead_id:       leadId,
+        activity_type: 'quality_check_removed',
+        summary:       `${req.user?.username ?? 'Unknown'} removed quality check for this application`,
+        actor_type:    'staff',
+        actor_name:    req.user?.username ?? 'Unknown',
+        actor_role:    req.user?.role ?? null,
+        metadata:      { record_type: recordType ?? null },
+      });
+
       return res.status(200).json({ success: true, message: 'Quality check removed successfully.' });
     } else {
       return res.status(500).json({ success: false, message: 'Failed to remove quality check.' });
@@ -1798,6 +1867,16 @@ exports.addChecklist = async (req, res) => {
       });
     }
 
+    addActivityLog({
+      lead_id:       record_id,
+      activity_type: 'checklist_created',
+      summary:       `${req.user?.username ?? 'Unknown'} added checklist item: "${document_type}"`,
+      actor_type:    'staff',
+      actor_name:    req.user?.username ?? 'Unknown',
+      actor_role:    req.user?.role ?? null,
+      metadata:      { document_type, document_category },
+    });
+
     res.status(200).json({
       status: 'success',
       message: 'Checklist updated successfully.',
@@ -1849,6 +1928,16 @@ exports.editChecklist = async (req, res) => {
 
     await user.save();
 
+    addActivityLog({
+      lead_id:       record_id,
+      activity_type: 'checklist_updated',
+      summary:       `${req.user?.username ?? 'Unknown'} updated a checklist item`,
+      actor_type:    'staff',
+      actor_name:    req.user?.username ?? 'Unknown',
+      actor_role:    req.user?.role ?? null,
+      metadata:      { document_type, document_category },
+    });
+
     res.status(200).json({
       status: 'success',
       message: 'Checklist item updated successfully.',
@@ -1892,8 +1981,19 @@ exports.deleteChecklist = async (req, res) => {
       });
     }
 
+    const deletedItem = user.checklist[checklistIndex];
     user.checklist.splice(checklistIndex, 1);
     await user.save();
+
+    addActivityLog({
+      lead_id:       record_id,
+      activity_type: 'checklist_deleted',
+      summary:       `${req.user?.username ?? 'Unknown'} deleted checklist item: "${deletedItem?.document_type ?? 'Unknown'}"`,
+      actor_type:    'staff',
+      actor_name:    req.user?.username ?? 'Unknown',
+      actor_role:    req.user?.role ?? null,
+      metadata:      { document_type: deletedItem?.document_type ?? null },
+    });
 
     res.status(200).json({
       status: 'success',
@@ -2454,6 +2554,17 @@ exports.addRequestedReviews = async (req, res) => {
       }
     }
 
+    addActivityLog({
+      lead_id:       document.record_id,
+      activity_type: 'review_requested',
+      summary:       `${requested_by} requested review of "${document.document_name}" from ${requested_to}`,
+      actor_type:    'staff',
+      actor_name:    requested_by,
+      document_id:   document._id,
+      document_name: document.document_name,
+      metadata:      { requested_to },
+    });
+
     res.status(200).json({
       status: 'success',
       data: document.requested_reviews,
@@ -2520,6 +2631,17 @@ exports.editRequestedReview = async (req, res) => {
       });
     }
 
+    addActivityLog({
+      lead_id:       document.record_id,
+      activity_type: 'review_status_updated',
+      summary:       `${requested_to ?? req.user?.username ?? 'Unknown'} updated review status to "${status}" on "${document.document_name}"`,
+      actor_type:    'staff',
+      actor_name:    requested_to ?? req.user?.username ?? 'Unknown',
+      document_id:   document._id,
+      document_name: document.document_name,
+      metadata:      { status, requested_by },
+    });
+
     res.status(200).json({
       status: 'success',
       data: document.requested_reviews,
@@ -2556,6 +2678,17 @@ exports.deleteRequestedReview = async (req, res) => {
 
     document.requested_reviews.splice(reviewIndex, 1);
     await document.save();
+
+    addActivityLog({
+      lead_id:       document.record_id,
+      activity_type: 'review_cancelled',
+      summary:       `${req.user?.username ?? 'Unknown'} cancelled a review request on "${document.document_name}"`,
+      actor_type:    'staff',
+      actor_name:    req.user?.username ?? 'Unknown',
+      actor_role:    req.user?.role ?? null,
+      document_id:   document._id,
+      document_name: document.document_name,
+    });
 
     res.status(200).json({
       status: 'success',
@@ -2698,6 +2831,17 @@ exports.addRequestedReviewMessage = async (req, res) => {
       // Update Recent Activity
       await updateRecentActivity(zohoRequest, moduleName, document.record_id)
     }
+
+    addActivityLog({
+      lead_id:       document.record_id,
+      activity_type: 'review_message_added',
+      summary:       `${username} added a review message on "${document.document_name}"`,
+      actor_type:    'staff',
+      actor_name:    username,
+      actor_role:    req.user?.role ?? null,
+      document_id:   document._id,
+      document_name: document.document_name,
+    });
 
     res.status(200).json({
       status: 'success',

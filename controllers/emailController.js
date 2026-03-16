@@ -20,6 +20,7 @@ const { google }    = require('googleapis');
 
 const Email            = require('../models/email');
 const logger           = require('../utils/logger');
+const { addActivityLog } = require('./helper/service/activityLog');
 const gmailSyncService = require('../services/gmail/gmailSyncService');
 const emailService     = require('../services/notifications/emailService');
 const { redis }        = require('../services/redis');
@@ -252,6 +253,27 @@ async function processInboundEmail(emailId, eventData) {
 
   if (upsertResult === null) {
     invalidateUnreadCache().catch(() => {});
+
+    // Activity log — resolve client by sender email (fire-and-forget)
+    const fromEmail = (eventData.from ?? '').toLowerCase().trim();
+    if (fromEmail) {
+      setImmediate(async () => {
+        try {
+          const DmsZohoClient = require('../models/dmsZohoClient');
+          const client = await DmsZohoClient.findOne({ email: fromEmail }).select('lead_id name').lean();
+          if (client?.lead_id) {
+            addActivityLog({
+              lead_id:       client.lead_id,
+              activity_type: 'email_received',
+              summary:       `Email received from ${client.name ?? fromEmail}: "${eventData.subject ?? '(no subject)'}"`,
+              actor_type:    'client',
+              actor_name:    client.name ?? fromEmail,
+              metadata:      { subject: eventData.subject ?? null, from: fromEmail, email_id: emailId },
+            });
+          }
+        } catch (e) { /* non-fatal */ }
+      });
+    }
   }
 
   logger.info('[Email Webhook] Inbound email stored', {
@@ -764,6 +786,27 @@ async function sendEmail(req, res) {
         mimetype: f.mimetype ?? 'application/octet-stream',
       })),
     });
+
+    // Fire-and-forget activity log — resolve lead_id from client_id
+    if (clientId) {
+      setImmediate(async () => {
+        try {
+          const DmsZohoClient = require('../models/dmsZohoClient');
+          const client = await DmsZohoClient.findById(clientId).select('lead_id').lean();
+          if (client?.lead_id) {
+            addActivityLog({
+              lead_id:       client.lead_id,
+              activity_type: 'email_sent',
+              summary:       `${req.user?.username ?? 'Unknown'} sent email: "${subject}"`,
+              actor_type:    'staff',
+              actor_name:    req.user?.username ?? 'Unknown',
+              actor_role:    req.user?.role ?? null,
+              metadata:      { subject, to, email_id: result?.id ?? null },
+            });
+          }
+        } catch (e) { /* non-fatal */ }
+      });
+    }
 
     return res.status(200).json({ success: true, id: result.id });
   } catch (err) {

@@ -11,6 +11,7 @@ const {
   deleteApplicationNote,
 } = require("../../controllers/visaApplicationController.js");
 const { getDeadlineStats } = require('../../controllers/applicationStatsController');
+const { getActivityLog } = require('../../controllers/applicationActivityLogController');
 const { getAdminDashboardStats } = require('../../controllers/adminDashboardController');
 const dmsZohoDocumentsController = require('../../controllers/dmsZohoDocumentsController');
 const multer = require('multer');
@@ -60,6 +61,9 @@ router.get('/:id/notes', protect, restrictToAdmin, getApplicationNotes);
 router.post('/:id/notes', protect, restrictToAdmin, addApplicationNote);
 router.patch('/:id/notes/:noteId', protect, restrictToAdmin, updateApplicationNote);
 router.delete('/:id/notes/:noteId', protect, restrictToAdmin, deleteApplicationNote);
+
+// Application activity log (must be before /:id)
+router.get('/:id/activity', protect, getActivityLog);
 
 // Application Field Update:Patch route
 router.get("/:id", protect, getVisaApplicationById);
