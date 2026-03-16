@@ -169,15 +169,39 @@ async function processInboundEmail(emailId, eventData) {
   let threadId    = null;
 
   if (inReplyTo) {
-    const parent = await Email.findOne({ message_id: inReplyTo }).lean();
-    if (parent) {
-      threadId = parent.thread_id ?? parent.message_id ?? null;
+    // Primary: exact match on stored message_id (works once SES ID has been backfilled)
+    let parent = await Email.findOne({ message_id: inReplyTo }).lean();
 
-      // Backfill thread_id on the parent outbound so both emails are grouped in listEmails.
-      // Mirrors the same pattern already used in sendEmailFromFrontend.
-      if (!parent.thread_id && threadId) {
-        Email.updateOne({ _id: parent._id }, { $set: { thread_id: threadId } }).catch((err) =>
-          logger.warn('[Email Webhook] Failed to backfill thread_id on parent', {
+    if (!parent && eventData.subject) {
+      // Fallback: Resend/SES overrides custom Message-ID headers, so the SES-assigned
+      // ID in in_reply_to never matches what we stored. Match by stripped subject + sender.
+      const baseSubject = eventData.subject.replace(/^(Re\s*:\s*|Fwd?\s*:\s*)+/i, '').trim();
+      const senderEmail = eventData.from ?? '';
+
+      parent = await Email.findOne({
+        direction: 'outbound',
+        subject:   baseSubject,
+        to:        senderEmail,
+      })
+        .sort({ created_at: -1 })
+        .lean();
+    }
+
+    if (parent) {
+      threadId = parent.thread_id ?? parent.message_id ?? inReplyTo;
+
+      // Backfill parent: store SES Message-ID (from in_reply_to) so future replies
+      // match via exact lookup, and set thread_id so both are grouped in listEmails.
+      const parentUpdates = {};
+      if (!parent.message_id || parent.message_id !== inReplyTo) {
+        parentUpdates.message_id = inReplyTo;
+      }
+      if (!parent.thread_id) {
+        parentUpdates.thread_id = threadId;
+      }
+      if (Object.keys(parentUpdates).length) {
+        Email.updateOne({ _id: parent._id }, { $set: parentUpdates }).catch((err) =>
+          logger.warn('[Email Webhook] Failed to backfill parent', {
             parent_id: parent._id, error: err.message,
           })
         );

@@ -1,7 +1,6 @@
 'use strict';
 
 const { Resend } = require('resend');
-const crypto = require('crypto');
 const EmailNotification = require('../../models/emailNotification');
 const Email = require('../../models/email');
 const DmsZohoClient = require('../../models/dmsZohoClient');
@@ -29,11 +28,6 @@ const CLIENT_ACTIVITY_TYPES = new Set([
   'document_reupload',
   'comment_by_client',
 ]);
-
-function generateRfcMessageId() {
-  const domain = process.env.EMAIL_FROM_DOMAIN ?? 'worldvisa.in';
-  return `<${crypto.randomUUID()}@${domain}>`;
-}
 
 function getResend() {
   const apiKey = process.env.RESEND_API_KEY;
@@ -420,13 +414,7 @@ async function sendEmailFromFrontend(opts) {
   const resend = getResend();
   const ccArr = cc ? (Array.isArray(cc) ? cc : String(cc).split(',').map((e) => e.trim()).filter(Boolean)) : [];
   const bccArr = bcc ? (Array.isArray(bcc) ? bcc : String(bcc).split(',').map((e) => e.trim()).filter(Boolean)) : [];
-  // Generate RFC Message-ID before send — Resend forwards this header to the recipient.
-  // When they reply, their client puts it in In-Reply-To, enabling thread lookup.
-  // Resend does not expose the SES-assigned Message-ID via API or webhooks, so
-  // generating it ourselves is the only reliable approach.
-  const rfcMessageId = generateRfcMessageId();
-
-  const headers = { 'Message-ID': rfcMessageId };
+  const headers = {};
   if (in_reply_to) {
     headers['In-Reply-To'] = in_reply_to;
     if (replyReferences.length) headers['References'] = replyReferences.join(' ');
@@ -452,7 +440,6 @@ async function sendEmailFromFrontend(opts) {
   await Email.create({
     provider: 'resend',
     provider_email_id: data?.id || null,
-    message_id: rfcMessageId,
     direction: 'outbound',
     email_type: 'client',
     from: getFromAddress(),
