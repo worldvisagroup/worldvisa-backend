@@ -17,7 +17,7 @@ const {
 const SEARCH_TERM_MAX_LENGTH = 100;
 const DEFAULT_GLOBAL_SEARCH_LIMIT = 10;
 const { updateRecentActivity, addToTimeline, addMovedFiles } = require('./helper/service/functions');
-const { addActivityLog } = require('./helper/service/activityLog');
+const { addActivityLog, getCompanyLabel } = require('./helper/service/activityLog');
 const { getAccessToken, refreshAccessToken } = require('./zohoDms/zohoAuth');
 const DmsMovedDocuments = require('../models/movedDocuments');
 const { capitalizeFn } = require('../utils/helperFunction');
@@ -172,16 +172,18 @@ exports.uploadDocument = async (req, res) => {
       }
 
       const isClientUpload = Boolean(user?.lead_id);
+      const _uploadCompany = getCompanyLabel(doc.document_category);
+      const _uploadDocLabel = _uploadCompany ? `${_uploadCompany} - ${doc.document_name}` : doc.document_name;
       addActivityLog({
-        lead_id:       record_id,
-        activity_type: 'document_uploaded',
-        summary:       `${isClientUpload ? (user.name ?? 'Client') : (user?.username ?? 'Unknown')} uploaded "${doc.document_name}"`,
-        actor_type:    isClientUpload ? 'client' : 'staff',
-        actor_name:    isClientUpload ? (user.name ?? 'Client') : (user?.username ?? 'Unknown'),
-        actor_role:    isClientUpload ? null : (user?.role ?? null),
-        document_id:   doc._id,
-        document_name: doc.document_name,
-        metadata:      { document_category: doc.document_category },
+        lead_id:           record_id,
+        activity_type:     'document_uploaded',
+        summary:           `${isClientUpload ? (user.name ?? 'Client') : (user?.username ?? 'Unknown')} uploaded "${_uploadDocLabel}"`,
+        actor_type:        isClientUpload ? 'client' : 'staff',
+        actor_name:        isClientUpload ? (user.name ?? 'Client') : (user?.username ?? 'Unknown'),
+        actor_role:        isClientUpload ? null : (user?.role ?? null),
+        document_id:       doc._id,
+        document_name:     doc.document_name,
+        document_category: doc.document_category,
       });
 
       const clientData = await DmsZohoClient.findOne({ lead_id: record_id });
@@ -307,15 +309,18 @@ exports.updateDocument = async (req, res) => {
       }
 
       const isClientReupload = Boolean(user?.lead_id);
+      const _reuploadCompany = getCompanyLabel(document.document_category);
+      const _reuploadDocLabel = _reuploadCompany ? `${_reuploadCompany} - ${document.document_name}` : document.document_name;
       addActivityLog({
-        lead_id:       document.record_id,
-        activity_type: 'document_reuploaded',
-        summary:       `${isClientReupload ? (user.name ?? 'Client') : (user?.username ?? 'Unknown')} re-uploaded "${document.document_name}"`,
-        actor_type:    isClientReupload ? 'client' : 'staff',
-        actor_name:    isClientReupload ? (user.name ?? 'Client') : (user?.username ?? 'Unknown'),
-        actor_role:    isClientReupload ? null : (user?.role ?? null),
-        document_id:   document._id,
-        document_name: document.document_name,
+        lead_id:           document.record_id,
+        activity_type:     'document_reuploaded',
+        summary:           `${isClientReupload ? (user.name ?? 'Client') : (user?.username ?? 'Unknown')} re-uploaded "${_reuploadDocLabel}"`,
+        actor_type:        isClientReupload ? 'client' : 'staff',
+        actor_name:        isClientReupload ? (user.name ?? 'Client') : (user?.username ?? 'Unknown'),
+        actor_role:        isClientReupload ? null : (user?.role ?? null),
+        document_id:       document._id,
+        document_name:     document.document_name,
+        document_category: document.document_category,
       });
 
       const clientData = await DmsZohoClient.findOne({ lead_id: document.record_id });
@@ -405,15 +410,18 @@ exports.updateStatus = async (req, res) => {
 
     await addToTimeline(document._id, timelineMessage, timelineMessage, changed_by);
 
+    const _statusCompany = getCompanyLabel(document.document_category);
+    const _statusDocLabel = _statusCompany ? `${_statusCompany} - ${document.document_name}` : document.document_name;
     addActivityLog({
-      lead_id:       document.record_id,
-      activity_type: 'document_status_changed',
-      summary:       `${changed_by ?? 'Unknown'} changed "${document.document_name}" status to ${status}`,
-      actor_type:    'staff',
-      actor_name:    changed_by ?? 'Unknown',
-      document_id:   document._id,
-      document_name: document.document_name,
-      metadata:      { new_status: status, reject_message: reject_message ?? null },
+      lead_id:           document.record_id,
+      activity_type:     'document_status_changed',
+      summary:           `${changed_by ?? 'Unknown'} changed "${_statusDocLabel}" status to ${status}`,
+      actor_type:        'staff',
+      actor_name:        changed_by ?? 'Unknown',
+      document_id:       document._id,
+      document_name:     document.document_name,
+      document_category: document.document_category,
+      metadata:          { new_status: status, reject_message: reject_message ?? null },
     });
 
     // Send notification to client when document is approved or rejected
@@ -512,15 +520,18 @@ exports.addComment = async (req, res) => {
       await updateRecentActivity(zohoRequest, moduleName, document?.record_id);
     }
 
+    const _commentCompany = getCompanyLabel(document.document_category);
+    const _commentDocLabel = _commentCompany ? `${_commentCompany} - ${document.document_name}` : document.document_name;
     addActivityLog({
-      lead_id:       document.record_id,
-      activity_type: 'comment_added',
-      summary:       `${added_by ?? 'Unknown'} added a comment on "${document.document_name}"`,
-      actor_type:    req.user?.lead_id ? 'client' : 'staff',
-      actor_name:    added_by ?? 'Unknown',
-      actor_role:    req.user?.lead_id ? null : (req.user?.role ?? null),
-      document_id:   document._id,
-      document_name: document.document_name,
+      lead_id:           document.record_id,
+      activity_type:     'comment_added',
+      summary:           `${added_by ?? 'Unknown'} commented on "${_commentDocLabel}"`,
+      actor_type:        req.user?.lead_id ? 'client' : 'staff',
+      actor_name:        added_by ?? 'Unknown',
+      actor_role:        req.user?.lead_id ? null : (req.user?.role ?? null),
+      document_id:       document._id,
+      document_name:     document.document_name,
+      document_category: document.document_category,
     });
 
     res.status(200).json({ success: true, data: document });
@@ -2554,15 +2565,18 @@ exports.addRequestedReviews = async (req, res) => {
       }
     }
 
+    const _rrCompany = getCompanyLabel(document.document_category);
+    const _rrDocLabel = _rrCompany ? `${_rrCompany} - ${document.document_name}` : document.document_name;
     addActivityLog({
-      lead_id:       document.record_id,
-      activity_type: 'review_requested',
-      summary:       `${requested_by} requested review of "${document.document_name}" from ${requested_to}`,
-      actor_type:    'staff',
-      actor_name:    requested_by,
-      document_id:   document._id,
-      document_name: document.document_name,
-      metadata:      { requested_to },
+      lead_id:           document.record_id,
+      activity_type:     'review_requested',
+      summary:           `${requested_by} requested review of "${_rrDocLabel}" from ${requested_to}`,
+      actor_type:        'staff',
+      actor_name:        requested_by,
+      document_id:       document._id,
+      document_name:     document.document_name,
+      document_category: document.document_category,
+      metadata:          { requested_to },
     });
 
     res.status(200).json({
@@ -2631,15 +2645,18 @@ exports.editRequestedReview = async (req, res) => {
       });
     }
 
+    const _rsuCompany = getCompanyLabel(document.document_category);
+    const _rsuDocLabel = _rsuCompany ? `${_rsuCompany} - ${document.document_name}` : document.document_name;
     addActivityLog({
-      lead_id:       document.record_id,
-      activity_type: 'review_status_updated',
-      summary:       `${requested_to ?? req.user?.username ?? 'Unknown'} updated review status to "${status}" on "${document.document_name}"`,
-      actor_type:    'staff',
-      actor_name:    requested_to ?? req.user?.username ?? 'Unknown',
-      document_id:   document._id,
-      document_name: document.document_name,
-      metadata:      { status, requested_by },
+      lead_id:           document.record_id,
+      activity_type:     'review_status_updated',
+      summary:           `${requested_to ?? req.user?.username ?? 'Unknown'} updated review status to "${status}" on "${_rsuDocLabel}"`,
+      actor_type:        'staff',
+      actor_name:        requested_to ?? req.user?.username ?? 'Unknown',
+      document_id:       document._id,
+      document_name:     document.document_name,
+      document_category: document.document_category,
+      metadata:          { status, requested_by },
     });
 
     res.status(200).json({
@@ -2679,15 +2696,18 @@ exports.deleteRequestedReview = async (req, res) => {
     document.requested_reviews.splice(reviewIndex, 1);
     await document.save();
 
+    const _rcCompany = getCompanyLabel(document.document_category);
+    const _rcDocLabel = _rcCompany ? `${_rcCompany} - ${document.document_name}` : document.document_name;
     addActivityLog({
-      lead_id:       document.record_id,
-      activity_type: 'review_cancelled',
-      summary:       `${req.user?.username ?? 'Unknown'} cancelled a review request on "${document.document_name}"`,
-      actor_type:    'staff',
-      actor_name:    req.user?.username ?? 'Unknown',
-      actor_role:    req.user?.role ?? null,
-      document_id:   document._id,
-      document_name: document.document_name,
+      lead_id:           document.record_id,
+      activity_type:     'review_cancelled',
+      summary:           `${req.user?.username ?? 'Unknown'} cancelled a review request on "${_rcDocLabel}"`,
+      actor_type:        'staff',
+      actor_name:        req.user?.username ?? 'Unknown',
+      actor_role:        req.user?.role ?? null,
+      document_id:       document._id,
+      document_name:     document.document_name,
+      document_category: document.document_category,
     });
 
     res.status(200).json({
@@ -2832,15 +2852,18 @@ exports.addRequestedReviewMessage = async (req, res) => {
       await updateRecentActivity(zohoRequest, moduleName, document.record_id)
     }
 
+    const _rmCompany = getCompanyLabel(document.document_category);
+    const _rmDocLabel = _rmCompany ? `${_rmCompany} - ${document.document_name}` : document.document_name;
     addActivityLog({
-      lead_id:       document.record_id,
-      activity_type: 'review_message_added',
-      summary:       `${username} added a review message on "${document.document_name}"`,
-      actor_type:    'staff',
-      actor_name:    username,
-      actor_role:    req.user?.role ?? null,
-      document_id:   document._id,
-      document_name: document.document_name,
+      lead_id:           document.record_id,
+      activity_type:     'review_message_added',
+      summary:           `${username} added a review message on "${_rmDocLabel}"`,
+      actor_type:        'staff',
+      actor_name:        username,
+      actor_role:        req.user?.role ?? null,
+      document_id:       document._id,
+      document_name:     document.document_name,
+      document_category: document.document_category,
     });
 
     res.status(200).json({

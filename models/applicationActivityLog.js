@@ -66,6 +66,12 @@ const applicationActivityLogSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    // Stored top-level so frontend can show company name badge
+    // e.g. "Wipro Limited Company Documents"
+    document_category: {
+      type: String,
+      default: null,
+    },
     metadata: {
       type: mongoose.Schema.Types.Mixed,
       default: null,
