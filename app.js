@@ -55,6 +55,10 @@ const { startCleanupCron } = require('./utils/zipCleanupCron');
 const { createWorker: createEmailWorker } = require('./workers/emailWorker');
 const { startBatchAggregator } = require('./workers/emailBatchAggregator');
 
+// FCM Notifications
+const notificationsRouter = require('./routes/notifications');
+const { startFcmCleanupCron } = require('./utils/fcmCleanupCron');
+
 let zipExportWorker = null;
 let emailWorker = null;
 
@@ -248,6 +252,14 @@ mongoose
         logger.error('Failed to start email batch aggregator', { error: error.message });
       }
     }
+
+    if (process.env.DISABLE_FCM_CLEANUP !== 'true') {
+      try {
+        startFcmCleanupCron();
+      } catch (error) {
+        logger.error('Failed to start FCM cleanup cron', { error: error.message });
+      }
+    }
   })
   .catch((err) => {
     dbConnected = false;
@@ -404,6 +416,8 @@ app.use("/api/zoho_dms/visa_applications", zohoDmsVisaApplicationsRouter);
 app.use('/api/zoho_dms/users', zohoDmsUserAuthRouter);
 
 app.use('/api/zoho_dms/clients', zohoDmsClientAuthRouter);
+
+app.use('/api/notifications', notificationsRouter);
 
 const chatRouter = require('./routes/chat');
 app.use('/api/zoho_dms/chats', chatRouter);

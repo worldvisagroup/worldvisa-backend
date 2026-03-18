@@ -92,6 +92,17 @@ const dmsZohoClientSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
+  fcmTokens: [
+    {
+      token:      { type: String, required: true },
+      platform:   { type: String, enum: ['mobile', 'desktop', 'web'], required: true },
+      userAgent:  { type: String, default: '' },
+      createdAt:  { type: Date, default: Date.now },
+      updatedAt:  { type: Date, default: Date.now },
+      lastUsedAt: { type: Date, default: Date.now },
+      isActive:   { type: Boolean, default: true },
+    },
+  ],
 });
 
 // Hash password before saving
@@ -116,6 +127,7 @@ dmsZohoClientSchema.index({ lead_owner: 1 });
 dmsZohoClientSchema.index({ created_at: -1 });
 dmsZohoClientSchema.index({ name: 'text', email: 'text', phone: 'text', lead_id: 'text' });
 dmsZohoClientSchema.index({ name: 1, record_type: 1 });
+dmsZohoClientSchema.index({ 'fcmTokens.token': 1 }, { sparse: true });
 
 const DmsZohoClient = mongoose.model('DmsZohoClient', dmsZohoClientSchema);
 

@@ -3,6 +3,7 @@
 const express   = require('express');
 const multer    = require('multer');
 const rateLimit = require('express-rate-limit');
+const { ipKeyGenerator } = require('express-rate-limit');
 const { protect, restrictToAdmin } = require('../controllers/zohoDmsAuthController');
 const emailController = require('../controllers/emailController');
 
@@ -16,7 +17,7 @@ const upload = multer({
 const listEmailsLimiter = rateLimit({
   windowMs:        60 * 1000,
   max:             60,
-  keyGenerator:    (req) => req.user?.id ?? req.ip,
+  keyGenerator:    (req) => (req.user?.id ? `user:${req.user.id}` : ipKeyGenerator(req)),
   standardHeaders: true,
   legacyHeaders:   false,
   message:         { error: 'Too many requests', retryAfter: '60 seconds' },

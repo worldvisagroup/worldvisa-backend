@@ -18,25 +18,7 @@ async function getSenderProfileImageUrl(senderType, senderId) {
   }
 }
 
-/**
- * Helper to add a notification and trigger websocket.
- * Optionally creates an email notification record (non-blocking).
- *
- * @param {Object} params
- * @param {Object} params.req - Express request object (must have req.app and req.user)
- * @param {String} params.message - Notification message (detail)
- * @param {String} [params.title] - Short text for toaster/notification chip
- * @param {String} [params.type='info'] - Notification type
- * @param {String} [params.category='general'] - Notification category
- * @param {String} [params.source='general'] - Origin: document_review, requested_reviews, quality_check, requested_checklist, general
- * @param {String|null} [params.link=null] - Optional link
- * @param {String} [params.sender_type=null] - For chat: 'staff' | 'client'
- * @param {ObjectId} [params.sender_id=null] - For chat: sender user/client id (resolved from users table for profile_image_url)
- * @param {String|null} [params.emailNotificationType=null] - If set, triggers an email notification
- * @param {String|null} [params.emailSubject=null] - Email subject line override
- * @param {Object} [params.emailTemplateData={}] - Extra data for email template rendering
- * @returns {Promise<Object>} - The created notification document
- */
+
 async function addNotificationAndEmit({
   req,
   leadId = null,
@@ -52,10 +34,11 @@ async function addNotificationAndEmit({
   applicationType = 'Visa_Applications',
   sender_type = null,
   sender_id = null,
-  // Email notification params (optional — set to trigger email delivery)
   emailNotificationType = null,
   emailSubject = null,
   emailTemplateData = {},
+  // FCM push notification (optional — set to trigger push delivery)
+  fcmPayload = null, 
 }) {
   const ZohoDmsNotification = require('../../../models/zohoDmsNotification');
 
@@ -104,6 +87,26 @@ async function addNotificationAndEmit({
       io?.to(`user:${userId}`).emit('notification:new', notificationPayload);
     } catch (err) {
       logger.warn('WebSocket emit failed for notification', { error: err?.message, userId });
+    }
+
+    // FCM push notification — non-blocking, only fires when fcmPayload is provided
+    if (fcmPayload) {
+      setImmediate(async () => {
+        try {
+          const { sendToUser } = require('../../../services/fcm/fcmService');
+          await sendToUser(String(userId), {
+            title: fcmPayload.title,
+            body:  fcmPayload.body,
+            data: {
+              url: link || '/',
+              tag: source || 'worldvisa-notification',
+              ...(fcmPayload.data || {}),
+            },
+          });
+        } catch (err) {
+          logger.warn('[FCM] Push notification failed', { error: err?.message, userId });
+        }
+      });
     }
 
     // Email notification — fully non-blocking, never throws to caller
