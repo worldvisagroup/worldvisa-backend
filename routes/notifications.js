@@ -3,7 +3,6 @@
 const express = require('express');
 const router = express.Router();
 const { protectClient } = require('../controllers/dmsZohoClientController');
-const DmsZohoClient = require('../models/dmsZohoClient');
 const logger = require('../utils/logger');
 
 const MAX_TOKENS_PER_USER = 10;
@@ -19,14 +18,15 @@ router.post('/register-token', protectClient, async (req, res) => {
     if (!VALID_PLATFORMS.includes(platform)) {
       return res.status(400).json({ status: 'fail', message: `Invalid platform. Must be one of: ${VALID_PLATFORMS.join(', ')}` });
     }
-    if (req.user._id.toString() !== userId) {
+
+    // Accept both MongoDB _id and Zoho lead_id as valid identity proof
+    const isOwner = req.user._id.toString() === userId || req.user.lead_id === userId;
+    if (!isOwner) {
       return res.status(403).json({ status: 'fail', message: 'Unauthorized' });
     }
 
-    const client = await DmsZohoClient.findById(userId);
-    if (!client) {
-      return res.status(404).json({ status: 'fail', message: 'Client not found' });
-    }
+    // protectClient already loaded the full client document — reuse it
+    const client = req.user;
 
     const now = new Date();
     const existingIndex = client.fcmTokens.findIndex(t => t.token === token);
