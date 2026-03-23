@@ -3,6 +3,8 @@
 const admin = require('./firebaseAdmin');
 const logger = require('../../utils/logger');
 
+const APP_ORIGIN = process.env.APP_ORIGIN || 'https://dms.worldvisagroup.com';
+
 const DEAD_TOKEN_CODES = new Set([
   'messaging/registration-token-not-registered',
   'messaging/invalid-registration-token',
@@ -38,8 +40,8 @@ async function sendToUser(userId, { title, body, icon, data = {} }) {
     },
     webpush: {
       notification: {
-        icon: icon || '/icons/icon-192x192.png',
-        badge: '/icons/badge-72x72.png',
+        icon: icon || `${APP_ORIGIN}/icons/icon-192x192.png`,
+        badge: `${APP_ORIGIN}/icons/badge-72x72.png`,
         tag: stringData.tag || 'worldvisa-notification',
         renotify: true,
         requireInteraction: false,
@@ -72,6 +74,15 @@ async function sendToUser(userId, { title, body, icon, data = {} }) {
       const entry = client.fcmTokens.find(t => t.token === activeTokens[idx].token);
       if (entry) entry.lastUsedAt = now;
     }
+  });
+
+  logger.info('[FCM] Send result', {
+    userId,
+    title,
+    sent: batchResponse.successCount,
+    failed: batchResponse.failureCount,
+    dead: deadTokens.length,
+    messageId: batchResponse.responses.find(r => r.success)?.messageId ?? null,
   });
 
   if (deadTokens.length > 0) {

@@ -437,7 +437,9 @@ exports.updateStatus = async (req, res) => {
                 body: `Your ${_statusDocLabel} is with our team for review.`,
                 data: { url: '/', tag: `doc-reviewed-${document._id}` },
               });
-            } catch (err) { /* non-fatal */ }
+            } catch (err) {
+              require('../utils/logger').error('[FCM] reviewed push failed', { error: err.message });
+            }
           });
         }
       } catch (notifErr) {
@@ -575,7 +577,9 @@ exports.addComment = async (req, res) => {
               data: { url: '/', tag: `comment-${document._id}` },
             });
           }
-        } catch (err) { /* non-fatal */ }
+        } catch (err) {
+          require('../utils/logger').error('[FCM] comment push failed', { error: err.message });
+        }
       });
     }
 
@@ -1013,7 +1017,9 @@ exports.requestQualityCheck = async (req, res) => {
               data: { url: '/', tag: `quality-check-${leadId}` },
             });
           }
-        } catch (err) { /* non-fatal */ }
+        } catch (err) {
+          require('../utils/logger').error('[FCM] quality-check push failed', { error: err.message });
+        }
       });
 
       return res.status(200).json({ success: true, message: 'Quality check requested successfully.' });
