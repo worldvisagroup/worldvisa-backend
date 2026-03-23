@@ -68,7 +68,7 @@ async function sendToUser(userId, { title, body, icon, data = {} }) {
       if (DEAD_TOKEN_CODES.has(code)) {
         deadTokens.push(activeTokens[idx].token);
       } else {
-        logger.error('[FCM] Non-dead send error', { code, error: resp.error?.message, userId });
+        logger.error('[FCM] Non-dead send error', { code, error: resp.error?.message, fullError: resp.error, userId });
       }
     } else {
       const entry = client.fcmTokens.find(t => t.token === activeTokens[idx].token);
@@ -119,7 +119,7 @@ async function sendToUsers(userIds, payload) {
           results.dead += r.dead;
         } catch (err) {
           results.errors++;
-          logger.error('[FCM] sendToUser failed', { userId: uid, error: err.message });
+          logger.error('[FCM] sendToUser failed', { userId: uid, error: err.message, stack: err.stack });
         }
       })
     );

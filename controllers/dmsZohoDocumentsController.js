@@ -595,6 +595,7 @@ exports.addComment = async (req, res) => {
               leadId:                document.record_id,
               documentId:            document._id,
               documentName:          document.document_name,
+              link:                  `/admin/applications/${document.record_id}`,
               title:                 `Comment from ${req.user.name}`,
               message:               `${req.user.name} commented on "${_commentDocLabel}"`,
               type:                  'info',

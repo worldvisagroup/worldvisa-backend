@@ -9,6 +9,7 @@ const {
 } = require("./helper/constants.js");
 const QualityCheckRequest = require('../models/qualityCheckRequest');
 const { addActivityLog } = require('./helper/service/activityLog');
+const logger = require('../utils/logger');
 
 // Function to get filtered Visa Applications for a user
 async function getFilteredVisaApplications(username, role, page = 1, limit = 10, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country = 'Australia') {
@@ -202,7 +203,11 @@ const getApplicationsWithAttachments = async (req, res) => {
       },
     });
   } catch (err) {
-    console.error('Error fetching visa applications:', err.response?.data || err.message);
+    logger.error('[VisaApplications] Error fetching visa applications', {
+      status: err.response?.status,
+      zohoData: err.response?.data,
+      message: err.message,
+    });
     res.status(500).json({ 
       error: "Failed to fetch visa applications",
       message: process.env.NODE_ENV === 'development' ? err.message : undefined
