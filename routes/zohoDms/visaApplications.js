@@ -1,5 +1,6 @@
 const express = require("express");
 const { protect, restrictToAdmin } = require("../../controllers/zohoDmsAuthController.js");
+const { chatAuth } = require('../../middleware/chatAuth');
 const {
   getApplicationsWithAttachments,
   getVisaApplicationById,
@@ -126,16 +127,16 @@ router.get('/documents/:docId', dmsZohoDocumentsController.getDocumentDetails);
 router.patch('/documents/:docId/status', dmsZohoDocumentsController.updateStatus);
 
 // Get all Comments
-router.get('/documents/:docId/comment', dmsZohoDocumentsController.getComments);
+router.get('/documents/:docId/comment', chatAuth, dmsZohoDocumentsController.getComments);
 
 // Add Comment
-router.post('/documents/:docId/comment', dmsZohoDocumentsController.addComment);
+router.post('/documents/:docId/comment', chatAuth, dmsZohoDocumentsController.addComment);
 
 // Edit Comment
-router.put('/documents/:docId/comment', dmsZohoDocumentsController.editComment);
+router.put('/documents/:docId/comment', chatAuth, dmsZohoDocumentsController.editComment);
 
 // Delete Comment
-router.delete('/documents/:docId/comment', dmsZohoDocumentsController.deleteComment);
+router.delete('/documents/:docId/comment', chatAuth, dmsZohoDocumentsController.deleteComment);
 
 // Requested Reviews
 router.get('/documents/requested_reviews/all_to', protect, dmsZohoDocumentsController.getAllRequestedToReview);

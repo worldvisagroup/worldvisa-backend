@@ -583,6 +583,39 @@ exports.addComment = async (req, res) => {
       });
     }
 
+    // In-app + email notification to lead owner when CLIENT adds a comment
+    if (req.user?.lead_id && document?.record_id && req.user?.lead_owner) {
+      setImmediate(async () => {
+        try {
+          const leadOwnerUser = await ZohoDmsUser.findOne({ username: req.user.lead_owner }).lean();
+          if (leadOwnerUser?._id) {
+            await addNotificationAndEmit({
+              req,
+              userId:                leadOwnerUser._id,
+              leadId:                document.record_id,
+              documentId:            document._id,
+              documentName:          document.document_name,
+              title:                 `Comment from ${req.user.name}`,
+              message:               `${req.user.name} commented on "${_commentDocLabel}"`,
+              type:                  'info',
+              category:              'document',
+              source:                'general',
+              applicationType:       document.applicationType || MODULE_VISA_APPLICATION,
+              emailNotificationType: 'comment_by_client',
+              emailSubject:          `${req.user.name} added a comment`,
+              emailTemplateData: {
+                clientName:    req.user.name,
+                leadOwnerName: req.user.lead_owner,
+                documentName:  document.document_name,
+              },
+            });
+          }
+        } catch (err) {
+          require('../utils/logger').error('[Notify] client comment notification failed', { error: err.message });
+        }
+      });
+    }
+
     res.status(200).json({ success: true, data: document });
   } catch (error) {
     console.error('Error adding comment to document:', error);
