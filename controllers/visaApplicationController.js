@@ -320,7 +320,7 @@ const getVisaApplication = async (req, res) => {
   }
 };
 
-async function getFilteredSpouseApplications(username, role, page = 1, limit = 10, startDate, endDate, giveMine, recentActivity, applicationStage) {
+async function getFilteredSpouseApplications(username, role, page = 1, limit = 10, startDate, endDate, giveMine, recentActivity, applicationStage, handledBy) {
   const offset = (page - 1) * limit;
   
   const conditions = [];
@@ -354,13 +354,21 @@ async function getFilteredSpouseApplications(username, role, page = 1, limit = 1
   // Build WHERE clause
   const whereClause = ` where ${conditions.join(' and ')}`;
 
-  // Additional filters for Application Stage only (Application_State doesn't exist in Spouse_Skill_Assessment)
+  // Additional filters for spouse applications
   let additionalFilters = '';
 
   // Application Stage filter
   if (applicationStage) {
     const stages = applicationStage.split(',').map(s => s.trim()).join("', '");
     additionalFilters += ` and Application_Stage in ('${stages}')`;
+  }
+
+  // Handled by filter (supports comma-separated values)
+  if (handledBy) {
+    const handledByList = handledBy.split(',').map(h => h.trim()).filter(Boolean).join("', '");
+    if (handledByList) {
+      additionalFilters += ` and (Application_Handled_By in ('${handledByList}'))`;
+    }
   }
 
   // Count query
@@ -397,7 +405,7 @@ const getSpouseApplicationsWithAttachments = async (req, res) => {
   try {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 10;
-    const { startDate, endDate, giveMine, recentActivity, applicationStage } = req.query;
+    const { startDate, endDate, giveMine, recentActivity, applicationStage, handledBy } = req.query;
 
     // Fetch applications from Zoho
     const { data: filteredApplications, info } = await getFilteredSpouseApplications(
@@ -410,6 +418,7 @@ const getSpouseApplicationsWithAttachments = async (req, res) => {
       giveMine,
       recentActivity,
       applicationStage,
+      handledBy,
     );
 
     if (!filteredApplications || filteredApplications.length === 0) {
