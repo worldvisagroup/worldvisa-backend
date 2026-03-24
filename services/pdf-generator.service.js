@@ -1,4 +1,3 @@
-const FormData = require("form-data");
 const React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
 const fs = require("fs");
@@ -265,11 +264,9 @@ async function generatePDF({ userName, countries, reportData, requestId }) {
       });
       const pdfStartTime = Date.now();
 
+      // Use global FormData + Blob (Node 18+) — fetch sets Content-Type boundary automatically
       const form = new FormData();
-      form.append("files", Buffer.from(html), {
-         filename: "index.html",
-         contentType: "text/html",
-      });
+      form.append("files", new Blob([html], { type: "text/html" }), "index.html");
       // A4 paper size in inches
       form.append("paperWidth", "8.27");
       form.append("paperHeight", "11.69");
@@ -289,7 +286,6 @@ async function generatePDF({ userName, countries, reportData, requestId }) {
             {
                method: "POST",
                body: form,
-               headers: form.getHeaders(),
                signal: AbortSignal.timeout(PDF_TIMEOUT),
             }
          );
