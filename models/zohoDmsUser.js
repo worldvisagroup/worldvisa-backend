@@ -12,11 +12,11 @@ const zohoDmsUserSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Please provide a password'],
     minlength: 8,
-    select: false, // Do not include password in query results by default
+    select: false,
   },
   passwordVal: {
     type: String,
-    select: true, // Do not include passwordVal in query results by default
+    select: true,
   },
   role: {
     type: String,
@@ -31,24 +31,34 @@ const zohoDmsUserSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  ip_restricted: {
+    type: Boolean,
+    default: false,
+  },
+  ip_restricted_list: {
+    type: [String],
+    default: [],
+  },
   profile_image_url: {
     type: String,
     default: null,
   },
+  clerk_id: {
+    type: String,
+    default: null,
+  },
+  emailverified: {
+    type: Boolean,
+    default: false,
+  },
 });
 
-// Hash password before saving
 zohoDmsUserSchema.pre('save', async function (next) {
-  // Only run this function if password was actually modified
   if (!this.isModified('password')) return next();
-
-  // Hash the password with cost of 12
   this.password = await bcrypt.hash(this.password, 12);
-
   next();
 });
 
-// Method to check if candidate password is correct
 zohoDmsUserSchema.methods.correctPassword = async function (
   candidatePassword,
   userPassword
@@ -56,6 +66,7 @@ zohoDmsUserSchema.methods.correctPassword = async function (
   return await bcrypt.compare(candidatePassword, userPassword);
 };
 
+zohoDmsUserSchema.index({ username: 1 });
 zohoDmsUserSchema.index({ role: 1 });
 
 const ZohoDmsUser = mongoose.model('ZohoDmsUser', zohoDmsUserSchema);

@@ -1,19 +1,17 @@
-const puppeteer = require("puppeteer-core");
+const FormData = require("form-data");
 const React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
 const fs = require("fs");
 const path = require("path");
 const logger = require("../utils/logger");
 const {
-   getPuppeteerConfig,
-   getPuppeteerInfo,
-} = require("../utils/puppeteer-config");
-const {
    TemplateNotFoundError,
    RenderError,
    PuppeteerError,
    TimeoutError,
 } = require("../utils/pdf-errors");
+
+const GOTENBERG_URL = process.env.GOTENBERG_API_URL || "http://localhost:3000";
 
 const PDF_TIMEOUT = parseInt(process.env.PDF_TIMEOUT) || 60000;
 
@@ -185,7 +183,6 @@ function loadReportTemplate(countries) {
 }
 
 async function generatePDF({ userName, countries, reportData, requestId }) {
-   let browser = null;
    const startTime = Date.now();
    let currentStep = "initialization";
 
@@ -259,109 +256,72 @@ async function generatePDF({ userName, countries, reportData, requestId }) {
          renderDuration: `${renderDuration}ms`,
       });
 
-      // Step 3: Launch Puppeteer
-      currentStep = "launching browser";
-      const puppeteerInfo = getPuppeteerInfo();
-      logger.info("Launching Puppeteer browser", {
+      // Step 3: Send HTML to Gotenberg for PDF generation
+      currentStep = "sending to gotenberg";
+      logger.info("Sending HTML to Gotenberg", {
          ...logContext,
-         pathSource: puppeteerInfo.pathSource,
-         configuredPath: puppeteerInfo.configuredPath,
+         htmlLength: html.length,
+         gotenbergUrl: GOTENBERG_URL,
       });
-      const launchStartTime = Date.now();
+      const pdfStartTime = Date.now();
 
+      const form = new FormData();
+      form.append("files", Buffer.from(html), {
+         filename: "index.html",
+         contentType: "text/html",
+      });
+      // A4 paper size in inches
+      form.append("paperWidth", "8.27");
+      form.append("paperHeight", "11.69");
+      // Match existing margins: top 4mm (~0.16in), rest 0
+      form.append("marginTop", "0.16");
+      form.append("marginBottom", "0");
+      form.append("marginLeft", "0");
+      form.append("marginRight", "0");
+      form.append("printBackground", "true");
+      // Allow time for Cloudinary images to load
+      form.append("waitDelay", "1s");
+
+      let gotoRes;
       try {
-         const puppeteerConfig = getPuppeteerConfig();
-         browser = await puppeteer.launch(puppeteerConfig);
-      } catch (error) {
-         throw new PuppeteerError(
-            `Failed to launch browser: ${error.message}`,
+         gotoRes = await fetch(
+            `${GOTENBERG_URL}/forms/chromium/convert/html`,
             {
-               originalError: error.message,
-               puppeteerConfig: puppeteerInfo,
-               hint: puppeteerInfo.usingAutoDiscovery
-                  ? "Ensure Chrome or Chromium is installed on your system"
-                  : `Check that the configured path exists: ${puppeteerInfo.configuredPath}`,
+               method: "POST",
+               body: form,
+               headers: form.getHeaders(),
+               signal: AbortSignal.timeout(PDF_TIMEOUT),
+            }
+         );
+      } catch (error) {
+         if (
+            error.name === "TimeoutError" ||
+            error.message.includes("timeout")
+         ) {
+            throw new TimeoutError("Gotenberg PDF conversion", PDF_TIMEOUT);
+         }
+         throw new PuppeteerError(
+            `Failed to reach Gotenberg: ${error.message}`,
+            {
+               hint: `Check GOTENBERG_API_URL env var (currently: ${GOTENBERG_URL})`,
             }
          );
       }
 
-      const launchDuration = Date.now() - launchStartTime;
-      logger.info("Browser launched", {
-         ...logContext,
-         launchDuration: `${launchDuration}ms`,
-      });
-
-      const page = await browser.newPage();
-
-      // Step 4: Set viewport for A4
-      currentStep = "setting viewport";
-      await page.setViewport({
-         width: 794, // A4 width at 96 DPI
-         height: 1123, // A4 height at 96 DPI
-      });
-
-      // Step 5: Load HTML content
-      currentStep = "loading HTML content";
-      const contentStartTime = Date.now();
-
-      try {
-         await page.setContent(html, {
-            waitUntil: "networkidle0",
-            timeout: PDF_TIMEOUT,
-         });
-      } catch (error) {
-         if (
-            error.name === "TimeoutError" ||
-            error.message.includes("timeout")
-         ) {
-            throw new TimeoutError("loading HTML content", PDF_TIMEOUT);
-         }
-         throw new PuppeteerError(`Failed to load HTML: ${error.message}`);
+      if (!gotoRes.ok) {
+         const errText = await gotoRes.text();
+         throw new PuppeteerError(
+            `Gotenberg conversion failed (${gotoRes.status}): ${errText}`
+         );
       }
 
-      const contentDuration = Date.now() - contentStartTime;
-      logger.info("HTML loaded into browser page", {
-         ...logContext,
-         contentDuration: `${contentDuration}ms`,
-      });
-
-      // Step 6: Generate PDF
-      currentStep = "generating PDF";
-      const pdfStartTime = Date.now();
-
-      let pdfBuffer;
-      try {
-         pdfBuffer = await page.pdf({
-            format: "A4",
-            printBackground: true,
-            preferCSSPageSize: false,
-            margin: {
-               top: "4mm",
-               bottom: "0mm",
-               left: "0mm",
-               right: "0mm",
-            },
-            displayHeaderFooter: false,
-            timeout: PDF_TIMEOUT,
-         });
-      } catch (error) {
-         if (
-            error.name === "TimeoutError" ||
-            error.message.includes("timeout")
-         ) {
-            throw new TimeoutError("PDF generation", PDF_TIMEOUT);
-         }
-         throw new PuppeteerError(`Failed to generate PDF: ${error.message}`);
-      }
+      let pdfBuffer = Buffer.from(await gotoRes.arrayBuffer());
 
       const pdfDuration = Date.now() - pdfStartTime;
-      logger.info("PDF generated", {
+      logger.info("PDF generated via Gotenberg", {
          ...logContext,
          pdfDuration: `${pdfDuration}ms`,
       });
-
-      await browser.close();
-      browser = null;
 
       const duration = Date.now() - startTime;
       logger.info("PDF generated successfully", {
@@ -370,13 +330,11 @@ async function generatePDF({ userName, countries, reportData, requestId }) {
          size: `${Math.round(pdfBuffer.length / 1024)}KB`,
          breakdown: {
             render: `${renderDuration}ms`,
-            launch: `${launchDuration}ms`,
-            content: `${contentDuration}ms`,
             pdf: `${pdfDuration}ms`,
          },
       });
 
-      return Buffer.from(pdfBuffer);
+      return pdfBuffer;
    } catch (error) {
       logger.error("PDF generation error", {
          ...logContext,
@@ -387,17 +345,6 @@ async function generatePDF({ userName, countries, reportData, requestId }) {
          stack: error.stack,
          duration: `${Date.now() - startTime}ms`,
       });
-
-      // Cleanup browser
-      if (browser) {
-         try {
-            await browser.close();
-         } catch (closeError) {
-            logger.error("Failed to close browser", {
-               error: closeError.message,
-            });
-         }
-      }
 
       // Re-throw custom errors as-is
       if (error.code) {

@@ -103,19 +103,31 @@ const dmsZohoClientSchema = new mongoose.Schema({
       isActive:   { type: Boolean, default: true },
     },
   ],
+  clerk_id: {
+    type: String,
+    default: null,
+  },
+  emailverified: {
+    type: Boolean,
+    default: false,
+  },
+  image_url: {
+    type: String,
+    default: null,
+  },
+  role: {
+    type: String,
+    enum: ['client', 'master_admin', 'supervisor', 'team_leader', 'admin'],
+    default: 'client',
+  },
 });
 
-// Hash password before saving
 dmsZohoClientSchema.pre('save', async function (next) {
-  // Only run this function if password was actually modified
   if (!this.isModified('password')) return next();
-
-  // Hash the password with cost of 12
   this.password = await bcrypt.hash(this.password, 12);
   next();
 });
 
-// Instance method to check if password is correct
 dmsZohoClientSchema.methods.correctPassword = async function (
   candidatePassword,
   userPassword
@@ -128,6 +140,7 @@ dmsZohoClientSchema.index({ created_at: -1 });
 dmsZohoClientSchema.index({ name: 'text', email: 'text', phone: 'text', lead_id: 'text' });
 dmsZohoClientSchema.index({ name: 1, record_type: 1 });
 dmsZohoClientSchema.index({ 'fcmTokens.token': 1 }, { sparse: true });
+dmsZohoClientSchema.index({ role: 1 });
 
 const DmsZohoClient = mongoose.model('DmsZohoClient', dmsZohoClientSchema);
 

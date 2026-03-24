@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "clerk": {
+      "source": "clerk/skills",
+      "sourceType": "github",
+      "computedHash": "912205692b6c1db07d6933f0584af27c6582484e5d6fac1c13fec4b6a963a528"
+    },
     "mongodb": {
       "source": "hoodini/ai-agents-skills",
       "sourceType": "github",

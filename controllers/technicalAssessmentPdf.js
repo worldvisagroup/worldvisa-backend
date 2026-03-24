@@ -561,7 +561,7 @@ const createPDFWithName = async (name, allSectionsData) => {
           doc.moveDown(2);
 
           // Render the "Legal Authority & Accountability" section if present
-          if (allSectionsData.legalAuthorityAccountability.title && allSectionsData?.legalAuthorityAccountability?.content) {
+          if (allSectionsData?.legalAuthorityAccountability?.title && allSectionsData?.legalAuthorityAccountability?.content) {
             doc
               .font('Helvetica-Bold')
               .fontSize(15)

@@ -2,11 +2,11 @@ const express = require('express');
 const { generatePDFWithRetry, validateTemplates } = require('../../../services/pdf-generator.service');
 const { validatePDFRequest } = require('../../../middleware/pdfvalidation.middleware');
 const logger = require('../../../utils/logger');
-const puppeteer = require('puppeteer-core');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
-const { getPuppeteerConfig, getPuppeteerInfo, validatePuppeteerConfig } = require('../../../utils/puppeteer-config');
+
+const GOTENBERG_URL = process.env.GOTENBERG_API_URL || 'http://localhost:3000';
 
 const router = express.Router();
 
@@ -59,80 +59,29 @@ router.get('/health', async (req, res) => {
       overallStatus = 'unhealthy';
     }
 
-    // Check 3: Verify Puppeteer configuration and launch
-    let puppeteerInfo = null;
-    let puppeteerValidation = { valid: false, warnings: [], errors: [] };
-    
+    // Check 3: Verify Gotenberg is reachable
     try {
-      puppeteerInfo = getPuppeteerInfo();
-      puppeteerValidation = validatePuppeteerConfig();
-      
-      // Add configuration validation warnings
-      if (puppeteerValidation.warnings.length > 0) {
-        logger.warn('Puppeteer configuration warnings', {
-          warnings: puppeteerValidation.warnings,
-        });
-      }
-    } catch (error) {
-      logger.error('Failed to get Puppeteer info', { error: error.message });
-      errors.push(`Puppeteer configuration check failed: ${error.message}`);
-      overallStatus = 'unhealthy';
-      puppeteerInfo = { error: error.message, hint: 'Check Puppeteer configuration' };
-    }
-
-    try {
-      if (!puppeteerInfo || puppeteerInfo.error) {
-        throw new Error(puppeteerInfo?.error || 'Puppeteer info not available');
-      }
-      
-      const puppeteerConfig = getPuppeteerConfig();
-      const browser = await puppeteer.launch({
-        ...puppeteerConfig,
-        timeout: 10000,
+      const pingRes = await fetch(`${GOTENBERG_URL}/health`, {
+        signal: AbortSignal.timeout(5000),
       });
-      
-      // Get actual executable path from browser
-      const browserVersion = await browser.version();
-      await browser.close();
-      
-      checks.puppeteer = true;
+      checks.puppeteer = pingRes.ok;
       checks.puppeteerConfig = {
-        usingPuppeteerCore: puppeteerInfo.usingPuppeteerCore,
-        pathSource: puppeteerInfo.pathSource,
-        chromePath: puppeteerInfo.chromePath,
-        pathExists: puppeteerInfo.pathExists,
-        environment: puppeteerInfo.environment,
-        isHeroku: puppeteerInfo.isHeroku,
-        browserVersion,
+        usingGotenberg: true,
+        gotenbergUrl: GOTENBERG_URL,
+        status: pingRes.status,
       };
-
-      if (puppeteerValidation.warnings.length > 0) {
-        checks.puppeteerConfig.warnings = puppeteerValidation.warnings;
+      if (!pingRes.ok) {
+        errors.push(`Gotenberg unhealthy: HTTP ${pingRes.status}`);
+        overallStatus = 'unhealthy';
       }
-
-    } catch (error) {
+    } catch (err) {
       checks.puppeteer = false;
       checks.puppeteerConfig = {
-        usingPuppeteerCore: puppeteerInfo?.usingPuppeteerCore || false,
-        pathSource: puppeteerInfo?.pathSource || 'unknown',
-        chromePath: puppeteerInfo?.chromePath || null,
-        pathExists: puppeteerInfo?.pathExists || false,
-        environment: puppeteerInfo?.environment || 'unknown',
-        isHeroku: puppeteerInfo?.isHeroku || false,
-        error: error.message,
+        usingGotenberg: true,
+        gotenbergUrl: GOTENBERG_URL,
+        error: err.message,
       };
-      errors.push(`Puppeteer launch failed: ${error.message}`);
-      
-      // Add helpful hints based on the configuration
-      if (puppeteerInfo?.hint) {
-        errors.push(`Hint: ${puppeteerInfo.hint}`);
-      }
-      
-      // Add validation errors if any
-      if (puppeteerValidation?.errors && puppeteerValidation.errors.length > 0) {
-        errors.push(...puppeteerValidation.errors);
-      }
-      
+      errors.push(`Gotenberg unreachable: ${err.message}`);
       overallStatus = 'unhealthy';
     }
 

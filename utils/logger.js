@@ -9,7 +9,7 @@ const logger = {
     },
   
     warn: (message, meta = {}) => {
-      console.warn(JSON.stringify({
+      console.log(JSON.stringify({
         level: 'warn',
         message,
         ...meta,
