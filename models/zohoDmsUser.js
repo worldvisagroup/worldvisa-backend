@@ -39,6 +39,11 @@ const zohoDmsUserSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  account_status:{
+    type: String,
+    enum: ['active', 'suspended', 'deleted'],
+    default: 'active',
+  },
   ip_restricted: {
     type: Boolean,
     default: false,
@@ -55,7 +60,7 @@ const zohoDmsUserSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
-  emailverified: {
+  email_verified: {
     type: Boolean,
     default: false,
   },
