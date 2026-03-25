@@ -31,6 +31,14 @@ const zohoDmsUserSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  email:{
+    type: String,
+    default: null,
+  },
+  full_name:{
+    type: String,
+    default: null,
+  },
   ip_restricted: {
     type: Boolean,
     default: false,
