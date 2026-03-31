@@ -1,3 +1,4 @@
+require('tsx/cjs'); // enables require() of .ts files — does NOT affect existing .js files
 const express = require("express");
 const app = express();
 const axios = require("axios");
@@ -28,6 +29,9 @@ const reviewsRouter = require("./routes/reviews");
 const zohoDmsAuthRouter = require("./routes/zohoDms/auth");
 const zohoDmsVisaApplicationsRouter = require("./routes/zohoDms/visaApplications");
 const zohoDmsUserAuthRouter = require('./routes/zohoDmsAuth');
+const clerkInvitationsRouter = require('./routes/clerk/clerkInvitations');
+const { clerkMiddleware } = require('@clerk/express');
+const { AUTHORIZED_PARTIES } = require('./constants/clerk');
 const zohoDmsClientAuthRouter = require("./routes/dmsZohoClients");
 const technicalAssessmentRouter = require("./routes/ai/technicalAssessment");
 const packagesRouter = require("./routes/packages");
@@ -41,7 +45,7 @@ const visaReferenceFormController = require("./routes/visaReferenceForm");
 const pdfRoutes = require('./routes/worldvisa2.0/pdf/pdf.routes');
 const meetingRouter = require('./routes/worldvisa2.0/meeting/meeting.routes');
 const anabinRouter = require('./routes/anabin');
-const emailController = require('./controllers/emailController');
+const { handleResendWebhook } = require('./controllers/email/webhookController');
 const emailRouter = require('./routes/email');
 
 // Visa News Cron Job
@@ -312,9 +316,13 @@ io.on('connection', (socket) => {
 app.set('io', io);
 
 // Resend webhook
-app.post('/api/email/webhook/resend', express.raw({ type: 'application/json' }), emailController.handleResendWebhook);
+app.post('/api/email/webhook/resend', express.raw({ type: 'application/json' }), handleResendWebhook);
 
-app.use(express.json({ limit: '10mb' })); 
+// Clerk webhook — text body required for Svix signature verification
+app.use('/webhook/clerk', express.text({ type: 'application/json' }), require('./routes/clerk/clerkWebhook'));
+
+app.use(express.json({ limit: '10mb' }));
+app.use(clerkMiddleware({ authorizedParties: AUTHORIZED_PARTIES }));
 app.use(compression());
 app.use(express.urlencoded({ extended: true }));
 
@@ -413,6 +421,7 @@ app.use("/api/zoho_dms/oauth", zohoDmsAuthRouter);
 
 app.use("/api/zoho_dms/visa_applications", zohoDmsVisaApplicationsRouter);
 
+app.use('/api/zoho_dms/users', clerkInvitationsRouter);
 app.use('/api/zoho_dms/users', zohoDmsUserAuthRouter);
 
 app.use('/api/zoho_dms/clients', zohoDmsClientAuthRouter);

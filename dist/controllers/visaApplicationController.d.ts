@@ -1,0 +1,10 @@
+import { Request, Response } from 'express';
+export declare const getApplicationsWithAttachments: (req: Request, res: Response) => Promise<void>;
+export declare const getVisaApplicationById: (req: Request, res: Response) => Promise<void>;
+export declare const getVisaApplication: (req: Request, res: Response) => Promise<void>;
+export declare const getSpouseApplicationsWithAttachments: (req: Request, res: Response) => Promise<void>;
+export declare const getSpouseVisaApplicationById: (req: Request, res: Response) => Promise<void>;
+export declare const getApplicationNotes: (req: Request, res: Response) => Promise<void>;
+export declare const addApplicationNote: (req: Request, res: Response) => Promise<void>;
+export declare const updateApplicationNote: (req: Request, res: Response) => Promise<void>;
+export declare const deleteApplicationNote: (req: Request, res: Response) => Promise<void>;

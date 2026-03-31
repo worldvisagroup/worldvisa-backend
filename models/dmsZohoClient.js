@@ -24,7 +24,7 @@ const dmsZohoClientSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Please provide a password'],
     minlength: 6,
-    select: false, // Do not send back in query results
+    select: false,
   },
   password_value: String,
   lead_id: {
@@ -40,7 +40,7 @@ const dmsZohoClientSchema = new mongoose.Schema({
   record_type: {
     type: String,
     required: [true, 'Please provide a record type'],
-    enum: ['visa_application', 'spouse_skill_assessment'], // Restricting the values to specific options
+    enum: ['visa_application', 'spouse_skill_assessment'],
   },
   checklist: [
     {
@@ -103,15 +103,23 @@ const dmsZohoClientSchema = new mongoose.Schema({
       isActive:   { type: Boolean, default: true },
     },
   ],
+  full_name: {
+    type: String,
+    default: null,
+  },
+  clerk_invitation_id: {
+    type: String,
+    default: null,
+  },
   clerk_id: {
     type: String,
     default: null,
   },
-  emailverified: {
+  email_verified: {
     type: Boolean,
     default: false,
   },
-  image_url: {
+  profile_image_url: {
     type: String,
     default: null,
   },
@@ -119,6 +127,11 @@ const dmsZohoClientSchema = new mongoose.Schema({
     type: String,
     enum: ['client', 'master_admin', 'supervisor', 'team_leader', 'admin'],
     default: 'client',
+  },
+  account_status: {
+    type: String,
+    enum: ['active', 'invited', 'inactive', 'suspended', 'deleted'],
+    default: 'active',
   },
 });
 

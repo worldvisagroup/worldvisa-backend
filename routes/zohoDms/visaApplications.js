@@ -1,6 +1,6 @@
 const express = require("express");
-const { protect, restrictToAdmin } = require("../../controllers/zohoDmsAuthController.js");
-const { chatAuth } = require('../../middleware/chatAuth');
+const { restrictToAdmin } = require("../../controllers/zohoDmsAuthController.js");
+const { protect, clerkProtect } = require("../../middleware/clerk/clerkAuth");
 const {
   getApplicationsWithAttachments,
   getVisaApplicationById,
@@ -10,7 +10,8 @@ const {
   addApplicationNote,
   updateApplicationNote,
   deleteApplicationNote,
-} = require("../../controllers/visaApplicationController.js");
+} = require("../../controllers/visaApplicationController");
+const { downloadVisaActivityLogPdf, downloadSpouseActivityLogPdf } = require("../../controllers/activityLogPdfController");
 const { getDeadlineStats } = require('../../controllers/applicationStatsController');
 const { getActivityLog } = require('../../controllers/applicationActivityLogController');
 const { getAdminDashboardStats } = require('../../controllers/adminDashboardController');
@@ -52,6 +53,7 @@ router.get('/spouse/applications/:id/notes', protect, restrictToAdmin, getApplic
 router.post('/spouse/applications/:id/notes', protect, restrictToAdmin, addApplicationNote);
 router.patch('/spouse/applications/:id/notes/:noteId', protect, restrictToAdmin, updateApplicationNote);
 router.delete('/spouse/applications/:id/notes/:noteId', protect, restrictToAdmin, deleteApplicationNote);
+router.get('/spouse/applications/:id/activity/download', protect, downloadSpouseActivityLogPdf);
 router.get('/spouse/applications/:id', protect, getSpouseVisaApplicationById);
 
 // Admin dashboard stats (must be before /:id)
@@ -65,6 +67,7 @@ router.delete('/:id/notes/:noteId', protect, restrictToAdmin, deleteApplicationN
 
 // Application activity log (must be before /:id)
 router.get('/:id/activity', protect, getActivityLog);
+router.get('/:id/activity/download', protect, downloadVisaActivityLogPdf);
 
 // Application Field Update:Patch route
 router.get("/:id", protect, getVisaApplicationById);
@@ -127,16 +130,10 @@ router.get('/documents/:docId', dmsZohoDocumentsController.getDocumentDetails);
 router.patch('/documents/:docId/status', dmsZohoDocumentsController.updateStatus);
 
 // Get all Comments
-router.get('/documents/:docId/comment', chatAuth, dmsZohoDocumentsController.getComments);
-
-// Add Comment
-router.post('/documents/:docId/comment', chatAuth, dmsZohoDocumentsController.addComment);
-
-// Edit Comment
-router.put('/documents/:docId/comment', chatAuth, dmsZohoDocumentsController.editComment);
-
-// Delete Comment
-router.delete('/documents/:docId/comment', chatAuth, dmsZohoDocumentsController.deleteComment);
+router.get('/documents/:docId/comment', clerkProtect, dmsZohoDocumentsController.getComments);
+router.post('/documents/:docId/comment', clerkProtect, dmsZohoDocumentsController.addComment);
+router.put('/documents/:docId/comment', clerkProtect, dmsZohoDocumentsController.editComment);
+router.delete('/documents/:docId/comment', clerkProtect, dmsZohoDocumentsController.deleteComment);
 
 // Requested Reviews
 router.get('/documents/requested_reviews/all_to', protect, dmsZohoDocumentsController.getAllRequestedToReview);
@@ -158,7 +155,7 @@ router.delete('/documents/:docId/requested_reviews', dmsZohoDocumentsController.
 
 // Requested Review Messages
 
-router.get('/documents/:docId/requested_reviews/:reviewId/messages', dmsZohoDocumentsController.allRequestedReviewMessages);
+router.get('/documents/:docId/requested_reviews/:reviewId/messages', protect, dmsZohoDocumentsController.allRequestedReviewMessages);
 
 router.post('/documents/:docId/requested_reviews/:reviewId/messages', protect, dmsZohoDocumentsController.addRequestedReviewMessage);
 

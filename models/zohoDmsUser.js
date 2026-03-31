@@ -4,13 +4,12 @@ const bcrypt = require('bcryptjs');
 const zohoDmsUserSchema = new mongoose.Schema({
   username: {
     type: String,
-    required: [true, 'Please provide a username'],
     unique: true,
+    sparse: true, 
     lowercase: true,
   },
   password: {
     type: String,
-    required: [true, 'Please provide a password'],
     minlength: 8,
     select: false,
   },
@@ -41,7 +40,7 @@ const zohoDmsUserSchema = new mongoose.Schema({
   },
   account_status:{
     type: String,
-    enum: ['active', 'suspended', 'deleted'],
+    enum: ['active', 'invited', 'inactive', 'suspended', 'deleted'],
     default: 'active',
   },
   ip_restricted: {
@@ -57,6 +56,10 @@ const zohoDmsUserSchema = new mongoose.Schema({
     default: null,
   },
   clerk_id: {
+    type: String,
+    default: null,
+  },
+  clerk_invitation_id: {
     type: String,
     default: null,
   },
@@ -79,7 +82,7 @@ zohoDmsUserSchema.methods.correctPassword = async function (
   return await bcrypt.compare(candidatePassword, userPassword);
 };
 
-zohoDmsUserSchema.index({ username: 1 });
+zohoDmsUserSchema.index({ username: 1 }, { unique: true, sparse: true });
 zohoDmsUserSchema.index({ role: 1 });
 
 const ZohoDmsUser = mongoose.model('ZohoDmsUser', zohoDmsUserSchema);

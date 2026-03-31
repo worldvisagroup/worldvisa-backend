@@ -15,6 +15,9 @@ const zohoTokenSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  expiresAt: {
+    type: Date,
+  },
   updatedAt: {
     type: Date,
     default: Date.now,

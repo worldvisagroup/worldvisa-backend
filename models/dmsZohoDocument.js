@@ -33,6 +33,7 @@ const dmsZohoDocumentSchema = new mongoose.Schema({
     {
       comment: String,
       added_by: String,
+      document_link: String,
       added_at: {
         type: Date,
         default: Date.now,

@@ -57,7 +57,9 @@ async function runAggregator() {
     const groups = new Map();
     for (const record of due) {
       const typeFamily = getTypeFamily(record.notificationType);
-      const key = `${record.recipientEmail}|${typeFamily}|${record.entityParentId}`;
+      // review_requested is cross-lead: collapse all requests for a recipient into one email
+      const entityKey = typeFamily === 'review_requested' ? '_all' : record.entityParentId;
+      const key = `${record.recipientEmail}|${typeFamily}|${entityKey}`;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(record._id.toString());
     }

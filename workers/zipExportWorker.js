@@ -1,6 +1,7 @@
 const ZipExportJob = require('../models/zipExportJob');
 const dmsZohoDocument = require('../models/dmsZohoDocument');
 const { uploadToR2 } = require('../services/r2Client');
+const { downloadFileFromWorkDrive } = require('../utils/dmsZohoWorkDrive');
 const archiver = require('archiver');
 const axios = require('axios');
 const fs = require('fs');
@@ -22,14 +23,14 @@ async function processZipJob(jobId, record_id) {
   // Fetch ONLY approved documents with download links
   const documents = await dmsZohoDocument
     .find({ record_id, status: 'approved' })
-    .select('file_name download_url document_link')
+    .select('file_name workdrive_file_id download_url document_link')
     .lean();
 
   if (!documents || documents.length === 0) {
     throw new Error('No approved documents found for this record');
   }
 
-  const filesWithLinks = documents.filter(doc => doc.download_url || doc.document_link);
+  const filesWithLinks = documents.filter(doc => doc.workdrive_file_id || doc.download_url || doc.document_link);
 
   if (filesWithLinks.length === 0) {
     throw new Error('No downloadable files found');
@@ -47,21 +48,31 @@ async function processZipJob(jobId, record_id) {
     console.log(`[ZIP Worker] Downloading ${filesWithLinks.length} files`);
 
     const downloadPromises = filesWithLinks.map(async (doc, index) => {
-      const downloadUrl = doc.download_url || doc.document_link;
       const filename = doc.file_name || `document-${index + 1}`;
       const filePath = path.join(tempDir, filename);
 
-      const response = await axios.get(downloadUrl, {
-        responseType: 'stream',
-        timeout: 60000, // 1 minute per file
-      });
+      const response = doc.workdrive_file_id
+        ? await downloadFileFromWorkDrive(doc.workdrive_file_id)
+        : await axios.get(doc.download_url || doc.document_link, {
+            responseType: 'stream',
+            timeout: 60000,
+          });
+
+      const contentType = response.headers?.['content-type'] || 'unknown';
+
+      if (response.status < 200 || response.status >= 300) {
+        throw new Error(`Download failed for ${filename}: HTTP ${response.status}`);
+      }
+
+      if (contentType.includes('text/html') || contentType.includes('application/json')) {
+        throw new Error(`Download returned wrong content type for ${filename}: ${contentType}`);
+      }
 
       const writer = fs.createWriteStream(filePath);
       response.data.pipe(writer);
 
       return new Promise((resolve, reject) => {
         writer.on('finish', async () => {
-          // Update progress
           await ZipExportJob.findByIdAndUpdate(jobId, {
             $inc: { 'progress.current': 1 },
           });

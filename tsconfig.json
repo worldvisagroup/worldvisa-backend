@@ -17,7 +17,14 @@
     "types": ["node", "react"]
   },
   "include": [
-    "templates/**/*"
+    "templates/**/*",
+    "lib/**/*",
+    "services/**/*",
+    "controllers/**/*.ts",
+    "routes/**/*.ts",
+    "middleware/**/*",
+    "types/**/*",
+    "constants/**/*"
   ],
   "exclude": [
     "node_modules",

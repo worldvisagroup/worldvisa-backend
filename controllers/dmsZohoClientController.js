@@ -5,6 +5,7 @@ const DmsZohoDocument = require('../models/dmsZohoDocument');
 const { deleteFileFromWorkDrive, renameWorkDriveFile } = require('../utils/dmsZohoWorkDrive');
 const { zohoRequest } = require('./zohoDms/zohoApi');
 const bcrypt = require('bcryptjs');
+const { inviteClientAfterSignup } = require('../services/clerk/clerkInvitationService');
 
 const signToken = (id, lead_id, email) => {
   return jwt.sign({ id, lead_id, email, role: 'client' }, process.env.JWT_SECRET, {
@@ -51,6 +52,14 @@ exports.signup = async (req, res) => {
       metadata:      { record_type, lead_owner, email },
     });
 
+    let inviteWarning = null;
+    try {
+      await inviteClientAfterSignup(newClient._id, newClient.email);
+    } catch (inviteErr) {
+      console.error('[signup] Clerk invitation failed:', inviteErr.message);
+      inviteWarning = 'Client created but Clerk invitation could not be sent. Please invite manually.';
+    }
+
     // Remove password from output
     newClient.password = undefined;
 
@@ -58,6 +67,7 @@ exports.signup = async (req, res) => {
       status: 'success',
       data: {
         client: newClient,
+        ...(inviteWarning && { warning: inviteWarning }),
       },
     });
   } catch (error) {
@@ -231,10 +241,16 @@ exports.getAllClients = async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
     const skip  = (page - 1) * limit;
 
-    const { search, lead_owner } = req.query;
+    const { search, lead_owner, invited } = req.query;
 
     // ── Phase 1: MongoDB — paginate + document stats ───────────────────────
     const matchStage = {};
+
+    if (invited === 'true') {
+      matchStage.account_status = 'invited';
+    } else {
+      matchStage.account_status = { $ne: 'invited' };
+    }
 
     if (lead_owner) {
       matchStage.lead_owner = lead_owner.trim();

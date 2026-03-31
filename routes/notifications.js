@@ -2,7 +2,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { protectClient } = require('../controllers/dmsZohoClientController');
+const { protectClient } = require('../middleware/clerk/clerkAuth');
 const logger = require('../utils/logger');
 
 const MAX_TOKENS_PER_USER = 10;

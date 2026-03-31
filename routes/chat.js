@@ -1,12 +1,22 @@
 const express = require('express');
 const multer = require('multer');
-const { chatAuth } = require('../middleware/chatAuth');
+const { clerkProtect } = require('../middleware/clerk/clerkAuth');
+const { STAFF_ROLES } = require('../constants/roles');
 const chatController = require('../controllers/chatController');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
-router.use(chatAuth);
+// chatActor discriminator is chat-internal: 'staff' (any admin role) or 'client'
+function setChatActor(req, _res, next) {
+  req.chatActor = {
+    type: STAFF_ROLES.includes(req.user?.role) ? 'staff' : 'client',
+    id: req.user?._id,
+  };
+  next();
+}
+
+router.use(clerkProtect, setChatActor);
 
 router.get('/', chatController.listConversations);
 router.post('/attachments', upload.single('file'), chatController.uploadAttachment);

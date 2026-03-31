@@ -277,20 +277,16 @@ const getDeadlineStatistics = async (username, role, params = {}) => {
       futureLimit = 10
     } = params;
 
-    console.log(`Fetching deadline statistics for user: ${username}, role: ${role}, type: ${type || 'all'}`);
-
     let visaApps = [];
     let spouseApps = [];
 
     // PHASE 1: Categorization - Fetch minimal fields for all applications
     if (!type || type === 'visa') {
       const visaQuery = buildVisaStage1Query(role, username, country);
-      console.log('Visa Query:', visaQuery);
 
       try {
         const visaResponse = await zohoRequest("coql", "POST", { select_query: visaQuery });
         visaApps = (visaResponse?.data || []).map(app => ({ ...app, _source: 'visa' }));
-        console.log('✅ Visa query succeeded, got', visaApps.length, 'results');
       } catch (visaError) {
         console.error('❌ Visa query failed:', visaError.response?.data || visaError.message);
         throw visaError;
@@ -299,12 +295,10 @@ const getDeadlineStatistics = async (username, role, params = {}) => {
 
     if (!type || type === 'spouse') {
       const spouseQuery = buildSpouseStage1Query(role, username);
-      console.log('Spouse Query:', spouseQuery);
 
       try {
         const spouseResponse = await zohoRequest("coql", "POST", { select_query: spouseQuery });
         spouseApps = (spouseResponse?.data || []).map(app => ({ ...app, _source: 'spouse' }));
-        console.log('✅ Spouse query succeeded, got', spouseApps.length, 'results');
       } catch (spouseError) {
         console.error('❌ Spouse query failed:', spouseError.response?.data || spouseError.message);
         throw spouseError;
@@ -312,15 +306,10 @@ const getDeadlineStatistics = async (username, role, params = {}) => {
     }
 
     const allApplications = [...visaApps, ...spouseApps];
-    console.log(`Fetched total ${allApplications.length} applications`);
 
     // Categorize applications and track IDs
     const categorizedData = categorizeApplicationsWithIds(allApplications);
-
-    console.log(`Categorized: ${categorizedData.approaching.ids.length} approaching, ${categorizedData.overdue.ids.length} overdue, ${categorizedData.noDeadline.ids.length} no deadline, ${categorizedData.future.ids.length} future`);
-
-    // PHASE 2: Fetch detailed paginated data for each category
-    // Pass visaApps and spouseApps to determine which module to query for each ID
+    
     const [approachingDetails, overdueDetails, noDeadlineDetails, futureDetails] = await Promise.all([
       getDetailedCategoryApplications(categorizedData.approaching, visaApps, spouseApps, approachingPage, approachingLimit),
       getDetailedCategoryApplications(categorizedData.overdue, visaApps, spouseApps, overduePage, overdueLimit),

@@ -12,6 +12,7 @@ async function saveTokensToDB(tokens) {
       {
         accessToken: tokens.accessToken,
         refreshToken: tokens.refreshToken,
+        expiresAt: new Date(Date.now() + 3500 * 1000), // 3500s buffer below Zoho's 3600s expiry
       },
       { upsert: true, new: true }
     );
@@ -72,8 +73,12 @@ async function refreshAccessToken() {
 }
 
 async function getAccessToken() {
-  const { accessToken } = await getTokensFromDB();
-  return accessToken;
+  const tokenDoc = await getTokensFromDB();
+  const isExpired = !tokenDoc.expiresAt || Date.now() >= tokenDoc.expiresAt;
+  if (isExpired) {
+    return await refreshAccessToken();
+  }
+  return tokenDoc.accessToken;
 }
 
 // This function is now redundant as exchangeCodeForTokens handles saving.

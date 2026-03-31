@@ -6,18 +6,24 @@ const ZohoDmsUser = require('../models/zohoDmsUser');
 const { addNotificationAndEmit } = require("./helper/service/notifications");
 const DmsZohoClient = require("../models/dmsZohoClient");
 const DmsZohoDocument = require('../models/dmsZohoDocument');
-const ZohoDmsNotification = require('../models/zohoDmsNotification');
 const { zohoRequest } = require('./zohoDms/zohoApi');
 const { uploadToR2 } = require('../services/r2Client');
+const ZohoDmsNotification = require('../models/zohoDmsNotification');
+const { STAFF_ROLES } = require("../constants/roles");
 
 exports.getAllUsers = async (req, res) => {
   try {
     const page  = Math.max(parseInt(req.query.page,  10) || 1, 1);
     const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
     const skip  = (page - 1) * limit;
-    const { search, role } = req.query;
+    const { search, role, invited } = req.query;
 
     const matchStage = {};
+    if (invited === 'true') {
+      matchStage.account_status = 'invited';
+    } else {
+      matchStage.account_status = { $ne: 'invited' };
+    }
     if (role)   matchStage.role = role.trim();
     if (search) {
       const esc = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -257,9 +263,13 @@ exports.deleteUser = async (req, res, next) => {
       });
     }
 
-    const deletedUser = await ZohoDmsUser.findOneAndDelete({ username });
+    const user = await ZohoDmsUser.findOneAndUpdate(
+      { username },
+      { account_status: 'deleted' },
+      { new: true }
+    );
 
-    if (!deletedUser) {
+    if (!user) {
       return res.status(404).json({
         status: 'fail',
         message: 'User not found.',
@@ -314,15 +324,31 @@ exports.resetPassword = async (req, res, next) => {
   }
 };
 
+const VALID_ACCOUNT_STATUSES = ['active', 'invited', 'inactive', 'suspended', 'deleted'];
+
 exports.updateUserRole = async (req, res, next) => {
   try {
-    const { username, newRole } = req.body;
+    const { username, newRole, account_status } = req.body;
     const { role } = req.user;
 
     if (role !== 'master_admin') {
       return res.status(403).json({
         status: 'fail',
         message: 'You do not have permission to perform this action.',
+      });
+    }
+
+    if (!newRole && !account_status) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'At least one of newRole or account_status is required.',
+      });
+    }
+
+    if (account_status && !VALID_ACCOUNT_STATUSES.includes(account_status)) {
+      return res.status(400).json({
+        status: 'fail',
+        message: `Invalid account_status. Valid values: ${VALID_ACCOUNT_STATUSES.join(', ')}`,
       });
     }
 
@@ -334,12 +360,13 @@ exports.updateUserRole = async (req, res, next) => {
       });
     }
 
-    user.role = newRole;
+    if (newRole) user.role = newRole;
+    if (account_status) user.account_status = account_status;
     await user.save();
 
     res.status(200).json({
       status: 'success',
-      message: 'User role updated successfully.',
+      message: 'User updated successfully.',
     });
   } catch (error) {
     res.status(500).json({
@@ -504,8 +531,6 @@ exports.protect = async (req, res, next) => {
   }
 };
 
-const DMS_ADMIN_ROLES = ['master_admin', 'supervisor', 'team_leader', 'admin'];
-
 exports.logout = async (req, res) => {
   try {
     await ZohoDmsUser.findByIdAndUpdate(req.user._id, { online_status: false });
@@ -535,13 +560,10 @@ exports.uploadProfileImage = async (req, res) => {
 };
 
 exports.restrictToAdmin = (req, res, next) => {
-  if (!req.user || !DMS_ADMIN_ROLES.includes(req.user.role)) {
-    return res.status(403).json({
-      status: 'fail',
-      message: 'Access denied. Admin role required.',
-    });
-  }
-  next();
+  if (!req.user || !STAFF_ROLES.includes(req.user.role)) {
+  return res.status(403).json({ status: 'fail', message: 'Access denied. Admin role required.' });
+}
+next();
 };
 
 exports.getAllNotifications = async (req, res, next) => {
@@ -562,8 +584,7 @@ exports.getAllNotifications = async (req, res, next) => {
     limit = Math.min(limit, 100);
     const skip = (page - 1) * limit;
 
-    const ZohoDmsNotification = require('../models/zohoDmsNotification');
-    const ZohoDmsUser = require('../models/zohoDmsUser');
+  
     const selectFields = 'title message type category source isRead createdAt link leadId documentId documentName applicationType sender_type sender_id';
 
     const [notifications, totalRecords] = await Promise.all([

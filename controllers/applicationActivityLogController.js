@@ -14,14 +14,7 @@ const VALID_ACTIVITY_TYPES = new Set([
   'email_sent', 'email_received',
 ]);
 
-/**
- * GET /api/zoho_dms/visa_applications/:id/activity
- *
- * Query params:
- *   page   (default 1)
- *   limit  (default 20, max 50)
- *   type   (optional) — single value or comma-separated list, e.g. "document_uploaded,document_reuploaded"
- */
+
 exports.getActivityLog = async (req, res) => {
   try {
     const lead_id = req.params.id;

@@ -1,7 +1,11 @@
 require("dotenv").config();
 const axios = require('axios');
 const dmsZohoLeadFolder = require('../models/dmsZohoLeadFolder');
-const { getAccessToken } = require('../controllers/zohoDms/zohoAuth');
+const { getAccessToken, refreshAccessToken } = require('../controllers/zohoDms/zohoAuth');
+
+function isInvalidToken(error) {
+  return error.response?.data?.errors?.[0]?.id === 'F7003';
+}
 
 const WORKDRIVE_ROOT_FOLDER_ID = process.env.WORKDRIVE_ROOT_FOLDER_ID;
 
@@ -20,25 +24,34 @@ async function getdmsZohoLeadFolderId(record_id) {
     throw new Error('Unable to get Zoho access token.');
   }
 
-  try {
-    const response = await axios.post(
-      `https://www.zohoapis.in/workdrive/api/v1/files`,
-      {
-        data: {
-          attributes: {
-            name: record_id,
-            parent_id: WORKDRIVE_ROOT_FOLDER_ID,
-          },
-          type: "files",
+  const makeRequest = async (token) => axios.post(
+    `https://www.zohoapis.in/workdrive/api/v1/files`,
+    {
+      data: {
+        attributes: {
+          name: record_id,
+          parent_id: WORKDRIVE_ROOT_FOLDER_ID,
         },
+        type: "files",
       },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Zoho-oauthtoken ${accessToken}`,
-        },
-      }
-    );
+    },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Zoho-oauthtoken ${token}`,
+      },
+    }
+  );
+
+  try {
+    let response;
+    try {
+      response = await makeRequest(accessToken);
+    } catch (error) {
+      if (!isInvalidToken(error)) throw error;
+      const freshToken = await refreshAccessToken();
+      response = await makeRequest(freshToken);
+    }
 
     const newFolderId = response.data.data.id;
 
@@ -64,20 +77,31 @@ async function uploadFileToWorkDrive(folderId, fileName, fileBuffer, mimeType) {
 
   try {
     const FormData = require('form-data');
-    const formData = new FormData();
-    formData.append('content', fileBuffer, { filename: uniqueFileName, contentType: mimeType });
-    formData.append('parent_id', folderId);
 
-    const response = await axios.post(
-      'https://www.zohoapis.in/workdrive/api/v1/upload',
-      formData,
-      {
-        headers: {
-          ...formData.getHeaders(),
-          Authorization: `Zoho-oauthtoken ${accessToken}`,
-        },
-      }
-    );
+    const makeUploadRequest = async (token) => {
+      const formData = new FormData();
+      formData.append('content', fileBuffer, { filename: uniqueFileName, contentType: mimeType });
+      formData.append('parent_id', folderId);
+      return axios.post(
+        'https://www.zohoapis.in/workdrive/api/v1/upload',
+        formData,
+        {
+          headers: {
+            ...formData.getHeaders(),
+            Authorization: `Zoho-oauthtoken ${token}`,
+          },
+        }
+      );
+    };
+
+    let response;
+    try {
+      response = await makeUploadRequest(accessToken);
+    } catch (error) {
+      if (!isInvalidToken(error)) throw error;
+      const freshToken = await refreshAccessToken();
+      response = await makeUploadRequest(freshToken);
+    }
 
     return response.data.data[0].attributes.resource_id;
   } catch (error) {
@@ -293,6 +317,22 @@ async function downloadAllFilesInZip(resourceId) {
 }
 
 
+async function downloadFileFromWorkDrive(fileId) {
+  const accessToken = await getAccessToken();
+  if (!accessToken) throw new Error('Unable to get Zoho access token.');
+
+  // Correct Zoho WorkDrive download endpoint (India DC)
+  return axios.get(
+    `https://workdrive.zoho.in/api/v1/download/${fileId}`,
+    {
+      headers: { Authorization: `Zoho-oauthtoken ${accessToken}` },
+      responseType: 'stream',
+      maxRedirects: 10,
+      timeout: 60000,
+    }
+  );
+}
+
 module.exports = {
   getdmsZohoLeadFolderId,
   uploadFileToWorkDrive,
@@ -302,5 +342,6 @@ module.exports = {
   getFileLinks,
   createFileLinks,
   downloadAllFilesInZip,
-  moveFileToSpecificFolder
+  moveFileToSpecificFolder,
+  downloadFileFromWorkDrive,
 };

@@ -1,6 +1,6 @@
 const express = require("express");
 const { zohoRequest } = require("../../controllers/zohoDms/zohoApi.js");
-const { protect } = require("../../controllers/zohoDmsAuthController.js");
+const { protect } = require("../../middleware/clerk/clerkAuth");
 
 const router = express.Router();
 

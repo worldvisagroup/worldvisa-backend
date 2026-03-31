@@ -1,6 +1,6 @@
 'use strict';
 
-const LOGO_URL = process.env.COMPANY_LOGO_URL || '';
+const LOGO_URL = 'https://res.cloudinary.com/djvvz62dw/image/upload/v1765014046/worldvisa/logo_uavsjh.svg';
 const COMPANY_NAME = 'WorldVisa Group';
 
 function base(contentHtml, { previewText = '' } = {}) {

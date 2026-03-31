@@ -140,22 +140,19 @@ const emailSchema = new mongoose.Schema(
   }
 );
 
-emailSchema.index({ client_id: 1, created_at: -1 });
-emailSchema.index({ direction: 1, received_at: -1 });
-emailSchema.index({ client_id: 1, direction: 1, received_at: -1 });
-emailSchema.index({ thread_id: 1 });
 emailSchema.index({ provider_email_id: 1 }, { sparse: true });
 emailSchema.index({ provider: 1, provider_email_id: 1 }, { unique: true });
+emailSchema.index({ thread_id: 1 });
 
-// ── Performance indexes for listEmails at 10k+ scale ──────────────────────
-// Supports the always-applied { html: { $ne: null } } filter.
-// Sparse: documents with html:null do not consume index space.
-emailSchema.index({ html: 1 }, { sparse: true });
-// Supports ?unread=true filter and the unread-count aggregation pipeline.
-emailSchema.index({ is_read: 1 });
-// Supports email_type equality filter combined with received_at sort.
-emailSchema.index({ email_type: 1, received_at: -1 });
-// Covers the common "inbound unread sorted by time" query in one index scan.
-emailSchema.index({ direction: 1, is_read: 1, received_at: -1 });
+// ── Performance indexes for listEmails ────────────────────────────────────
+// Aggregation sorts on created_at (always-set, real field — indexable).
+// received_at is only set on inbound Gmail imports; sort on it alone cannot
+// cover outbound/system emails, so created_at is the unified sort key.
+emailSchema.index({ created_at: -1 });                              // global inbox
+emailSchema.index({ client_id: 1, created_at: -1 });               // per-client inbox (covers ?client_id= / ?client_email=)
+emailSchema.index({ direction: 1, created_at: -1 });               // ?direction= filter
+emailSchema.index({ email_type: 1, created_at: -1 });              // ?email_type= filter
+emailSchema.index({ client_id: 1, direction: 1, created_at: -1 }); // client + direction combo
+emailSchema.index({ is_read: 1, created_at: -1 });                 // ?unread=true + unread-count aggregation
 
 module.exports = mongoose.model('Email', emailSchema);

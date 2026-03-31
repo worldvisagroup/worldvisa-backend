@@ -501,6 +501,81 @@ exports.updateStatus = async (req, res) => {
   }
 };
 
+const enrichCommentsWithProfileImages = async (comments = []) => {
+  const safeComments = Array.isArray(comments) ? comments : [];
+  const addedByNames = [...new Set(
+    safeComments
+      .map((commentItem) => (typeof commentItem?.added_by === 'string' ? commentItem.added_by.trim() : ''))
+      .filter(Boolean)
+  )];
+
+  if (!addedByNames.length) {
+    return safeComments.map((commentItem) => ({ ...commentItem, profile_image_url: null }));
+  }
+
+  try {
+    const fullNameRegex = addedByNames.map((name) => ({
+      full_name: { $regex: `^${escapeRegexForMongo(name)}$`, $options: 'i' },
+    }));
+    const clientNameRegex = addedByNames.map((name) => ({
+      name: { $regex: `^${escapeRegexForMongo(name)}$`, $options: 'i' },
+    }));
+
+    const [staffUsers, clientUsers] = await Promise.all([
+      ZohoDmsUser.find({
+        $or: [
+          { username: { $in: addedByNames.map((name) => name.toLowerCase()) } },
+          ...fullNameRegex,
+        ],
+      })
+        .select('username full_name profile_image_url')
+        .lean(),
+      DmsZohoClient.find({
+        $or: [
+          ...clientNameRegex,
+          ...fullNameRegex,
+        ],
+      })
+        .select('name full_name profile_image_url')
+        .lean(),
+    ]);
+
+    const profileImageByName = {};
+    const storeProfile = (name, profileImageUrl) => {
+      if (!name || typeof name !== 'string') return;
+      const normalizedName = name.trim().toLowerCase();
+      if (!normalizedName) return;
+
+      // Keep first non-null profile image for each key.
+      if (!(normalizedName in profileImageByName) || (profileImageByName[normalizedName] == null && profileImageUrl != null)) {
+        profileImageByName[normalizedName] = profileImageUrl ?? null;
+      }
+    };
+
+    for (const staffUser of staffUsers) {
+      storeProfile(staffUser?.username, staffUser?.profile_image_url);
+      storeProfile(staffUser?.full_name, staffUser?.profile_image_url);
+    }
+    for (const clientUser of clientUsers) {
+      storeProfile(clientUser?.name, clientUser?.profile_image_url);
+      storeProfile(clientUser?.full_name, clientUser?.profile_image_url);
+    }
+
+    return safeComments.map((commentItem) => {
+      const normalizedAddedBy = typeof commentItem?.added_by === 'string'
+        ? commentItem.added_by.trim().toLowerCase()
+        : '';
+      return {
+        ...commentItem,
+        profile_image_url: profileImageByName[normalizedAddedBy] ?? null,
+      };
+    });
+  } catch (error) {
+    console.error('Error enriching comment profile images:', error);
+    return safeComments.map((commentItem) => ({ ...commentItem, profile_image_url: null }));
+  }
+};
+
 exports.getComments = async (req, res) => {
   try {
     const { docId } = req.params;
@@ -510,7 +585,8 @@ exports.getComments = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Document not found.' });
     }
 
-    res.status(200).json({ success: true, data: document.comments ?? [] });
+    const commentsWithProfileImage = await enrichCommentsWithProfileImages(document.comments ?? []);
+    res.status(200).json({ success: true, data: commentsWithProfileImage });
   } catch (error) {
     console.error('Error retrieving comments from document:', error);
     res.status(500).json({ success: false, message: 'Failed to retrieve comments.' });
@@ -520,11 +596,16 @@ exports.getComments = async (req, res) => {
 exports.addComment = async (req, res) => {
   try {
     const { docId } = req.params;
-    const { comment, added_by } = req.body;
+    const { comment, added_by, document_link } = req.body;
+    const commentPayload = { comment, added_by: added_by || 'Unknown' };
+
+    if (typeof document_link === 'string' && document_link.trim()) {
+      commentPayload.document_link = document_link.trim();
+    }
 
     const document = await dmsZohoDocument.findOneAndUpdate(
       { _id: docId },
-      { $push: { comments: { comment, added_by: added_by || 'Unknown' } } },
+      { $push: { comments: commentPayload } },
       { new: true }
     );
     if (!document) {
@@ -2646,11 +2727,13 @@ exports.addRequestedReviews = async (req, res) => {
             emailNotificationType: 'review_requested',
             emailSubject: `Review requested: ${document.document_name}`,
             emailTemplateData: {
-              clientName: user.name,
-              requestedBy: requested_by,
-              requestedAt: new Date().toISOString(),
-              documentName: document.document_name,
+              clientName:      user.name,
+              companyName:     getCompanyLabel(document.document_category) ?? null,
+              requestedBy:     requested_by,
+              requestedAt:     new Date().toISOString(),
+              documentName:    document.document_name,
               applicationType: moduleName,
+              comment:         messages || null,
             },
           }),
         });

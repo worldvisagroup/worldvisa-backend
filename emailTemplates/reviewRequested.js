@@ -14,17 +14,21 @@ function render(notifications, { recipientName } = {}) {
   notifications.forEach((n, i) => {
     const bg = i % 2 === 0 ? '#ffffff' : '#f7f7f7';
     const td = n.templateData || {};
-    const clientName = td.clientName || td.client_name || '—';
+    const clientName    = td.clientName    || td.client_name    || '—';
+    const companyName   = td.companyName   || '—';
     const applicationType = td.applicationType || td.application_type || '—';
-    const documentName = n.entityName || td.documentName || '—';
-    const requestedBy = td.requestedBy || '—';
-    const requestedAt = td.requestedAt ? formatTime(td.requestedAt) : '—';
+    const documentName  = n.entityName     || td.documentName   || '—';
+    const comment       = td.comment       || '—';
+    const requestedBy   = td.requestedBy   || '—';
+    const requestedAt   = td.requestedAt ? formatDateTime(td.requestedAt) : '—';
 
     tableRows += `
       <tr style="background-color:${bg};">
         <td style="padding:10px 12px;font-size:13px;color:#111111;border-bottom:1px solid #e0e0e0;">${escHtml(clientName)}</td>
+        <td style="padding:10px 12px;font-size:13px;color:#555555;border-bottom:1px solid #e0e0e0;">${escHtml(companyName)}</td>
         <td style="padding:10px 12px;font-size:13px;color:#555555;border-bottom:1px solid #e0e0e0;">${escHtml(applicationType)}</td>
         <td style="padding:10px 12px;font-size:13px;color:#111111;border-bottom:1px solid #e0e0e0;">${escHtml(documentName)}</td>
+        <td style="padding:10px 12px;font-size:13px;color:#555555;border-bottom:1px solid #e0e0e0;max-width:200px;">${escHtml(comment)}</td>
         <td style="padding:10px 12px;font-size:13px;color:#555555;border-bottom:1px solid #e0e0e0;">${escHtml(requestedBy)}</td>
         <td style="padding:10px 12px;font-size:13px;color:#555555;border-bottom:1px solid #e0e0e0;white-space:nowrap;">${requestedAt}</td>
       </tr>`;
@@ -53,10 +57,12 @@ function render(notifications, { recipientName } = {}) {
       <thead>
         <tr style="background-color:#f0f0f0;">
           <th style="padding:10px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;">Client Name</th>
+          <th style="padding:10px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;">Company</th>
           <th style="padding:10px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;">Application Type</th>
           <th style="padding:10px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;">Document Name</th>
+          <th style="padding:10px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;">Comment</th>
           <th style="padding:10px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;">Requested By</th>
-          <th style="padding:10px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;white-space:nowrap;">Requested At</th>
+          <th style="padding:10px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;white-space:nowrap;">Requested At (IST)</th>
         </tr>
       </thead>
       <tbody>
@@ -82,9 +88,12 @@ function render(notifications, { recipientName } = {}) {
   };
 }
 
-function formatTime(isoString) {
+function formatDateTime(isoString) {
   try {
-    return new Date(isoString).toLocaleTimeString('en-IN', {
+    return new Date(isoString).toLocaleString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
       hour12: true,
