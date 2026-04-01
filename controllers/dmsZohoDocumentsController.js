@@ -576,6 +576,13 @@ const enrichEntriesWithProfileImages = async (entries = [], senderField = 'added
   }
 };
 
+const toPlainObject = (value) => {
+  if (!value) return value;
+  if (typeof value.toObject === 'function') return value.toObject();
+  if (value._doc && typeof value._doc === 'object') return value._doc;
+  return value;
+};
+
 exports.getComments = async (req, res) => {
   try {
     const { docId } = req.params;
@@ -2931,7 +2938,8 @@ exports.allRequestedReviewMessages = async (req, res) => {
       });
     }
 
-    const requestedReviewMessages = await enrichEntriesWithProfileImages(review.messages ?? [], 'username');
+    const plainMessages = (review.messages ?? []).map(toPlainObject);
+    const requestedReviewMessages = await enrichEntriesWithProfileImages(plainMessages, 'username');
 
     res.status(200).json({
       status: 'success',
@@ -3056,7 +3064,8 @@ exports.addRequestedReviewMessage = async (req, res) => {
       document_category: document.document_category,
     });
 
-    const requestedReviewMessages = await enrichEntriesWithProfileImages(review.messages ?? [], 'username');
+    const plainMessages = (review.messages ?? []).map(toPlainObject);
+    const requestedReviewMessages = await enrichEntriesWithProfileImages(plainMessages, 'username');
 
     res.status(200).json({
       status: 'success',
