@@ -501,30 +501,30 @@ exports.updateStatus = async (req, res) => {
   }
 };
 
-const enrichCommentsWithProfileImages = async (comments = []) => {
-  const safeComments = Array.isArray(comments) ? comments : [];
-  const addedByNames = [...new Set(
-    safeComments
-      .map((commentItem) => (typeof commentItem?.added_by === 'string' ? commentItem.added_by.trim() : ''))
+const enrichEntriesWithProfileImages = async (entries = [], senderField = 'added_by') => {
+  const safeEntries = Array.isArray(entries) ? entries : [];
+  const senderNames = [...new Set(
+    safeEntries
+      .map((entry) => (typeof entry?.[senderField] === 'string' ? entry[senderField].trim() : ''))
       .filter(Boolean)
   )];
 
-  if (!addedByNames.length) {
-    return safeComments.map((commentItem) => ({ ...commentItem, profile_image_url: null }));
+  if (!senderNames.length) {
+    return safeEntries.map((entry) => ({ ...entry, profile_image_url: null }));
   }
 
   try {
-    const fullNameRegex = addedByNames.map((name) => ({
+    const fullNameRegex = senderNames.map((name) => ({
       full_name: { $regex: `^${escapeRegexForMongo(name)}$`, $options: 'i' },
     }));
-    const clientNameRegex = addedByNames.map((name) => ({
+    const clientNameRegex = senderNames.map((name) => ({
       name: { $regex: `^${escapeRegexForMongo(name)}$`, $options: 'i' },
     }));
 
     const [staffUsers, clientUsers] = await Promise.all([
       ZohoDmsUser.find({
         $or: [
-          { username: { $in: addedByNames.map((name) => name.toLowerCase()) } },
+          { username: { $in: senderNames.map((name) => name.toLowerCase()) } },
           ...fullNameRegex,
         ],
       })
@@ -561,18 +561,18 @@ const enrichCommentsWithProfileImages = async (comments = []) => {
       storeProfile(clientUser?.full_name, clientUser?.profile_image_url);
     }
 
-    return safeComments.map((commentItem) => {
-      const normalizedAddedBy = typeof commentItem?.added_by === 'string'
-        ? commentItem.added_by.trim().toLowerCase()
+    return safeEntries.map((entry) => {
+      const normalizedSender = typeof entry?.[senderField] === 'string'
+        ? entry[senderField].trim().toLowerCase()
         : '';
       return {
-        ...commentItem,
-        profile_image_url: profileImageByName[normalizedAddedBy] ?? null,
+        ...entry,
+        profile_image_url: profileImageByName[normalizedSender] ?? null,
       };
     });
   } catch (error) {
-    console.error('Error enriching comment profile images:', error);
-    return safeComments.map((commentItem) => ({ ...commentItem, profile_image_url: null }));
+    console.error('Error enriching profile images:', error);
+    return safeEntries.map((entry) => ({ ...entry, profile_image_url: null }));
   }
 };
 
@@ -585,7 +585,7 @@ exports.getComments = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Document not found.' });
     }
 
-    const commentsWithProfileImage = await enrichCommentsWithProfileImages(document.comments ?? []);
+    const commentsWithProfileImage = await enrichEntriesWithProfileImages(document.comments ?? [], 'added_by');
     res.status(200).json({ success: true, data: commentsWithProfileImage });
   } catch (error) {
     console.error('Error retrieving comments from document:', error);
@@ -2931,9 +2931,11 @@ exports.allRequestedReviewMessages = async (req, res) => {
       });
     }
 
+    const requestedReviewMessages = await enrichEntriesWithProfileImages(review.messages ?? [], 'username');
+
     res.status(200).json({
       status: 'success',
-      data: review.messages,
+      data: requestedReviewMessages,
     });
   } catch (error) {
     console.error('Error fetching requested review messages:', error);
@@ -3054,9 +3056,11 @@ exports.addRequestedReviewMessage = async (req, res) => {
       document_category: document.document_category,
     });
 
+    const requestedReviewMessages = await enrichEntriesWithProfileImages(review.messages ?? [], 'username');
+
     res.status(200).json({
       status: 'success',
-      data: review.messages,
+      data: requestedReviewMessages,
     });
   } catch (error) {
     console.error('Error creating requested review message:', error);

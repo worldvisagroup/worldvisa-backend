@@ -51,11 +51,12 @@ async function syncUserOnUpdated(payload) {
     const update = {
         profile_image_url: payload.image_url ?? null,
         email_verified: isEmailVerified(payload),
+        email: payload.email_addresses.find(addr => addr.id === payload.primary_email_address_id)?.email_address ?? null,
         full_name: [payload.first_name, payload.last_name].filter(Boolean).join(' ') || null,
     };
     const [staffResult, clientResult] = await Promise.all([
-        ZohoDmsUser.findOneAndUpdate({ email }, update),
-        DmsZohoClient.findOneAndUpdate({ email }, update),
+        ZohoDmsUser.findOneAndUpdate({ clerk_id: payload.id }, update),
+        DmsZohoClient.findOneAndUpdate({ clerk_id: payload.id }, update),
     ]);
     return {
         email,
