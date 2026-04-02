@@ -8,15 +8,13 @@ import type {
   RecordType,
 } from '../types/visaApplication.types';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const puppeteer = require('puppeteer-core') as typeof import('puppeteer-core');
-const { getPuppeteerConfig } = require('../utils/puppeteer-config') as {
-  getPuppeteerConfig: () => Record<string, unknown>;
-};
 const logger = require('../utils/logger') as {
   error: (msg: string, ctx?: unknown) => void;
   info:  (msg: string, ctx?: unknown) => void;
 };
+
+const GOTENBERG_URL = process.env.GOTENBERG_API_URL || 'http://localhost:3000';
+const PDF_TIMEOUT = parseInt(process.env.PDF_TIMEOUT_MS || '60000', 10);
 
 // ─── Logo Fetcher ─────────────────────────────────────────────────────────────
 
@@ -620,45 +618,44 @@ tbody td {
 </html>`;
 }
 
-// ─── Puppeteer PDF Generation ─────────────────────────────────────────────────
+// ─── Gotenberg PDF Generation ─────────────────────────────────────────────────
 
 export async function generateActivityLogPdf(html: string): Promise<Buffer> {
-  let browser: import('puppeteer-core').Browser | null = null;
+  const footerHtml = `<!DOCTYPE html>
+<html><body style="margin:0;padding:0 48px;font-family:-apple-system,'Helvetica Neue',Helvetica,Arial,sans-serif;font-size:7.5px;color:#9CA3AF;display:flex;justify-content:space-between;align-items:center;width:100%;box-sizing:border-box;">
+  <span>WorldVisa &middot; Application Activity Log &middot; Confidential</span>
+  <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
+</body></html>`;
+
+  const formData = new FormData();
+  formData.append('files', new Blob([html], { type: 'text/html' }), 'index.html');
+  formData.append('files', new Blob([footerHtml], { type: 'text/html' }), 'footer.html');
+  formData.append('paperWidth', '8.27');
+  formData.append('paperHeight', '11.69');
+  formData.append('marginTop', '0');
+  formData.append('marginBottom', '1.8cm');
+  formData.append('marginLeft', '0');
+  formData.append('marginRight', '0');
+  formData.append('printBackground', 'true');
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), PDF_TIMEOUT);
+
   try {
-    const config = getPuppeteerConfig(); // throws synchronously if Chrome not configured
-    browser = await puppeteer.launch(config as Parameters<typeof puppeteer.launch>[0]);
-    const page = await browser.newPage();
-
-    // No network requests needed — all assets are inline
-    await page.setContent(html, { waitUntil: 'domcontentloaded' });
-
-    const pdf = await page.pdf({
-      format:              'A4',
-      printBackground:     true,
-      margin:              { top: '0cm', bottom: '1.8cm', left: '0cm', right: '0cm' },
-      displayHeaderFooter: true,
-      headerTemplate:      '<div style="display:none"> </div>',
-      footerTemplate: `
-        <div style="
-          font-size:7.5px;
-          color:#9CA3AF;
-          width:100%;
-          display:flex;
-          justify-content:space-between;
-          padding:0 48px;
-          font-family:-apple-system,'Helvetica Neue',Helvetica,Arial,sans-serif;
-          align-items:center;
-          height:100%;
-        ">
-          <span>WorldVisa &middot; Application Activity Log &middot; Confidential</span>
-          <span>Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
-        </div>`,
+    const response = await fetch(`${GOTENBERG_URL}/forms/chromium/convert/html`, {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal,
     });
 
-    return Buffer.from(pdf); // pdf is Uint8Array in puppeteer-core v24+
-  } finally {
-    if (browser) {
-      try { await browser.close(); } catch { /* suppress close errors */ }
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`Gotenberg error ${response.status}: ${errText}`);
     }
+
+    const arrayBuffer = await response.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  } finally {
+    clearTimeout(timer);
   }
 }
