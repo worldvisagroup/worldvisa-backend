@@ -22,24 +22,22 @@ function chunkArray(arr, size) {
 
 exports.signup = async (req, res) => {
   try {
-    const { name, email, phone, lead_id, password, lead_owner, record_type } = req.body;
+    const { name, email, phone, lead_id, lead_owner, record_type } = req.body;
 
-    if (!name || !email || !phone || !lead_id || !password || !lead_owner || !record_type) {
+    if (!name || !email || !phone || !lead_id || !lead_owner || !record_type) {
       return res.status(400).json({
         status: 'fail',
-        message: 'Please provide name, email, phone, lead_id,lead_owner, record_type and password',
+        message: 'Please provide name, email, phone, lead_id, lead_owner and record_type',
       });
     }
 
     const newClient = await DmsZohoClient.create({
       name,
       email,
-      phone: phone.replace(/[\s+]/g, ''), // Removes spaces and plus symbols
+      phone: phone.replace(/[\s+]/g, ''),
       lead_id,
-      password, // Use custom password provided by the user
       lead_owner,
       record_type,
-      password_value: password
     });
 
     addActivityLog({
