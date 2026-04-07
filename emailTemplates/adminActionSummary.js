@@ -73,7 +73,7 @@ function render(notifications, { recipientName, leadId } = {}) {
   }
 
   const content = `
-    <p style="margin:0 0 4px 0;font-size:11px;font-weight:700;letter-spacing:1px;color:#555555;text-transform:uppercase;">Application Update</p>
+    <p style="margin:0 0 4px 0;font-size:11px;font-weight:700;letter-spacing:1px;color:#555555;text-transform:uppercase;">WorldVisa Group &middot; Application Update</p>
     <h1 style="margin:0 0 24px 0;font-size:22px;font-weight:700;color:#000000;line-height:1.3;">
       ${total} Document${total !== 1 ? 's' : ''} Reviewed
     </h1>
@@ -83,7 +83,7 @@ function render(notifications, { recipientName, leadId } = {}) {
     </p>
 
     <p style="margin:0 0 24px 0;font-size:15px;color:#111111;line-height:1.6;">
-      Your submitted documents have been reviewed. Please see the summary below.
+      Your submitted documents on your WorldVisa Group visa application have been reviewed. Please see the summary below.
       ${rejectedCount > 0 ? `<br><br><strong>Note:</strong> ${rejectedCount} document${rejectedCount !== 1 ? 's' : ''} ${rejectedCount !== 1 ? 'were' : 'was'} rejected — please re-upload the corrected version${rejectedCount !== 1 ? 's' : ''} to avoid delays.` : ''}
     </p>
 

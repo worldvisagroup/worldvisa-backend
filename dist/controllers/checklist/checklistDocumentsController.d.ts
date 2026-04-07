@@ -1,0 +1,12 @@
+import type { Request, Response } from 'express';
+export declare const getChecklistDocumentsSummary: (_req: Request, res: Response) => Promise<void>;
+export declare const listChecklistDocuments: (req: Request, res: Response) => Promise<void>;
+export declare const listChecklistCategories: (req: Request, res: Response) => Promise<void>;
+export declare const listChecklistDocumentsGrouped: (req: Request, res: Response) => Promise<void>;
+export declare const getChecklistDocumentById: (req: Request, res: Response) => Promise<void>;
+export declare const createChecklistDocument: (req: Request, res: Response) => Promise<void>;
+export declare const bulkCreateChecklistDocuments: (req: Request, res: Response) => Promise<void>;
+export declare const updateChecklistDocument: (req: Request, res: Response) => Promise<void>;
+export declare const bulkUpdateChecklistDocuments: (req: Request, res: Response) => Promise<void>;
+export declare const updateChecklistDocumentState: (req: Request, res: Response) => Promise<void>;
+export declare const deleteChecklistDocument: (req: Request, res: Response) => Promise<void>;

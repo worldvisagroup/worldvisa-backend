@@ -2032,6 +2032,7 @@ exports.addChecklist = async (req, res) => {
     }
 
     // Assuming 'checklist' is an array in the User model
+    const isNewChecklist = user.checklist.length === 0;
     user.checklist.push({ document_type, document_category, required, description });
     await user.save();
 
@@ -2047,28 +2048,49 @@ exports.addChecklist = async (req, res) => {
       // Update Recent Activity
       await updateRecentActivity(zohoRequest, moduleName, user.lead_id);
 
-      // Notify client immediately that their checklist has been updated
-      await addNotificationAndEmit({
-        req,
-        userId: user._id,
-        leadId: user.lead_id,
-        title: 'Document Checklist Updated',
-        message: 'Your document checklist has been updated. Please review the required documents.',
-        type: 'info',
-        category: 'document',
-        source: 'general',
-        applicationType: moduleName,
-        emailNotificationType: 'checklist_created',
-        emailSubject: 'Your Document Checklist is Ready',
-        emailTemplateData: {
-          checklistCount: user.checklist.length,
-        },
-        fcmPayload: {
+      if (isNewChecklist) {
+        // First item ever — notify client that their checklist is ready
+        await addNotificationAndEmit({
+          req,
+          userId: user._id,
+          leadId: user.lead_id,
+          title: 'Document Checklist Ready',
+          message: 'Your document checklist has been prepared. Please log in to view and submit the required documents.',
+          type: 'info',
+          category: 'document',
+          source: 'general',
+          applicationType: moduleName,
+          emailNotificationType: 'checklist_created',
+          emailSubject: 'Your Document Checklist is Ready',
+          emailTemplateData: {},
+          fcmPayload: {
+            title: 'Document Checklist Ready',
+            body: 'Your document checklist has been prepared. Please log in to view and submit the required documents.',
+            data: { tag: 'checklist-created' },
+          },
+        });
+      } else {
+        // Adding to an existing checklist — notify client of the update
+        await addNotificationAndEmit({
+          req,
+          userId: user._id,
+          leadId: user.lead_id,
           title: 'Document Checklist Updated',
-          body: 'Your document checklist is ready. Please review the required documents.',
-          data: { tag: 'checklist-updated' },
-        },
-      });
+          message: 'Your document checklist has been updated. Please review the latest requirements.',
+          type: 'info',
+          category: 'document',
+          source: 'general',
+          applicationType: moduleName,
+          emailNotificationType: 'checklist_updated',
+          emailSubject: 'Your Document Checklist Has Been Updated',
+          emailTemplateData: {},
+          fcmPayload: {
+            title: 'Document Checklist Updated',
+            body: 'Your document checklist has been updated. Please review the latest requirements.',
+            data: { tag: 'checklist-updated' },
+          },
+        });
+      }
     }
 
     addActivityLog({
@@ -2131,6 +2153,37 @@ exports.editChecklist = async (req, res) => {
     if (description !== undefined) checklistItem.description = description;
 
     await user.save();
+
+    if (user?.record_type && user?.lead_id) {
+      let moduleName = MODULE_VISA_APPLICATION;
+      if (user.record_type === REQ_MODULE_VISA_APPLICATION) {
+        moduleName = MODULE_VISA_APPLICATION;
+      } else if (user.record_type === REQ_MODULE_SPOUSE_SKILL_ASSESSMENT) {
+        moduleName = MODULE_SPOUSE_SKILL_ASSESSMENT;
+      } else {
+        moduleName = MODULE_VISA_APPLICATION;
+      }
+
+      await addNotificationAndEmit({
+        req,
+        userId: user._id,
+        leadId: user.lead_id,
+        title: 'Document Checklist Updated',
+        message: 'Your document checklist has been updated. Please review the latest requirements.',
+        type: 'info',
+        category: 'document',
+        source: 'general',
+        applicationType: moduleName,
+        emailNotificationType: 'checklist_updated',
+        emailSubject: 'Your Document Checklist Has Been Updated',
+        emailTemplateData: {},
+        fcmPayload: {
+          title: 'Document Checklist Updated',
+          body: 'Your document checklist has been updated. Please review the latest requirements.',
+          data: { tag: 'checklist-updated' },
+        },
+      });
+    }
 
     addActivityLog({
       lead_id:       record_id,

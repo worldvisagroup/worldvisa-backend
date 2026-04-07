@@ -4,7 +4,7 @@ const EmailNotification = require('../../models/emailNotification');
 const logger = require('../../utils/logger');
 
 
-const IMMEDIATE_TYPES = new Set(['document_rejected', 'checklist_created', 'checklist_requested']);
+const IMMEDIATE_TYPES = new Set(['document_rejected', 'checklist_created', 'checklist_updated', 'checklist_requested']);
 
 const DEDUPE_WINDOW_MS = 15 * 60 * 1000;
 
@@ -53,7 +53,7 @@ async function createEmailNotification(params) {
   // Deduplicate immediate types that can be triggered multiple times for the same lead.
   // Uses an atomic findOneAndUpdate+upsert to prevent race conditions when multiple
   // events fire simultaneously (e.g. bulk checklist assignment).
-  const dedupeTypes = ['checklist_created', 'checklist_requested'];
+  const dedupeTypes = ['checklist_created', 'checklist_updated', 'checklist_requested'];
   if (dedupeTypes.includes(notificationType)) {
     const { Types } = require('mongoose');
     const cutoff = new Date(Date.now() - DEDUPE_WINDOW_MS);

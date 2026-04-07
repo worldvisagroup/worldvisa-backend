@@ -24,7 +24,8 @@
     "routes/**/*.ts",
     "middleware/**/*",
     "types/**/*",
-    "constants/**/*"
+    "constants/**/*",
+    "models/**/*"
   ],
   "exclude": [
     "node_modules",

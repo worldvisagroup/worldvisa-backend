@@ -379,7 +379,7 @@ exports.sendMessage = async (req, res) => {
     if (clientParticipants.length) {
       DmsZohoClient.updateMany(
         { _id: { $in: clientParticipants.map(p => p.id) } },
-        { last_communication_activity: msg.createdAt }
+        { last_communication_activity: msg.createdAt, last_communication_provider: 'chat' }
       ).catch(() => {});
     }
 

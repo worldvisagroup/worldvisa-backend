@@ -14,6 +14,7 @@ const checklistRequestedTpl = require('../../emailTemplates/checklistRequested')
 const adminActionSummaryTpl = require('../../emailTemplates/adminActionSummary');
 const clientActivitySummaryTpl = require('../../emailTemplates/clientActivitySummary');
 const reviewRequestedTpl = require('../../emailTemplates/reviewRequested');
+const checklistUpdatedTpl = require('../../emailTemplates/checklistUpdated');
 
 // Types that render via adminActionSummary (admin action → client)
 const ADMIN_ACTION_TYPES = new Set([
@@ -100,6 +101,13 @@ function renderTemplate(notification) {
     return checklistRequestedTpl.render({
       recipientName,
       clientName: templateData?.clientName,
+      leadId: entityParentId !== 'system' ? entityParentId : null,
+    });
+  }
+
+  if (notificationType === 'checklist_updated') {
+    return checklistUpdatedTpl.render({
+      recipientName,
       leadId: entityParentId !== 'system' ? entityParentId : null,
     });
   }
@@ -199,7 +207,7 @@ async function sendSingle(notificationId) {
     if (record.recipientRole === 'client') {
       DmsZohoClient.findOneAndUpdate(
         { email: record.recipientEmail },
-        { last_communication_activity: sentAt }
+        { last_communication_activity: sentAt, last_communication_provider: 'email' }
       ).catch(() => {});
     }
 
@@ -307,7 +315,7 @@ async function sendBatch(notificationIds) {
     if (records[0]?.recipientRole === 'client') {
       DmsZohoClient.findOneAndUpdate(
         { email: recipientEmail },
-        { last_communication_activity: sentAt }
+        { last_communication_activity: sentAt, last_communication_provider: 'email' }
       ).catch(() => {});
     }
 

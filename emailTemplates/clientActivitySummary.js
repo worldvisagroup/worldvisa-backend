@@ -65,7 +65,7 @@ function render(notifications, { leadOwnerName, clientName, leadId } = {}) {
     : `${total} Updates from ${resolvedClientName} — WorldVisa`;
 
   const content = `
-    <p style="margin:0 0 4px 0;font-size:11px;font-weight:700;letter-spacing:1px;color:#555555;text-transform:uppercase;">Client Activity</p>
+    <p style="margin:0 0 4px 0;font-size:11px;font-weight:700;letter-spacing:1px;color:#555555;text-transform:uppercase;">WorldVisa Group &middot; Client Activity</p>
     <h1 style="margin:0 0 24px 0;font-size:22px;font-weight:700;color:#000000;line-height:1.3;">
       ${total} Update${total !== 1 ? 's' : ''} from ${escHtml(resolvedClientName)}
     </h1>
@@ -75,7 +75,7 @@ function render(notifications, { leadOwnerName, clientName, leadId } = {}) {
     </p>
 
     <p style="margin:0 0 24px 0;font-size:15px;color:#111111;line-height:1.6;">
-      Your client <strong>${escHtml(resolvedClientName)}</strong> has recent activity on their visa application. Please review the updates at your earliest convenience.
+      Your client <strong>${escHtml(resolvedClientName)}</strong> has recent activity on their WorldVisa Group visa application. Please review the updates at your earliest convenience.
     </p>
 
     <!-- Activity table -->

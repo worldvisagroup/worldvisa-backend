@@ -91,6 +91,11 @@ const dmsZohoClientSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
+  last_communication_provider: {
+    type: String,
+    enum: ['chat', 'email'],
+    default: null,
+  },
   fcmTokens: [
     {
       token:      { type: String, required: true },

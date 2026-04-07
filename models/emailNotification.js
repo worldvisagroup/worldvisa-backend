@@ -23,6 +23,7 @@ const emailNotificationSchema = new mongoose.Schema(
       enum: [
         'document_rejected',    // immediate → client
         'checklist_created',    // immediate → client
+        'checklist_updated',    // immediate → client
         'document_approved',    // batched 60min → client
         'document_reviewed',    // batched 60min → client
         'comment_to_client',    // batched 60min → client
