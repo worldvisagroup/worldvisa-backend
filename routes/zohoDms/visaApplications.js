@@ -164,7 +164,7 @@ router.put('/documents/:docId/requested_reviews/:reviewId/messages', protect, dm
 router.delete('/documents/:docId/requested_reviews/:reviewId/messages', protect, dmsZohoDocumentsController.deleteRequestedReviewMessage);
 
 // Timeline
-router.get('/documents/:docId/timeline', protect, dmsZohoDocumentsController.getAllTimeline);
+router.get('/documents/:docId/timeline', dmsZohoDocumentsController.getAllTimeline);
 
 router.post('/documents/:docId/timeline', protect, dmsZohoDocumentsController.addTimelineEntry);
 
