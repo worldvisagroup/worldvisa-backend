@@ -10,6 +10,7 @@ const { zohoRequest } = require('./zohoDms/zohoApi');
 const { uploadToR2 } = require('../services/r2Client');
 const ZohoDmsNotification = require('../models/zohoDmsNotification');
 const { STAFF_ROLES } = require("../constants/roles");
+const { escapeRegexForMongo, sanitizeSearchTerm } = require('../utils/querySanitizer');
 
 exports.getAllUsers = async (req, res) => {
   try {
@@ -26,8 +27,19 @@ exports.getAllUsers = async (req, res) => {
     }
     if (role)   matchStage.role = role.trim();
     if (search) {
-      const esc = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      matchStage.username = new RegExp(esc, 'i');
+      const safeSearch = sanitizeSearchTerm(String(search), 100);
+      if (!safeSearch) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'search must be a non-empty string up to 100 characters.',
+        });
+      }
+      const regex = new RegExp(escapeRegexForMongo(safeSearch), 'i');
+      matchStage.$or = [
+        { username: regex },
+        { full_name: regex },
+        { email: regex },
+      ];
     }
 
     // Single pipeline: filter + paginate + count

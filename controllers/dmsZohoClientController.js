@@ -6,6 +6,7 @@ const { deleteFileFromWorkDrive, renameWorkDriveFile } = require('../utils/dmsZo
 const { zohoRequest } = require('./zohoDms/zohoApi');
 const bcrypt = require('bcryptjs');
 const { inviteClientAfterSignup } = require('../services/clerk/clerkInvitationService');
+const { escapeRegexForMongo, sanitizeSearchTerm } = require('../utils/querySanitizer');
 
 const signToken = (id, lead_id, email) => {
   return jwt.sign({ id, lead_id, email, role: 'client' }, process.env.JWT_SECRET, {
@@ -255,13 +256,21 @@ exports.getAllClients = async (req, res) => {
     }
 
     if (search) {
-      const escaped = search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex   = new RegExp(escaped, 'i');
+      const safeSearch = sanitizeSearchTerm(String(search), 100);
+      if (!safeSearch) {
+        return res.status(400).json({
+          status: 'fail',
+          message: 'search must be a non-empty string up to 100 characters.',
+        });
+      }
+      const regex = new RegExp(escapeRegexForMongo(safeSearch), 'i');
       matchStage.$or = [
-        { name:    regex },
-        { email:   regex },
-        { phone:   regex },
-        { lead_id: regex },
+        { name:      regex },
+        { full_name: regex },
+        { email:     regex },
+        { phone:     regex },
+        { lead_id:   regex },
+        { lead_owner: regex },
       ];
     }
 

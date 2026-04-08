@@ -3478,11 +3478,33 @@ exports.getAllTimeline = async (req, res) => {
 
     // Assuming the timeline is stored in a field called 'timeline' in the document
     // If not, adjust the field name accordingly
-    const timeline = document.timeline || [];
+    const timeline = Array.isArray(document.timeline) ? document.timeline : [];
+
+    const normalizeTimelineSender = (raw) => {
+      if (typeof raw !== 'string') return '';
+      const trimmed = raw.trim();
+      if (!trimmed) return '';
+
+      // Many call sites pass strings like "role: username" or "Client: Name".
+      // Prefer the portion after the final ':' to match username/name in DB.
+      const lastColon = trimmed.lastIndexOf(':');
+      if (lastColon === -1) return trimmed;
+
+      const afterColon = trimmed.slice(lastColon + 1).trim();
+      return afterColon || trimmed;
+    };
+
+    // Enrich each entry with profile_image_url without changing existing fields.
+    const timelineForEnrich = timeline.map((entry) => ({
+      ...entry,
+      __timeline_sender: normalizeTimelineSender(entry?.triggered_by),
+    }));
+    const enrichedTimeline = await enrichEntriesWithProfileImages(timelineForEnrich, '__timeline_sender');
+    const timelineWithProfileImage = enrichedTimeline.map(({ __timeline_sender, ...rest }) => rest);
 
     return res.status(200).json({
       status: 'success',
-      timeline,
+      timeline: timelineWithProfileImage,
     });
   } catch (error) {
     console.error('Error fetching timeline:', error);
