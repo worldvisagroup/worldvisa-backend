@@ -107,8 +107,6 @@ exports.getDocumentByReviewUsername = async (req, res) => {
   }
 };
 
-// list documents by
-
 
 exports.getDocumentDetails = async (req, res) => {
   try {
