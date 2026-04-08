@@ -175,7 +175,7 @@ router.delete('/documents/:docId', dmsZohoDocumentsController.deleteDocument);
 // Move Document
 router.patch('/documents/:docId/move', protect, dmsZohoDocumentsController.moveFile);
 // Document's Moved files
-router.get('/documents/:docId/move/all', dmsZohoDocumentsController.getAllMovedDocuments);
+router.get('/documents/:docId/move/all', protect, dmsZohoDocumentsController.getAllMovedDocuments);
 
 // Delete Folder by Record ID
 router.delete('/:record_id/folders', dmsZohoDocumentsController.deleteFolderByRecordId);

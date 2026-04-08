@@ -140,13 +140,33 @@ async function deleteFileFromWorkDrive(fileId) {
   }
 }
 
-async function moveFileToSpecificFolder(fileId) {
+const DEFAULT_MOVE_DESTINATION_FOLDER_ID = '54vyn8d45d2484286424aa88c78a5ac78cd7a';
+
+
+function getWorkDriveMoveDestinationFolderId(explicitFolderId) {
+  if (explicitFolderId && String(explicitFolderId).trim()) {
+    return String(explicitFolderId).trim();
+  }
+  const fromEnv = process.env.ZOHO_WORKDRIVE_MOVE_DESTINATION_FOLDER_ID;
+  if (fromEnv && String(fromEnv).trim()) {
+    return String(fromEnv).trim();
+  }
+  return DEFAULT_MOVE_DESTINATION_FOLDER_ID;
+}
+
+
+async function moveFileToSpecificFolder(fileId, destinationFolderId) {
   const accessToken = await getAccessToken();
   if (!accessToken) {
     throw new Error('Unable to get Zoho access token.');
   }
 
-  const destinationFolderId = "54vyn8d45d2484286424aa88c78a5ac78cd7a";
+  const parentId = getWorkDriveMoveDestinationFolderId(destinationFolderId);
+  if (!parentId) {
+    const err = new Error('WorkDrive move destination folder is not configured.');
+    err.statusCode = 500;
+    throw err;
+  }
 
   try {
     const response = await axios.patch(
@@ -154,7 +174,7 @@ async function moveFileToSpecificFolder(fileId) {
       {
         data: {
           attributes: {
-            parent_id: destinationFolderId
+            parent_id: parentId
           },
           type: "files"
         }
@@ -168,8 +188,17 @@ async function moveFileToSpecificFolder(fileId) {
     );
     return response.data;
   } catch (error) {
-    console.error('Error moving file in Zoho WorkDrive:', error.response ? error.response.data : error.message);
-    throw new Error('Failed to move file in Zoho WorkDrive.');
+    const status = error.response?.status;
+    const zohoData = error.response?.data;
+    console.error('Error moving file in Zoho WorkDrive:', {
+      fileId,
+      httpStatus: status,
+      zohoData: zohoData ?? error.message,
+    });
+    const err = new Error('Failed to move file in Zoho WorkDrive.');
+    err.statusCode = status === 404 ? 400 : 502;
+    err.zohoDetails = zohoData;
+    throw err;
   }
 }
 
@@ -343,5 +372,6 @@ module.exports = {
   createFileLinks,
   downloadAllFilesInZip,
   moveFileToSpecificFolder,
+  getWorkDriveMoveDestinationFolderId,
   downloadFileFromWorkDrive,
 };

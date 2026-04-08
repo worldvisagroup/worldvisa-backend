@@ -3,6 +3,8 @@ const dmsZohoLeadFolder = require('../models/dmsZohoLeadFolder');
 const DmsZohoClient = require('../models/dmsZohoClient');
 const dmsZohoAusStage2Documents = require("../models/dmsZohoAusStage2Documents");
 const dmsZohoSampleDocument = require("../models/dmsZohoSampleDocument");
+const mongoose = require('mongoose');
+const { STAFF_ROLES } = require('../constants/roles');
 const { getdmsZohoLeadFolderId, uploadFileToWorkDrive, deleteFileFromWorkDrive, getFileLinks, createFileLinks, downloadAllFilesInZip, moveFileToSpecificFolder } = require('../utils/dmsZohoWorkDrive');
 const multer = require('multer');
 const { zohoRequest } = require('./zohoDms/zohoApi');
@@ -26,8 +28,9 @@ const { processWithRetry } = require('../workers/zipExportWorker');
 const ZipExportJob = require('../models/zipExportJob');
 const QualityCheckRequest = require('../models/qualityCheckRequest');
 
-// Configure Multer for file uploads
-const upload = multer({ storage: multer.memoryStorage() });
+
+const WORKDRIVE_RESOURCE_ID_RE = /^[a-zA-Z0-9]{20,64}$/;
+
 
 exports.listDocuments = async (req, res) => {
   try {
@@ -275,7 +278,8 @@ exports.updateDocument = async (req, res) => {
       record_id: document.record_id,
       file_name: document.file_name,
       file_id: document.workdrive_file_id,
-      moved_by: user && user?.name ? user.name : user.username || 'Unknown'
+      moved_by: user && user?.name ? user.name : user.username || 'Unknown',
+      move_kind: 'reupload_archive',
     });
     const workdriveFolderId = document.workdrive_parent_id;
 
@@ -776,40 +780,137 @@ exports.deleteDocument = async (req, res) => {
   }
 };
 
-/**
- * Move a file in Zoho WorkDrive to a specific folder and update the document in MongoDB.
- * Expects: req.params.docId (document id), req.body.destinationFolderId (WorkDrive folder id)
- */
+
+function formatMovedDocumentPayload(doc) {
+  if (!doc) return null;
+  const o = doc.toObject ? doc.toObject() : doc;
+  return {
+    id: o._id,
+    document_id: o.document_id,
+    record_id: o.record_id,
+    file_name: o.file_name,
+    file_id: o.file_id,
+    moved_at: o.moved_at,
+    moved_by: o.moved_by,
+    move_kind: o.move_kind,
+  };
+}
+
+
 exports.moveFile = async (req, res) => {
   try {
     const user = req.user;
     const { docId } = req.params;
-    // Find the document in MongoDB
+
+    if (!mongoose.isValidObjectId(docId)) {
+      return res.status(400).json({ success: false, message: 'Invalid document id.' });
+    }
+
+    const docObjectId = new mongoose.Types.ObjectId(docId);
+    const movedBy = user && user.name ? user.name : user.username || 'Unknown';
+
+    let destinationOverride;
+    const bodyDest = req.body?.destinationFolderId;
+    if (bodyDest != null && String(bodyDest).trim()) {
+      if (!STAFF_ROLES.includes(user?.role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'destinationFolderId is only allowed for staff.',
+        });
+      }
+      const trimmed = String(bodyDest).trim();
+      if (!WORKDRIVE_RESOURCE_ID_RE.test(trimmed)) {
+        return res.status(400).json({ success: false, message: 'Invalid destinationFolderId.' });
+      }
+      destinationOverride = trimmed;
+    }
+
     const document = await dmsZohoDocument.findById(docId);
 
     if (!document) {
+      let existingFullMove = await DmsMovedDocuments.findOne({
+        document_id: docObjectId,
+        move_kind: 'full_move',
+      }).lean();
+      if (!existingFullMove) {
+        const legacyRows = await DmsMovedDocuments.find({ document_id: docObjectId }).lean();
+        if (legacyRows.length === 1 && legacyRows[0].move_kind == null) {
+          existingFullMove = legacyRows[0];
+        }
+      }
+      if (existingFullMove) {
+        return res.status(200).json({
+          success: true,
+          alreadyMoved: true,
+          message: 'Document was already moved.',
+          data: formatMovedDocumentPayload(existingFullMove),
+        });
+      }
       return res.status(404).json({ success: false, message: 'Document not found.' });
     }
 
-    // Move the file in Zoho WorkDrive
-    await moveFileToSpecificFolder(document.workdrive_file_id);
+    await moveFileToSpecificFolder(document.workdrive_file_id, destinationOverride);
 
-    // Add the document to dmsMovedDocuments collection
-    await DmsMovedDocuments.create({
+    const movedPayload = {
       document_id: document._id,
       record_id: document.record_id,
       file_name: document.file_name,
       file_id: document.workdrive_file_id,
-      moved_by: user && user?.name ? user.name : user.username || 'Unknown'
-    });
+      moved_by: movedBy,
+      move_kind: 'full_move',
+    };
 
-    // Delete from MongoDB
+    let movedRecord;
+    try {
+      movedRecord = await DmsMovedDocuments.create(movedPayload);
+    } catch (createErr) {
+      if (createErr.code === 11000 || createErr.code === '11000') {
+        movedRecord = await DmsMovedDocuments.findOne({
+          document_id: docObjectId,
+          move_kind: 'full_move',
+        }).lean();
+        if (!movedRecord) {
+          console.error('[moveFile] duplicate key but no full_move MovedDocument row', { docId });
+          throw createErr;
+        }
+        console.warn('[moveFile] concurrent move; using existing MovedDocument', { docId });
+      } else {
+        console.error('[moveFile] Mongo insert failed after Zoho move', {
+          docId,
+          workdrive_file_id: document.workdrive_file_id,
+          message: createErr.message,
+        });
+        try {
+          const Sentry = require('@sentry/node');
+          Sentry.captureException?.(createErr, {
+            extra: { docId, workdrive_file_id: document.workdrive_file_id, phase: 'mongo_insert_after_zoho' },
+          });
+        } catch (_) {
+          /* optional */
+        }
+        throw createErr;
+      }
+    }
+
     await dmsZohoDocument.findByIdAndDelete(docId);
 
-    res.status(204).json({ success: true, message: 'Document moved and deleted successfully.' });
+    const data = formatMovedDocumentPayload(
+      movedRecord.toObject ? movedRecord.toObject() : movedRecord
+    );
+
+    return res.status(200).json({
+      success: true,
+      alreadyMoved: false,
+      message: 'Document moved successfully.',
+      data,
+    });
   } catch (error) {
-    console.error('Error moving file:', error);
-    res.status(500).json({ success: false, message: error.message || 'Failed to move file.' });
+    const status = error.statusCode && Number.isInteger(error.statusCode) ? error.statusCode : 500;
+    console.error('Error moving file:', error.message || error);
+    return res.status(status).json({
+      success: false,
+      message: error.message || 'Failed to move file.',
+    });
   }
 };
 
@@ -3540,8 +3641,7 @@ exports.addTimelineEntry = async (req, res) => {
 };
 
 /**
- * Get a document that has been moved (i.e., has a non-empty moved_files array) by document_id.
- * Returns the document's document_id and moved_files info.
+ * Moved-document audit rows for a given document_id (full_move and reupload_archive).
  */
 exports.getAllMovedDocuments = async (req, res) => {
   try {
@@ -3554,12 +3654,22 @@ exports.getAllMovedDocuments = async (req, res) => {
       });
     }
 
-    // Get moved files from the MovedDocument collection for the given document_id
-    const movedFiles = await DmsMovedDocuments.find({ document_id: docId });
+    if (!mongoose.isValidObjectId(docId)) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Invalid document id.',
+      });
+    }
+
+    const movedFiles = await DmsMovedDocuments.find({
+      document_id: new mongoose.Types.ObjectId(docId),
+    })
+      .sort({ moved_at: -1 })
+      .lean();
 
     res.status(200).json({
       status: 'success',
-      moved_files: movedFiles || []
+      moved_files: movedFiles || [],
     });
   } catch (error) {
     console.error('Error fetching moved_files:', error);
