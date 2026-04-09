@@ -19,12 +19,24 @@ import {
 const { restrictToAdmin } = require('../../../controllers/zohoDmsAuthController');
 const multer = require('multer');
 
+const ALLOWED_SAMPLE_MIME_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/msword',                                                       // .doc
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+];
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
   fileFilter: (_req: any, file: any, cb: any) => {
-    const allowed = ['application/pdf', 'image/jpeg', 'image/png'];
-    cb(null, allowed.includes(file.mimetype));
+    if (ALLOWED_SAMPLE_MIME_TYPES.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Unsupported file type: ${file.mimetype}. Allowed types: pdf, jpg, png, webp, doc, docx`));
+    }
   },
 });
 
@@ -210,5 +222,14 @@ router.delete(
   validate,
   deleteChecklistDocument
 );
+
+// Multer and other upload errors
+router.use((err: any, _req: Request, res: Response, _next: NextFunction): void => {
+  if (err?.name === 'MulterError' || err?.message?.startsWith('Unsupported file type')) {
+    res.status(400).json({ status: 'fail', message: err.message });
+    return;
+  }
+  res.status(500).json({ status: 'error', message: err.message || 'Internal server error' });
+});
 
 export = router;

@@ -6,12 +6,24 @@ const checklistDocument_1 = require("../../../constants/checklistDocument");
 const checklistDocumentsController_1 = require("../../../controllers/checklist/checklistDocumentsController");
 const { restrictToAdmin } = require('../../../controllers/zohoDmsAuthController');
 const multer = require('multer');
+const ALLOWED_SAMPLE_MIME_TYPES = [
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'application/msword', // .doc
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+];
 const upload = multer({
     storage: multer.memoryStorage(),
     limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
     fileFilter: (_req, file, cb) => {
-        const allowed = ['application/pdf', 'image/jpeg', 'image/png'];
-        cb(null, allowed.includes(file.mimetype));
+        if (ALLOWED_SAMPLE_MIME_TYPES.includes(file.mimetype)) {
+            cb(null, true);
+        }
+        else {
+            cb(new Error(`Unsupported file type: ${file.mimetype}. Allowed types: pdf, jpg, png, webp, doc, docx`));
+        }
     },
 });
 const router = (0, express_1.Router)();
@@ -84,4 +96,12 @@ router.get('/:id', (0, express_validator_1.param)('id').isString().trim().isLeng
 router.patch('/:id', upload.single('sampleDocument'), (0, express_validator_1.param)('id').isString().trim().isLength({ min: 1 }), (0, express_validator_1.body)('category').optional().isString().trim().isLength({ min: 1, max: 200 }), (0, express_validator_1.body)('documentType').optional().isString().trim().isLength({ min: 1, max: 200 }), (0, express_validator_1.body)('allowedDocument').optional().isInt({ min: 0 }).toInt(), (0, express_validator_1.body)('sampleDocumentUrl').optional({ nullable: true }).isURL(), (0, express_validator_1.body)('importantNote').optional({ nullable: true }).isString().trim().isLength({ max: 2000 }), (0, express_validator_1.body)('format').optional().customSanitizer(normalizeToArray).isArray().custom(formatArrayValidator), (0, express_validator_1.body)('visaServiceType').optional().isIn(checklistDocument_1.VISA_SERVICE_TYPE_VALUES), (0, express_validator_1.body)('state').optional().isIn(checklistDocument_1.CHECKLIST_DOCUMENT_STATES), validate, checklistDocumentsController_1.updateChecklistDocument);
 router.patch('/:id/state', (0, express_validator_1.param)('id').isString().trim().isLength({ min: 1 }), (0, express_validator_1.body)('state').isIn(checklistDocument_1.CHECKLIST_DOCUMENT_STATES), validate, checklistDocumentsController_1.updateChecklistDocumentState);
 router.delete('/:id', (0, express_validator_1.param)('id').isString().trim().isLength({ min: 1 }), validate, checklistDocumentsController_1.deleteChecklistDocument);
+// Multer and other upload errors
+router.use((err, _req, res, _next) => {
+    if (err?.name === 'MulterError' || err?.message?.startsWith('Unsupported file type')) {
+        res.status(400).json({ status: 'fail', message: err.message });
+        return;
+    }
+    res.status(500).json({ status: 'error', message: err.message || 'Internal server error' });
+});
 module.exports = router;
