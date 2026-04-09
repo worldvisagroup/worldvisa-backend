@@ -14,6 +14,7 @@ const { zohoRequest } = require('./zohoDms/zohoApi.js') as {
 };
 const dmsZohoDocument    = require('../models/dmsZohoDocument')    as unknown as mongoose.Model<mongoose.Document>;
 const DmsZohoClient      = require('../models/dmsZohoClient')      as unknown as mongoose.Model<mongoose.Document>;
+const ZohoDmsUser        = require('../models/zohoDmsUser')        as unknown as mongoose.Model<mongoose.Document>;
 const QualityCheckRequest = require('../models/qualityCheckRequest') as unknown as mongoose.Model<mongoose.Document>;
 const { addActivityLog } = require('./helper/service/activityLog') as {
   addActivityLog: (p: unknown) => void;
@@ -96,6 +97,17 @@ function buildOnboardingStatus(clientRecord: Record<string, unknown> | null): On
     account_status:      (clientRecord?.account_status      as string  | null) ?? null,
     email_verified:      (clientRecord?.email_verified      as boolean | null) ?? null,
   };
+}
+
+async function getProfileImageUrlMap(
+  usernames: string[]
+): Promise<Record<string, { username: string; profile_image_url: string | null }>> {
+  const unique = [...new Set(usernames.filter(Boolean))];
+  if (!unique.length) return {};
+  const users = await ZohoDmsUser.find({ username: { $in: unique } })
+    .select('username profile_image_url')
+    .lean();
+  return Object.fromEntries((users as any[]).map((u) => [u.username, u]));
 }
 
 // ─── Visa Application Filter ──────────────────────────────────────────────────
@@ -381,12 +393,32 @@ export const getVisaApplication = async (req: Request, res: Response): Promise<v
     }
 
     const application    = zohoResponseData[0] as ZohoRecord;
-    const documentsCount = await dmsZohoDocument.countDocuments({ record_id: application.id });
+    const recordId = application.id as string;
+
+    const [documentsCount, clientDoc] = await Promise.all([
+      dmsZohoDocument.countDocuments({ record_id: recordId }),
+      DmsZohoClient.findOne({ lead_id: recordId }).select('deadline_extensions').lean() as Promise<Record<string, unknown> | null>,
+    ]);
+
+    const deadline_extensions = ((clientDoc as any)?.deadline_extensions as any[]) ?? [];
+    const approvedByUsernames = deadline_extensions.map((e) => e?.approvedBy).filter(Boolean);
+    const approvedByMap = await getProfileImageUrlMap(approvedByUsernames);
+
+    const enrichedDeadlineExtensions = deadline_extensions.map((e) => ({
+      ...e,
+      approvedByInfo: e?.approvedBy
+        ? {
+            username: e.approvedBy,
+            profile_image_url: approvedByMap[e.approvedBy]?.profile_image_url ?? null,
+          }
+        : null,
+    }));
 
     res.json({
       data: {
         ...application,
         AttachmentCount: documentsCount,
+        deadline_extensions: enrichedDeadlineExtensions,
       },
     });
   } catch (err) {

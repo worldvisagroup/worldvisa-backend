@@ -9,6 +9,7 @@ const mongoose_1 = __importDefault(require("mongoose"));
 const { zohoRequest } = require('./zohoDms/zohoApi.js');
 const dmsZohoDocument = require('../models/dmsZohoDocument');
 const DmsZohoClient = require('../models/dmsZohoClient');
+const ZohoDmsUser = require('../models/zohoDmsUser');
 const QualityCheckRequest = require('../models/qualityCheckRequest');
 const { addActivityLog } = require('./helper/service/activityLog');
 const logger = require('../utils/logger');
@@ -46,6 +47,15 @@ function buildOnboardingStatus(clientRecord) {
         account_status: clientRecord?.account_status ?? null,
         email_verified: clientRecord?.email_verified ?? null,
     };
+}
+async function getProfileImageUrlMap(usernames) {
+    const unique = [...new Set(usernames.filter(Boolean))];
+    if (!unique.length)
+        return {};
+    const users = await ZohoDmsUser.find({ username: { $in: unique } })
+        .select('username profile_image_url')
+        .lean();
+    return Object.fromEntries(users.map((u) => [u.username, u]));
 }
 // ─── Visa Application Filter ──────────────────────────────────────────────────
 async function getFilteredVisaApplications(username, role, page, limit, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country) {
@@ -267,11 +277,28 @@ const getVisaApplication = async (req, res) => {
             return;
         }
         const application = zohoResponseData[0];
-        const documentsCount = await dmsZohoDocument.countDocuments({ record_id: application.id });
+        const recordId = application.id;
+        const [documentsCount, clientDoc] = await Promise.all([
+            dmsZohoDocument.countDocuments({ record_id: recordId }),
+            DmsZohoClient.findOne({ lead_id: recordId }).select('deadline_extensions').lean(),
+        ]);
+        const deadline_extensions = clientDoc?.deadline_extensions ?? [];
+        const approvedByUsernames = deadline_extensions.map((e) => e?.approvedBy).filter(Boolean);
+        const approvedByMap = await getProfileImageUrlMap(approvedByUsernames);
+        const enrichedDeadlineExtensions = deadline_extensions.map((e) => ({
+            ...e,
+            approvedByInfo: e?.approvedBy
+                ? {
+                    username: e.approvedBy,
+                    profile_image_url: approvedByMap[e.approvedBy]?.profile_image_url ?? null,
+                }
+                : null,
+        }));
         res.json({
             data: {
                 ...application,
                 AttachmentCount: documentsCount,
+                deadline_extensions: enrichedDeadlineExtensions,
             },
         });
     }
