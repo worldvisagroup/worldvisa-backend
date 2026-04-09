@@ -8,6 +8,10 @@ function normalizeName(value) {
   return String(value).trim().toLowerCase();
 }
 
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function isStaff(actor) {
   return actor && actor.type === 'staff';
 }
@@ -19,7 +23,13 @@ function isClient(actor) {
 async function getLeadOwnerForClient(clientId) {
   const client = await DmsZohoClient.findById(clientId).select('lead_owner').lean();
   if (!client || !client.lead_owner) return null;
-  const user = await ZohoDmsUser.findOne({ username: client.lead_owner }).select('_id').lean();
+  const leadOwner = normalizeName(client.lead_owner);
+  if (!leadOwner) return null;
+  const user = await ZohoDmsUser.findOne({
+    username: new RegExp(`^${escapeRegExp(client.lead_owner)}$`, 'i'),
+  })
+    .select('_id')
+    .lean();
   return user ? { type: 'staff', id: user._id } : null;
 }
 

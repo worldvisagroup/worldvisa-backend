@@ -74,7 +74,10 @@ export type ActivityType =
   | 'note_updated'
   | 'note_deleted'
   | 'email_sent'
-  | 'email_received';
+  | 'email_received'
+  | 'field_change_requested'
+  | 'field_change_approved'
+  | 'field_change_rejected';
 
 export interface ActivityLogEntry {
   _id: unknown;

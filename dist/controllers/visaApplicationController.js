@@ -202,7 +202,7 @@ const getVisaApplicationById = async (req, res) => {
         const [documentsCount, client, spouseClient, qcRequest] = await Promise.all([
             dmsZohoDocument.countDocuments({ record_id }),
             DmsZohoClient.findOne({ lead_id: record_id })
-                .select('notes online_status last_communication_activity last_communication_provider clerk_id clerk_invitation_id account_status email_verified')
+                .select('notes online_status last_communication_activity last_communication_provider clerk_id clerk_invitation_id account_status email_verified deadline_extensions')
                 .lean(),
             spouseName
                 ? DmsZohoClient.findOne({
@@ -224,6 +224,7 @@ const getVisaApplicationById = async (req, res) => {
                     date: client?.last_communication_activity ?? null,
                     provider: client?.last_communication_provider ?? null,
                 },
+                deadline_extensions: client?.deadline_extensions ?? [],
                 spouse_lead_id: spouseClient?.lead_id ?? null,
                 qc_requested: qcRequest
                     ? {
@@ -352,7 +353,7 @@ const getSpouseVisaApplicationById = async (req, res) => {
         const [documentsCount, client, qcRequest] = await Promise.all([
             dmsZohoDocument.countDocuments({ record_id }),
             DmsZohoClient.findOne({ lead_id: record_id })
-                .select('notes online_status last_communication_activity last_communication_provider clerk_id clerk_invitation_id account_status email_verified')
+                .select('notes online_status last_communication_activity last_communication_provider clerk_id clerk_invitation_id account_status email_verified deadline_extensions')
                 .lean(),
             QualityCheckRequest.findOne({ leadId: record_id, status: 'pending' })
                 .select('_id status requested_at requested_by requested_to')
@@ -368,6 +369,7 @@ const getSpouseVisaApplicationById = async (req, res) => {
                     date: client?.last_communication_activity ?? null,
                     provider: client?.last_communication_provider ?? null,
                 },
+                deadline_extensions: client?.deadline_extensions ?? [],
                 qc_requested: qcRequest
                     ? {
                         qcId: qcRequest._id,

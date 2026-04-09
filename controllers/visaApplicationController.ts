@@ -314,7 +314,7 @@ export const getVisaApplicationById = async (req: Request, res: Response): Promi
     const [documentsCount, client, spouseClient, qcRequest] = await Promise.all([
       dmsZohoDocument.countDocuments({ record_id }),
       DmsZohoClient.findOne({ lead_id: record_id })
-        .select('notes online_status last_communication_activity last_communication_provider clerk_id clerk_invitation_id account_status email_verified')
+        .select('notes online_status last_communication_activity last_communication_provider clerk_id clerk_invitation_id account_status email_verified deadline_extensions')
         .lean() as Promise<Record<string, unknown> | null>,
       spouseName
         ? DmsZohoClient.findOne({
@@ -337,6 +337,7 @@ export const getVisaApplicationById = async (req: Request, res: Response): Promi
           date:     (client as Record<string, unknown> | null)?.last_communication_activity     ?? null,
           provider: (client as Record<string, unknown> | null)?.last_communication_provider ?? null,
         },
+        deadline_extensions:         (client as Record<string, unknown> | null)?.deadline_extensions ?? [],
         spouse_lead_id:              (spouseClient as Record<string, unknown> | null)?.lead_id ?? null,
         qc_requested: qcRequest
           ? {
@@ -482,7 +483,7 @@ export const getSpouseVisaApplicationById = async (req: Request, res: Response):
     const [documentsCount, client, qcRequest] = await Promise.all([
       dmsZohoDocument.countDocuments({ record_id }),
       DmsZohoClient.findOne({ lead_id: record_id })
-        .select('notes online_status last_communication_activity last_communication_provider clerk_id clerk_invitation_id account_status email_verified')
+        .select('notes online_status last_communication_activity last_communication_provider clerk_id clerk_invitation_id account_status email_verified deadline_extensions')
         .lean() as Promise<Record<string, unknown> | null>,
       QualityCheckRequest.findOne({ leadId: record_id, status: 'pending' })
         .select('_id status requested_at requested_by requested_to')
@@ -499,6 +500,7 @@ export const getSpouseVisaApplicationById = async (req: Request, res: Response):
           date:     (client as Record<string, unknown> | null)?.last_communication_activity     ?? null,
           provider: (client as Record<string, unknown> | null)?.last_communication_provider ?? null,
         },
+        deadline_extensions:         (client as Record<string, unknown> | null)?.deadline_extensions ?? [],
         qc_requested: qcRequest
           ? {
               qcId:         qcRequest._id,

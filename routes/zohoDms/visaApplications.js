@@ -16,6 +16,8 @@ const { getDeadlineStats } = require('../../controllers/applicationStatsControll
 const { getActivityLog } = require('../../controllers/applicationActivityLogController');
 const { getAdminDashboardStats } = require('../../controllers/adminDashboardController');
 const dmsZohoDocumentsController = require('../../controllers/dmsZohoDocumentsController');
+const adminApprovalRequestController = require('../../controllers/adminApprovalRequestController');
+const { requireRole } = require('../../middleware/clerk/clerkAuth');
 const multer = require('multer');
 
 const router = express.Router();
@@ -39,6 +41,13 @@ router.get('/quality_check/:qcId/messages', protect, dmsZohoDocumentsController.
 router.post('/quality_check/:qcId/messages', protect, dmsZohoDocumentsController.addQualityCheckMessage);
 router.put('/quality_check/:qcId/messages', protect, dmsZohoDocumentsController.updateQualityCheckMessage);
 router.delete('/quality_check/:qcId/messages', protect, dmsZohoDocumentsController.deleteQualityCheckMessage);
+
+// Admin Approval Requests
+router.post('/admin-approval-requests', protect, adminApprovalRequestController.createRequest);
+router.get('/admin-approval-requests', protect, requireRole('master_admin'), adminApprovalRequestController.getRequests);
+router.get('/admin-approval-requests/lead/:leadId', protect, adminApprovalRequestController.getRequestsByLead);
+router.patch('/admin-approval-requests/:requestId/approve', protect, requireRole('master_admin'), adminApprovalRequestController.approveRequest);
+router.patch('/admin-approval-requests/:requestId/reject', protect, requireRole('master_admin'), adminApprovalRequestController.rejectRequest);
 
 router.put('/update_fields', protect, dmsZohoDocumentsController.updateZohoFields);
 

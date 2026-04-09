@@ -83,6 +83,18 @@ const dmsZohoClientSchema = new mongoose.Schema({
       },
     },
   ],
+  deadline_extensions: [
+    {
+      fieldName:     { type: String, required: true },
+      previousValue: { type: String, default: null },
+      newValue:      { type: String, required: true },
+      reason:        { type: String, required: true },
+      requestedBy:   { type: String, required: true },
+      approvedBy:    { type: String, required: true },
+      requestId:     { type: mongoose.Schema.Types.ObjectId, ref: 'AdminApprovalRequest' },
+      approvedAt:    { type: Date, default: Date.now },
+    },
+  ],
   online_status: {
     type: Boolean,
     default: false,

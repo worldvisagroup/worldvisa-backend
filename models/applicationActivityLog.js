@@ -24,6 +24,9 @@ const ACTIVITY_TYPES = [
   'note_deleted',
   'email_sent',
   'email_received',
+  'field_change_requested',
+  'field_change_approved',
+  'field_change_rejected',
 ];
 
 const applicationActivityLogSchema = new mongoose.Schema(

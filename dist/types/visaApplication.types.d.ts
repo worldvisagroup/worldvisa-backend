@@ -38,7 +38,7 @@ export interface QcRequestInfo {
     requested_by: string;
     requested_to: string;
 }
-export type ActivityType = 'application_created' | 'document_uploaded' | 'document_reuploaded' | 'document_status_changed' | 'comment_added' | 'comment_edited' | 'comment_deleted' | 'review_requested' | 'review_status_updated' | 'review_cancelled' | 'review_message_added' | 'quality_check_requested' | 'quality_check_removed' | 'checklist_created' | 'checklist_updated' | 'checklist_deleted' | 'note_added' | 'note_updated' | 'note_deleted' | 'email_sent' | 'email_received';
+export type ActivityType = 'application_created' | 'document_uploaded' | 'document_reuploaded' | 'document_status_changed' | 'comment_added' | 'comment_edited' | 'comment_deleted' | 'review_requested' | 'review_status_updated' | 'review_cancelled' | 'review_message_added' | 'quality_check_requested' | 'quality_check_removed' | 'checklist_created' | 'checklist_updated' | 'checklist_deleted' | 'note_added' | 'note_updated' | 'note_deleted' | 'email_sent' | 'email_received' | 'field_change_requested' | 'field_change_approved' | 'field_change_rejected';
 export interface ActivityLogEntry {
     _id: unknown;
     lead_id: string;
