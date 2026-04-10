@@ -235,20 +235,9 @@ export async function handleHeartbeat(userId: string): Promise<PresenceStatus | 
   if (!redisAvailable()) return null;
 
   try {
-    await redis.pipeline()
-      .set(k('heartbeat', userId), '1', 'EX', HEARTBEAT_TTL)
-      .set(k('lastactive', userId), Date.now().toString())
-      .exec();
-
-    const current = await redis.get(k('status', userId));
-    if (current === STATUS.IDLE) {
-      await redis.set(k('status', userId), STATUS.ONLINE);
-      resetIdleTimer(userId, (uid) => transitionToIdle(uid).catch(() => {}));
-      scheduleDbWrite(userId, STATUS.ONLINE);
-      return STATUS.ONLINE;
-    }
-
-    resetIdleTimer(userId, (uid) => transitionToIdle(uid).catch(() => {}));
+    // Only refresh the Redis TTL key — do NOT reset the idle timer.
+    // Heartbeat keeps the connection alive; idle detection is driven by user activity only.
+    await redis.set(k('heartbeat', userId), '1', 'EX', HEARTBEAT_TTL);
     return null;
   } catch (err: any) {
     logger.warn('[Presence] handleHeartbeat Redis error', { userId, error: err.message });
