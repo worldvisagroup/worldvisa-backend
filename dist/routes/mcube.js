@@ -1,0 +1,10 @@
+"use strict";
+const express_1 = require("express");
+const mcubeWebhookController_1 = require("../controllers/mcube/mcubeWebhookController");
+const mcubeOutboundController_1 = require("../controllers/mcube/mcubeOutboundController");
+const validateMcubeWebhook_1 = require("../middleware/mcube/validateMcubeWebhook");
+const { protect } = require('../middleware/clerk/clerkAuth');
+const router = (0, express_1.Router)();
+router.post('/webhook/inbound', validateMcubeWebhook_1.validateMcubeWebhook, mcubeWebhookController_1.handleInboundWebhook);
+router.post('/calls/outbound', protect, mcubeOutboundController_1.handleOutboundCall);
+module.exports = router;
