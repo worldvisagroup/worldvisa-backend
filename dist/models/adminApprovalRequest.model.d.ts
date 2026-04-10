@@ -6,6 +6,7 @@ declare const adminApprovalRequestSchema: mongoose.Schema<any, mongoose.Model<an
     timestamps: true;
 }, {
     recordType: "visa_application" | "spouse_skill_assessment";
+    status: "rejected" | "pending" | "approved";
     requestType: "field_change";
     leadId: string;
     fieldName: string;
@@ -14,12 +15,12 @@ declare const adminApprovalRequestSchema: mongoose.Schema<any, mongoose.Model<an
     reason: string;
     requestedBy: string;
     requestedTo: string;
-    status: "pending" | "approved" | "rejected";
     reviewedBy: string;
     reviewedAt: NativeDate;
     rejectionReason: string;
 } & mongoose.DefaultTimestampProps, mongoose.Document<unknown, {}, mongoose.FlatRecord<{
     recordType: "visa_application" | "spouse_skill_assessment";
+    status: "rejected" | "pending" | "approved";
     requestType: "field_change";
     leadId: string;
     fieldName: string;
@@ -28,7 +29,6 @@ declare const adminApprovalRequestSchema: mongoose.Schema<any, mongoose.Model<an
     reason: string;
     requestedBy: string;
     requestedTo: string;
-    status: "pending" | "approved" | "rejected";
     reviewedBy: string;
     reviewedAt: NativeDate;
     rejectionReason: string;
@@ -36,6 +36,7 @@ declare const adminApprovalRequestSchema: mongoose.Schema<any, mongoose.Model<an
     timestamps: true;
 }>> & mongoose.FlatRecord<{
     recordType: "visa_application" | "spouse_skill_assessment";
+    status: "rejected" | "pending" | "approved";
     requestType: "field_change";
     leadId: string;
     fieldName: string;
@@ -44,7 +45,6 @@ declare const adminApprovalRequestSchema: mongoose.Schema<any, mongoose.Model<an
     reason: string;
     requestedBy: string;
     requestedTo: string;
-    status: "pending" | "approved" | "rejected";
     reviewedBy: string;
     reviewedAt: NativeDate;
     rejectionReason: string;
@@ -56,6 +56,7 @@ declare const adminApprovalRequestSchema: mongoose.Schema<any, mongoose.Model<an
 export type AdminApprovalRequestType = InferSchemaType<typeof adminApprovalRequestSchema>;
 declare const AdminApprovalRequest: mongoose.Model<{
     recordType: "visa_application" | "spouse_skill_assessment";
+    status: "rejected" | "pending" | "approved";
     requestType: "field_change";
     leadId: string;
     fieldName: string;
@@ -64,12 +65,12 @@ declare const AdminApprovalRequest: mongoose.Model<{
     reason: string;
     requestedBy: string;
     requestedTo: string;
-    status: "pending" | "approved" | "rejected";
     reviewedBy: string;
     reviewedAt: NativeDate;
     rejectionReason: string;
 } & mongoose.DefaultTimestampProps, {}, {}, {}, mongoose.Document<unknown, {}, {
     recordType: "visa_application" | "spouse_skill_assessment";
+    status: "rejected" | "pending" | "approved";
     requestType: "field_change";
     leadId: string;
     fieldName: string;
@@ -78,12 +79,12 @@ declare const AdminApprovalRequest: mongoose.Model<{
     reason: string;
     requestedBy: string;
     requestedTo: string;
-    status: "pending" | "approved" | "rejected";
     reviewedBy: string;
     reviewedAt: NativeDate;
     rejectionReason: string;
 } & mongoose.DefaultTimestampProps, {}, {}> & {
     recordType: "visa_application" | "spouse_skill_assessment";
+    status: "rejected" | "pending" | "approved";
     requestType: "field_change";
     leadId: string;
     fieldName: string;
@@ -92,7 +93,6 @@ declare const AdminApprovalRequest: mongoose.Model<{
     reason: string;
     requestedBy: string;
     requestedTo: string;
-    status: "pending" | "approved" | "rejected";
     reviewedBy: string;
     reviewedAt: NativeDate;
     rejectionReason: string;
