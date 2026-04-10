@@ -25,6 +25,8 @@ const eligibilityRouter = require("./routes/eligibilityRouter");
 const taskRouter = require("./routes/tasks");
 const jobsRouter = require("./routes/jobs");
 const mcubeWatiRouter = require("./routes/mcubeWati");
+const mcubeRouter = require("./routes/mcube");
+const { auditLogger } = require('./middleware/auditLogger');
 const reviewsRouter = require("./routes/reviews");
 const zohoDmsAuthRouter = require("./routes/zohoDms/auth");
 const zohoDmsVisaApplicationsRouter = require("./routes/zohoDms/visaApplications");
@@ -324,6 +326,7 @@ app.use('/webhook/clerk', express.text({ type: 'application/json' }), require('.
 
 app.use(express.json({ limit: '10mb' }));
 app.use(clerkMiddleware({ authorizedParties: AUTHORIZED_PARTIES }));
+app.use(auditLogger);
 app.use(compression());
 app.use(express.urlencoded({ extended: true }));
 
@@ -412,6 +415,8 @@ app.use("/currency", apiKeyMiddleware, currecyController);
 app.use("/razorpay", razorpayController);
 
 app.use("/wati", mcubeApiKeyMiddleware, mcubeWatiRouter);
+
+app.use('/api/mcube', mcubeRouter);
 
 app.use("/reviews", apiKeyMiddleware, reviewsRouter);
 
