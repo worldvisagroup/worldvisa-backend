@@ -15,6 +15,7 @@ const { downloadVisaActivityLogPdf, downloadSpouseActivityLogPdf } = require("..
 const { getDeadlineStats } = require('../../controllers/applicationStatsController');
 const { getActivityLog } = require('../../controllers/applicationActivityLogController');
 const { getAdminDashboardStats } = require('../../controllers/adminDashboardController');
+const { getAnalyticsDashboard } = require('../../controllers/zohoDms/analyticsDashboardController');
 const dmsZohoDocumentsController = require('../../controllers/dmsZohoDocumentsController');
 const adminApprovalRequestController = require('../../controllers/adminApprovalRequestController');
 const { requireRole } = require('../../middleware/clerk/clerkAuth');
@@ -67,6 +68,7 @@ router.get('/spouse/applications/:id', protect, getSpouseVisaApplicationById);
 
 // Admin dashboard stats (must be before /:id)
 router.get('/admin/dashboard', protect, getAdminDashboardStats);
+router.get('/admin/analytics', protect, getAnalyticsDashboard);
 
 // Admin-only: application notes (must be before /:id)
 router.get('/:id/notes', protect, restrictToAdmin, getApplicationNotes);
