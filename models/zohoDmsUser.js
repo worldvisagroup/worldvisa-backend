@@ -67,6 +67,10 @@ const zohoDmsUserSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  agent_number: {
+    type: String,
+    default: null,
+  },
 });
 
 zohoDmsUserSchema.pre('save', async function (next) {
@@ -84,6 +88,7 @@ zohoDmsUserSchema.methods.correctPassword = async function (
 
 zohoDmsUserSchema.index({ username: 1 }, { unique: true, sparse: true });
 zohoDmsUserSchema.index({ role: 1 });
+zohoDmsUserSchema.index({ agent_number: 1 }, { sparse: true });
 
 const ZohoDmsUser = mongoose.model('ZohoDmsUser', zohoDmsUserSchema);
 
