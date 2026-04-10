@@ -33,8 +33,10 @@ const zohoDmsAuthRouter = require("./routes/zohoDms/auth");
 const zohoDmsVisaApplicationsRouter = require("./routes/zohoDms/visaApplications");
 const zohoDmsUserAuthRouter = require('./routes/zohoDmsAuth');
 const clerkInvitationsRouter = require('./routes/clerk/clerkInvitations');
-const { clerkMiddleware } = require('@clerk/express');
+const { clerkMiddleware, verifyToken } = require('@clerk/express');
 const { AUTHORIZED_PARTIES } = require('./constants/clerk');
+const ZohoDmsUser = require('./models/zohoDmsUser');
+const DmsZohoClient = require('./models/dmsZohoClient');
 const zohoDmsClientAuthRouter = require("./routes/dmsZohoClients");
 const technicalAssessmentRouter = require("./routes/ai/technicalAssessment");
 const packagesRouter = require("./routes/packages");
@@ -293,19 +295,28 @@ const io = new Server(server, {
   }
 });
 
-io.use((socket, next) => {
+io.use(async (socket, next) => {
   try {
     const token = socket.handshake.auth?.token;
     if (!token) return next(new Error('Unauthorized'));
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const payload = await verifyToken(token, {
+      secretKey: process.env.CLERK_SECRET_KEY,
+      authorizedParties: AUTHORIZED_PARTIES,
+    });
 
-    socket.userId = decoded.id;
-    socket.chatActorType = decoded.role === 'client' ? 'client' : 'staff';
-    const chatRoom = `chat:${socket.chatActorType}:${decoded.id}`;
-    socket.chatRoom = chatRoom;
+    const clerkId = payload.sub;
+    const dbUser =
+      await ZohoDmsUser.findOne({ clerk_id: clerkId }).select('_id role').lean() ??
+      await DmsZohoClient.findOne({ clerk_id: clerkId }).select('_id role').lean();
+
+    if (!dbUser) return next(new Error('Unauthorized'));
+
+    socket.userId = dbUser._id.toString();
+    socket.chatActorType = dbUser.role === 'client' ? 'client' : 'staff';
+    socket.chatRoom = `chat:${socket.chatActorType}:${socket.userId}`;
     return next();
-  } catch (e) {
+  } catch {
     return next(new Error('Unauthorized'));
   }
 });
