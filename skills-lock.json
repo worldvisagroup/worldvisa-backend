@@ -44,12 +44,7 @@
     "nodejs-backend-patterns": {
       "source": "wshobson/agents",
       "sourceType": "github",
-      "computedHash": "c47fd9547c1b847b9fc11ebf7832f955bf81e62bff097b607d1497be8722e226"
+      "computedHash": "c6a99966c2565acc388e574039127abc770bb9a3338be761e421e16f023f702b"
     }
-  },
-  "permissions": {
-    "deny": [
-      "Read(./dist/**)"
-    ]
   }
 }
