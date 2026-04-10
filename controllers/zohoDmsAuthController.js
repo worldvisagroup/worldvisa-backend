@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const { promisify } = require('util');
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const ZohoDmsUser = require('../models/zohoDmsUser');
 const { addNotificationAndEmit } = require("./helper/service/notifications");
 const DmsZohoClient = require("../models/dmsZohoClient");
@@ -157,8 +158,25 @@ exports.getUserById = async (req, res) => {
     const appsPage    = Math.max(parseInt(req.query.apps_page,    10) || 1, 1);
     const notifsPage  = Math.max(parseInt(req.query.notifs_page,  10) || 1, 1);
 
-    const user = await ZohoDmsUser.findById(id).select('-password -passwordVal');
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ status: 'fail', message: 'Invalid user id' });
+    }
+
+    const user = await ZohoDmsUser.findById(id).select('-password -passwordVal').lean();
     if (!user) return res.status(404).json({ status: 'fail', message: 'User not found' });
+
+    const requester = req.user;
+    const isSelf =
+      requester &&
+      requester._id &&
+      String(requester._id) === String(user._id);
+    const isMasterAdmin = requester && requester.role === 'master_admin';
+    if (!isSelf && !isMasterAdmin) {
+      return res.status(403).json({
+        status: 'fail',
+        message: 'You do not have permission to view this user.',
+      });
+    }
 
     const { username } = user;
     const reviewSkip   = (reviewsPage - 1) * limit;
@@ -236,7 +254,7 @@ exports.getUserById = async (req, res) => {
     res.status(200).json({
       status: 'success',
       data: {
-        user: { _id: user._id, username: user.username, role: user.role, last_login: user.last_login, online_status: user.online_status, profile_image_url: user.profile_image_url },
+        user,
         reviews_sent: {
           data: sentData.data,
           totalRecords: sentData.totalCount[0]?.count ?? 0,

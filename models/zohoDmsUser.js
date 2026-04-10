@@ -71,6 +71,10 @@ const zohoDmsUserSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  mcube_username:{
+    type: String,
+    default: null,
+  }
 });
 
 zohoDmsUserSchema.pre('save', async function (next) {
