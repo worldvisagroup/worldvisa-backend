@@ -4,6 +4,7 @@ const ChatConversationMeta = require('../models/chatConversationMeta');
 const ZohoDmsUser = require('../models/zohoDmsUser');
 const DmsZohoClient = require('../models/dmsZohoClient');
 const chatAuthService = require('../services/chatAuthService');
+const presenceService = require('../services/presenceService');
 const { uploadToR2 } = require('../services/r2Client');
 const { addNotificationAndEmit } = require('./helper/service/notifications');
 const logger = require('../utils/logger');
@@ -18,26 +19,34 @@ const MAX_LIMIT = 50;
 
 async function resolveParticipantInfo(participant) {
   if (!participant || !participant.type || !participant.id) return null;
+
+  const presence = await presenceService.getPresence(participant.id.toString());
+
   if (participant.type === 'staff') {
     const u = await ZohoDmsUser.findById(participant.id)
-      .select('username profile_image_url online_status')
+      .select('username profile_image_url')
       .lean();
     return u
       ? {
           displayName: u.username,
           profile_image_url: u.profile_image_url ?? null,
-          online_status: u.online_status ?? false,
+          online_status: presence.status !== 'offline',   // backward compat boolean
+          presence_status: presence.status,               // 'online' | 'idle' | 'offline'
+          lastSeen: presence.lastSeen,
         }
       : null;
   }
+
   const c = await DmsZohoClient.findById(participant.id)
-    .select('name email online_status')
+    .select('name email')
     .lean();
   return c
     ? {
         displayName: c.name || c.email,
         profile_image_url: null,
-        online_status: c.online_status ?? false,
+        online_status: presence.status !== 'offline',
+        presence_status: presence.status,
+        lastSeen: presence.lastSeen,
       }
     : null;
 }
@@ -174,6 +183,8 @@ exports.getConversation = async (req, res) => {
           displayName: info ? info.displayName : null,
           profile_image_url: info ? info.profile_image_url : null,
           online_status: info ? info.online_status : false,
+          presence_status: info ? info.presence_status : 'offline',
+          lastSeen: info ? info.lastSeen : null,
         };
       })
     );

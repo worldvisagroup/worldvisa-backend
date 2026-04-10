@@ -12,6 +12,7 @@ const logger = require('./utils/logger');
 const server = http.createServer(app);
 const { Server } = require("socket.io");
 const jwt = require('jsonwebtoken');
+const { registerPresenceHandlers } = require('./socket/presenceHandler');
 
 var cors = require("cors");
 require("dotenv").config();
@@ -313,6 +314,7 @@ io.on('connection', (socket) => {
   if (socket.userId) {
     socket.join(`user:${socket.userId}`);
     if (socket.chatRoom) socket.join(socket.chatRoom);
+    registerPresenceHandlers(io, socket);
   }
 });
 
@@ -437,6 +439,8 @@ app.use('/api/notifications', notificationsRouter);
 
 const chatRouter = require('./routes/chat');
 app.use('/api/zoho_dms/chats', chatRouter);
+
+app.use('/api/zoho_dms/presence', require('./routes/presence').default);
 
 // Technical Assessment
 app.use('/api/ai/technical-assessment', technicalAssessmentRouter);
