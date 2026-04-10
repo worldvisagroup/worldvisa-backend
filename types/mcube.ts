@@ -1,5 +1,3 @@
-// ── MCube Telecom — shared type definitions ───────────────────────────────
-
 export type McubeDialStatus =
   | 'ANSWER'
   | 'CANCEL'
