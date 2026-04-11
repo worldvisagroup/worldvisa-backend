@@ -67,6 +67,12 @@ const callLogSchema = new mongoose.Schema(
       default: null,
     },
 
+    /** Denormalized client display name — avoids $lookup on search queries */
+    client_name: {
+      type: String,
+      default: null,
+    },
+
     /** MCube DID number that received the call */
     mcube_did: {
       type: String,
@@ -127,8 +133,15 @@ const callLogSchema = new mongoose.Schema(
 // ── Indexes ───────────────────────────────────────────────────────────────────
 callLogSchema.index({ customer_phone: 1, created_at: -1 });
 callLogSchema.index({ agent_phone: 1, created_at: -1 });
+callLogSchema.index({ agent_id: 1, created_at: -1 });
 callLogSchema.index({ status: 1, created_at: -1 });
 callLogSchema.index({ direction: 1, created_at: -1 });
 callLogSchema.index({ created_at: -1 });
+
+// Full-text search index across searchable fields
+callLogSchema.index(
+  { customer_phone: 'text', agent_phone: 'text', agent_name: 'text', client_name: 'text' },
+  { name: 'call_log_text_search' }
+);
 
 module.exports = mongoose.model('CallLog', callLogSchema);
