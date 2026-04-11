@@ -14,9 +14,9 @@ const {
   MODULE_VISA_APPLICATION, MODULE_SPOUSE_SKILL_ASSESSMENT,
   REQ_MODULE_VISA_APPLICATION, REQ_MODULE_SPOUSE_SKILL_ASSESSMENT,
   APPLICATION_STAGES, APPLICATION_STAGES_CANADA, SUPPORTED_COUNTRIES,
-  APPLICATION_STATE_ACTIVE, ADMIN_ROLES
+  APPLICATION_STATE_ACTIVE, ADMIN_ROLES,
+  SEARCH_TERM_MAX_LENGTH,
 } = require('./helper/constants');
-const SEARCH_TERM_MAX_LENGTH = 100;
 const DEFAULT_GLOBAL_SEARCH_LIMIT = 10;
 const { updateRecentActivity, addToTimeline, addMovedFiles } = require('./helper/service/functions');
 const { addActivityLog, getCompanyLabel } = require('./helper/service/activityLog');
@@ -1692,6 +1692,12 @@ exports.updateZohoFields = async (req, res) => {
 
 exports.searchZohoApplications = async (req, res) => {
   try {
+    const rawSearch = req.query.search;
+    if (rawSearch != null && String(rawSearch).trim() !== '') {
+      const { getApplicationsWithAttachments } = require('./visaApplicationController');
+      return getApplicationsWithAttachments(req, res);
+    }
+
     const username = req.user.username;
     const role = req.user.role;
 
@@ -1997,6 +2003,12 @@ exports.globalSearch = async (req, res) => {
 
 exports.searchSpouseZohoApplications = async (req, res) => {
   try {
+    const rawSearch = req.query.search;
+    if (rawSearch != null && String(rawSearch).trim() !== '') {
+      const { getSpouseApplicationsWithAttachments } = require('./visaApplicationController');
+      return getSpouseApplicationsWithAttachments(req, res);
+    }
+
     const username = req.user.username;
     const role = req.user.role;
 

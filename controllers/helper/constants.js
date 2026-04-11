@@ -66,6 +66,9 @@ const MAX_LIMIT = 100;
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 10;
 
+const SEARCH_TERM_MAX_LENGTH = 100;
+const VISA_LIST_SEARCH_COQL_MAX = 200;
+
 // Simplified field list for deadline statistics
 const DEADLINE_STATS_FIELDS = [
   'id',
@@ -103,6 +106,8 @@ module.exports = {
   MAX_LIMIT,
   DEFAULT_PAGE,
   DEFAULT_LIMIT,
+  SEARCH_TERM_MAX_LENGTH,
+  VISA_LIST_SEARCH_COQL_MAX,
   DEADLINE_STATS_FIELDS,
   ADMIN_ROLES,
   NOTIFICATION_SOURCES,

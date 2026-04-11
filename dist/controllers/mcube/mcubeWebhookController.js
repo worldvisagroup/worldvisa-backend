@@ -5,6 +5,7 @@ const CallLog = require('../../models/callLog');
 const ZohoDmsUser = require('../../models/zohoDmsUser');
 const DmsZohoClient = require('../../models/dmsZohoClient');
 const logger = require('../../utils/logger');
+// ── Resolvers ─────────────────────────────────────────────────────────────────
 async function resolveAgentId(empPhone) {
     try {
         const user = await ZohoDmsUser
@@ -21,14 +22,18 @@ async function resolveClient(customerPhone) {
     try {
         const client = await DmsZohoClient
             .findOne({ phone: customerPhone })
-            .select('_id lead_id')
+            .select('_id lead_id Name')
             .lean();
         if (!client)
-            return { client_id: null, client_lead_id: null };
-        return { client_id: client._id, client_lead_id: client.lead_id };
+            return { client_id: null, client_lead_id: null, client_name: null };
+        return {
+            client_id: client._id,
+            client_lead_id: client.lead_id ?? null,
+            client_name: client.Name ?? null,
+        };
     }
     catch {
-        return { client_id: null, client_lead_id: null };
+        return { client_id: null, client_lead_id: null, client_name: null };
     }
 }
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -59,14 +64,14 @@ function toHangupStatus(dialstatus) {
     }
 }
 // ── Event processors ──────────────────────────────────────────────────────────
-async function processOnCall(payload) {
+async function processOnCall(payload, req) {
     const startTime = parseDate(payload.starttime) ?? new Date();
     const now = new Date();
-    const [agentId, { client_id, client_lead_id }] = await Promise.all([
+    const [agentId, { client_id, client_lead_id, client_name }] = await Promise.all([
         resolveAgentId(payload.emp_phone),
         resolveClient(payload.callto),
     ]);
-    await CallLog.findOneAndUpdate({ call_id: payload.callid }, {
+    const doc = await CallLog.findOneAndUpdate({ call_id: payload.callid }, {
         $setOnInsert: {
             call_id: payload.callid,
             direction: payload.direction ?? 'inbound',
@@ -78,13 +83,19 @@ async function processOnCall(payload) {
             customer_phone: payload.callto,
             client_id,
             client_lead_id,
+            client_name,
             mcube_did: payload.clicktocalldid,
             group_name: payload.groupname,
             start_time: startTime,
             created_at: now,
             updated_at: now,
         },
-    }, { upsert: true, new: false });
+    }, { upsert: true, new: true });
+    // Broadcast to all connected staff so their call-log lists update in real time
+    const io = req.app.get('io');
+    if (io && doc) {
+        io.emit('call-log:new', doc);
+    }
     logger.info('[MCube Webhook] On Call stored', {
         call_id: payload.callid,
         agent: payload.emp_phone,
@@ -92,14 +103,14 @@ async function processOnCall(payload) {
         dialstatus: payload.dialstatus,
     });
 }
-async function processHangup(payload) {
+async function processHangup(payload, req) {
     const endTime = parseDate(payload.endtime);
     const now = new Date();
-    const [agentId, { client_id, client_lead_id }] = await Promise.all([
+    const [agentId, { client_id, client_lead_id, client_name }] = await Promise.all([
         resolveAgentId(payload.emp_phone),
         resolveClient(payload.callto),
     ]);
-    await CallLog.findOneAndUpdate({ call_id: payload.callid }, {
+    const doc = await CallLog.findOneAndUpdate({ call_id: payload.callid }, {
         $set: {
             status: toHangupStatus(payload.dialstatus),
             dial_status: payload.dialstatus,
@@ -119,12 +130,18 @@ async function processHangup(payload) {
             customer_phone: payload.callto,
             client_id,
             client_lead_id,
+            client_name,
             mcube_did: payload.clicktocalldid,
             group_name: payload.groupname,
             start_time: parseDate(payload.starttime) ?? now,
             created_at: now,
         },
     }, { upsert: true, new: true });
+    // Broadcast to all connected staff so their call-log records update in real time
+    const io = req.app.get('io');
+    if (io && doc) {
+        io.emit('call-log:updated', doc);
+    }
     logger.info('[MCube Webhook] On Hangup processed', {
         call_id: payload.callid,
         status: toHangupStatus(payload.dialstatus),
@@ -145,10 +162,10 @@ async function handleInboundWebhook(req, res) {
     const isHangup = Boolean(payload.endtime);
     try {
         if (isHangup) {
-            await processHangup(payload);
+            await processHangup(payload, req);
         }
         else {
-            await processOnCall(payload);
+            await processOnCall(payload, req);
         }
     }
     catch (err) {

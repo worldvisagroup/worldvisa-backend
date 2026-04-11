@@ -46,7 +46,7 @@ exports.signup = async (req, res) => {
       activity_type: 'application_created',
       summary:       `Application created for ${name} (${record_type === 'spouse_skill_assessment' ? 'Spouse Skill Assessment' : 'Visa Application'})`,
       actor_type:    'staff',
-      actor_name:    req.user?.username ?? 'Unknown',
+      actor_name:    req.user?.username ?? 'Zoho',
       actor_role:    req.user?.role ?? null,
       metadata:      { record_type, lead_owner, email },
     });

@@ -13,7 +13,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 router.get('/all', protect, dmsZohoClientController.getAllClients);
 
-router.post('/signup', protect, dmsZohoClientController.signup);
+router.post('/signup', apiKeyMiddleware, dmsZohoClientController.signup);
 router.post('/invite', protect, inviteClient);
 router.post('/login', dmsZohoClientController.login);
 router.post('/logout', protectClient, dmsZohoClientController.logout);

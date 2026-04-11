@@ -13,8 +13,9 @@ const ZohoDmsUser = require('../models/zohoDmsUser');
 const QualityCheckRequest = require('../models/qualityCheckRequest');
 const { addActivityLog } = require('./helper/service/activityLog');
 const logger = require('../utils/logger');
-const { REQ_MODULE_SPOUSE_SKILL_ASSESSMENT, MODULE_VISA_APPLICATION, MODULE_SPOUSE_SKILL_ASSESSMENT, APPLICATION_STAGES, APPLICATION_STAGES_CANADA, SUPPORTED_COUNTRIES, } = require('./helper/constants.js');
+const { REQ_MODULE_SPOUSE_SKILL_ASSESSMENT, MODULE_VISA_APPLICATION, MODULE_SPOUSE_SKILL_ASSESSMENT, APPLICATION_STAGES, APPLICATION_STAGES_CANADA, SUPPORTED_COUNTRIES, SEARCH_TERM_MAX_LENGTH, VISA_LIST_SEARCH_COQL_MAX, } = require('./helper/constants.js');
 const { buildVisaApplicationCountQuery, buildVisaApplicationListQuery, buildVisaApplicationDetailQuery, buildSpouseApplicationCountQuery, buildSpouseApplicationListQuery, buildSpouseApplicationDetailQuery, buildClientApplicationDetailQuery, } = require('../queries/visaApplicationCoql');
+const { sanitizeSearchTerm, escapeString } = require('../utils/querySanitizer.js');
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function buildWhereClause(username, role, giveMine, startDate, endDate) {
     const conditions = [];
@@ -58,9 +59,15 @@ async function getProfileImageUrlMap(usernames) {
     return Object.fromEntries(users.map((u) => [u.username, u]));
 }
 // ─── Visa Application Filter ──────────────────────────────────────────────────
-async function getFilteredVisaApplications(username, role, page, limit, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country) {
-    const offset = (page - 1) * limit;
-    const whereClause = buildWhereClause(username, role, giveMine, startDate, endDate);
+/**
+ * Builds COQL `where` prefix + core module filters for visa application list/search.
+ * @param extraAndCondition — optional fragment e.g. `(Name like '%x%')` (no leading `and`)
+ */
+function buildVisaListWhereClauseAndCoreFilters(username, role, giveMine, startDate, endDate, handledBy, applicationStage, applicationState, country, extraAndCondition) {
+    const userWhere = buildWhereClause(username, role, giveMine, startDate, endDate);
+    const whereClause = extraAndCondition
+        ? (userWhere ? `${userWhere} and ${extraAndCondition}` : ` where ${extraAndCondition}`)
+        : userWhere;
     const filterJoin = whereClause ? ' and' : ' where';
     let coreFilters = `${filterJoin} (((`;
     if (applicationState) {
@@ -88,6 +95,11 @@ async function getFilteredVisaApplications(username, role, page, limit, startDat
         coreFilters += ` and (Application_Stage in (${defaultStages}))`;
     }
     coreFilters += `)`;
+    return { whereClause, coreFilters };
+}
+async function getFilteredVisaApplications(username, role, page, limit, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country) {
+    const offset = (page - 1) * limit;
+    const { whereClause, coreFilters } = buildVisaListWhereClauseAndCoreFilters(username, role, giveMine, startDate, endDate, handledBy, applicationStage, applicationState, country);
     const countQuery = buildVisaApplicationCountQuery(whereClause, coreFilters);
     const orderBy = recentActivity === 'false' ? 'Created_Time' : 'Recent_Activity';
     const listQuery = buildVisaApplicationListQuery(whereClause, coreFilters, orderBy, limit, offset);
@@ -100,11 +112,54 @@ async function getFilteredVisaApplications(username, role, page, limit, startDat
         info: { count: countResponse?.data?.[0]?.total || 0 },
     };
 }
-// ─── Spouse Application Filter ────────────────────────────────────────────────
-async function getFilteredSpouseApplications(username, role, page, limit, startDate, endDate, giveMine, recentActivity, applicationStage, handledBy) {
+/**
+ * One search term matched against Name, Email, or Phone. COQL has no OR for these in one query,
+ * so we run three queries, merge by id, sort, then paginate in memory.
+ * Each branch fetches at most `min(200, max(limit, page*limit))` rows — totals and deep pages may be incomplete if more rows match.
+ */
+async function getFilteredVisaApplicationsByUnifiedSearch(username, role, page, limit, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country, escapedSearch) {
+    const orderBy = recentActivity === 'false' ? 'Created_Time' : 'Recent_Activity';
+    const perQueryLimit = Math.min(VISA_LIST_SEARCH_COQL_MAX, Math.max(limit, page * limit));
+    const fields = ['Name', 'Email', 'Phone'];
+    const selectQueries = fields.map((field) => {
+        const { whereClause, coreFilters } = buildVisaListWhereClauseAndCoreFilters(username, role, giveMine, startDate, endDate, handledBy, applicationStage, applicationState, country, `(${field} like '%${escapedSearch}%')`);
+        return buildVisaApplicationListQuery(whereClause, coreFilters, orderBy, perQueryLimit, 0);
+    });
+    const responses = await Promise.all(selectQueries.map((select_query) => zohoRequest('coql', 'POST', { select_query })));
+    const sortKey = (app) => {
+        const v = app[orderBy];
+        if (v == null)
+            return 0;
+        const t = new Date(String(v)).getTime();
+        return Number.isNaN(t) ? 0 : t;
+    };
+    const byId = new Map();
+    for (const resp of responses) {
+        const rows = resp?.data || [];
+        for (const app of rows) {
+            if (!app?.id)
+                continue;
+            const existing = byId.get(app.id);
+            if (!existing || sortKey(app) > sortKey(existing)) {
+                byId.set(app.id, app);
+            }
+        }
+    }
+    const merged = [...byId.values()].sort((a, b) => sortKey(b) - sortKey(a));
     const offset = (page - 1) * limit;
-    const whereClause = buildWhereClause(username, role, giveMine, startDate, endDate);
+    return {
+        data: merged.slice(offset, offset + limit),
+        info: { count: merged.length },
+    };
+}
+// ─── Spouse Application Filter ────────────────────────────────────────────────
+function buildSpouseListWhereClauseAndAdditionalFilters(username, role, giveMine, startDate, endDate, applicationStage, handledBy, country, extraAndCondition) {
+    const userWhere = buildWhereClause(username, role, giveMine, startDate, endDate);
+    const whereClause = extraAndCondition
+        ? (userWhere ? `${userWhere} and ${extraAndCondition}` : ` where ${extraAndCondition}`)
+        : userWhere;
     const additionalConditions = [];
+    additionalConditions.push(`(Qualified_Country = '${escapeString(country)}')`);
     if (applicationStage) {
         const stages = applicationStage.split(',').map(s => s.trim()).join("', '");
         additionalConditions.push(`Application_Stage in ('${stages}')`);
@@ -123,6 +178,11 @@ async function getFilteredSpouseApplications(username, role, page, limit, startD
     else if (!whereClause) {
         additionalFilters = ` where Created_Time >= '2000-01-01T00:00:00+00:00'`;
     }
+    return { whereClause, additionalFilters };
+}
+async function getFilteredSpouseApplications(username, role, page, limit, startDate, endDate, giveMine, recentActivity, applicationStage, handledBy, country) {
+    const offset = (page - 1) * limit;
+    const { whereClause, additionalFilters } = buildSpouseListWhereClauseAndAdditionalFilters(username, role, giveMine, startDate, endDate, applicationStage, handledBy, country);
     const countQuery = buildSpouseApplicationCountQuery(whereClause, additionalFilters);
     const orderBy = recentActivity === 'false' ? 'Created_Time' : 'Recent_Activity';
     const listQuery = buildSpouseApplicationListQuery(whereClause, additionalFilters, orderBy, limit, offset);
@@ -133,6 +193,41 @@ async function getFilteredSpouseApplications(username, role, page, limit, startD
     return {
         data: zohoResponse?.data || [],
         info: { count: countResponse?.data?.[0]?.total || 0 },
+    };
+}
+async function getFilteredSpouseApplicationsByUnifiedSearch(username, role, page, limit, startDate, endDate, giveMine, recentActivity, applicationStage, handledBy, country, escapedSearch) {
+    const orderBy = recentActivity === 'false' ? 'Created_Time' : 'Recent_Activity';
+    const perQueryLimit = Math.min(VISA_LIST_SEARCH_COQL_MAX, Math.max(limit, page * limit));
+    const fields = ['Name', 'Email', 'Phone'];
+    const selectQueries = fields.map((field) => {
+        const { whereClause, additionalFilters } = buildSpouseListWhereClauseAndAdditionalFilters(username, role, giveMine, startDate, endDate, applicationStage, handledBy, country, `(${field} like '%${escapedSearch}%')`);
+        return buildSpouseApplicationListQuery(whereClause, additionalFilters, orderBy, perQueryLimit, 0);
+    });
+    const responses = await Promise.all(selectQueries.map((select_query) => zohoRequest('coql', 'POST', { select_query })));
+    const sortKey = (app) => {
+        const v = app[orderBy];
+        if (v == null)
+            return 0;
+        const t = new Date(String(v)).getTime();
+        return Number.isNaN(t) ? 0 : t;
+    };
+    const byId = new Map();
+    for (const resp of responses) {
+        const rows = resp?.data || [];
+        for (const app of rows) {
+            if (!app?.id)
+                continue;
+            const existing = byId.get(app.id);
+            if (!existing || sortKey(app) > sortKey(existing)) {
+                byId.set(app.id, app);
+            }
+        }
+    }
+    const merged = [...byId.values()].sort((a, b) => sortKey(b) - sortKey(a));
+    const offset = (page - 1) * limit;
+    return {
+        data: merged.slice(offset, offset + limit),
+        info: { count: merged.length },
     };
 }
 // ─── Controllers ──────────────────────────────────────────────────────────────
@@ -150,7 +245,21 @@ const getApplicationsWithAttachments = async (req, res) => {
             res.status(400).json({ error: `Invalid country parameter. Supported values: ${SUPPORTED_COUNTRIES.join(', ')}` });
             return;
         }
-        const { data: filteredApplications, info } = await getFilteredVisaApplications(req.user.username ?? '', req.user.role ?? '', page, limit, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country);
+        const hasSearchParam = Object.prototype.hasOwnProperty.call(req.query, 'search');
+        const rawSearchValue = hasSearchParam && typeof req.query.search === 'string' ? req.query.search : '';
+        const trimmedSearch = sanitizeSearchTerm(hasSearchParam ? rawSearchValue : null, SEARCH_TERM_MAX_LENGTH);
+        if (hasSearchParam && !trimmedSearch) {
+            res.status(400).json({
+                error: 'Invalid search parameter',
+                message: `search must be non-empty and at most ${SEARCH_TERM_MAX_LENGTH} characters.`,
+            });
+            return;
+        }
+        const username = req.user.username ?? '';
+        const role = req.user.role ?? '';
+        const { data: filteredApplications, info } = trimmedSearch
+            ? await getFilteredVisaApplicationsByUnifiedSearch(username, role, page, limit, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country, escapeString(trimmedSearch))
+            : await getFilteredVisaApplications(username, role, page, limit, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country);
         if (!filteredApplications.length) {
             res.json({
                 data: [],
@@ -320,7 +429,26 @@ const getSpouseApplicationsWithAttachments = async (req, res) => {
         const page = parseInt(req.query.page, 10) || 1;
         const limit = parseInt(req.query.limit, 10) || 10;
         const { startDate, endDate, giveMine, recentActivity, applicationStage, handledBy } = req.query;
-        const { data: filteredApplications, info } = await getFilteredSpouseApplications(req.user.username ?? '', req.user.role ?? '', page, limit, startDate, endDate, giveMine, recentActivity, applicationStage, handledBy);
+        const country = req.query.country || 'Australia';
+        if (!SUPPORTED_COUNTRIES.includes(country)) {
+            res.status(400).json({ error: `Invalid country parameter. Supported values: ${SUPPORTED_COUNTRIES.join(', ')}` });
+            return;
+        }
+        const hasSearchParam = Object.prototype.hasOwnProperty.call(req.query, 'search');
+        const rawSearchValue = hasSearchParam && typeof req.query.search === 'string' ? req.query.search : '';
+        const trimmedSearch = sanitizeSearchTerm(hasSearchParam ? rawSearchValue : null, SEARCH_TERM_MAX_LENGTH);
+        if (hasSearchParam && !trimmedSearch) {
+            res.status(400).json({
+                error: 'Invalid search parameter',
+                message: `search must be non-empty and at most ${SEARCH_TERM_MAX_LENGTH} characters.`,
+            });
+            return;
+        }
+        const username = req.user.username ?? '';
+        const role = req.user.role ?? '';
+        const { data: filteredApplications, info } = trimmedSearch
+            ? await getFilteredSpouseApplicationsByUnifiedSearch(username, role, page, limit, startDate, endDate, giveMine, recentActivity, applicationStage, handledBy, country, escapeString(trimmedSearch))
+            : await getFilteredSpouseApplications(username, role, page, limit, startDate, endDate, giveMine, recentActivity, applicationStage, handledBy, country);
         if (!filteredApplications.length) {
             res.json({
                 data: [],
