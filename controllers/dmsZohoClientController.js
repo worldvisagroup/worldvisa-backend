@@ -20,6 +20,29 @@ function chunkArray(arr, size) {
   return chunks;
 }
 
+const SIGNUP_CONFLICT_LEAD = {
+  field: 'lead_id',
+  code: 'LEAD_ALREADY_REGISTERED',
+  message: 'An application for this lead is already registered.',
+};
+
+const SIGNUP_CONFLICT_EMAIL = {
+  field: 'email',
+  code: 'EMAIL_ALREADY_EXISTS',
+  message: 'An account with this email already exists.',
+};
+
+/** Maps Mongo duplicate key (11000) to the same conflict shape as the pre-insert check. */
+function signupConflictFromDuplicateKey(error) {
+  const keyPattern = error.keyPattern || {};
+  if (keyPattern.lead_id) return SIGNUP_CONFLICT_LEAD;
+  if (keyPattern.email) return SIGNUP_CONFLICT_EMAIL;
+  const kv = error.keyValue || {};
+  if (kv.lead_id != null) return SIGNUP_CONFLICT_LEAD;
+  if (kv.email != null) return SIGNUP_CONFLICT_EMAIL;
+  return null;
+}
+
 
 exports.signup = async (req, res) => {
   try {
@@ -32,10 +55,53 @@ exports.signup = async (req, res) => {
       });
     }
 
+    const normalizedEmail = String(email).toLowerCase().trim();
+    const normalizedPhone = String(phone).replace(/[\s+]/g, '');
+    const phoneDigits = String(phone).replace(/\D/g, '');
+    if (!phoneDigits.length) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Phone number must contain at least one digit.',
+        field: 'phone',
+        code: 'PHONE_INVALID',
+      });
+    }
+    if (phoneDigits.length > 12) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'Phone number must be at most 12 digits.',
+        field: 'phone',
+        code: 'PHONE_TOO_LONG',
+      });
+    }
+
+    const conflicts = await DmsZohoClient.find({
+      $or: [{ email: normalizedEmail }, { lead_id }],
+    })
+      .select('email lead_id')
+      .lean();
+
+    if (conflicts.length > 0) {
+      const leadTaken = conflicts.some((c) => c.lead_id === lead_id);
+      const emailTaken = conflicts.some((c) => c.email === normalizedEmail);
+      if (leadTaken) {
+        return res.status(409).json({
+          status: 'fail',
+          ...SIGNUP_CONFLICT_LEAD,
+        });
+      }
+      if (emailTaken) {
+        return res.status(409).json({
+          status: 'fail',
+          ...SIGNUP_CONFLICT_EMAIL,
+        });
+      }
+    }
+
     const newClient = await DmsZohoClient.create({
       name,
-      email,
-      phone: phone.replace(/[\s+]/g, ''),
+      email: normalizedEmail,
+      phone: normalizedPhone,
       lead_id,
       lead_owner,
       record_type,
@@ -48,7 +114,7 @@ exports.signup = async (req, res) => {
       actor_type:    'staff',
       actor_name:    req.user?.username ?? 'Zoho',
       actor_role:    req.user?.role ?? null,
-      metadata:      { record_type, lead_owner, email },
+      metadata:      { record_type, lead_owner, email: normalizedEmail },
     });
 
     let inviteWarning = null;
@@ -62,7 +128,7 @@ exports.signup = async (req, res) => {
     // Remove password from output
     newClient.password = undefined;
 
-    res.status(201).json({
+    return res.status(201).json({
       status: 'success',
       data: {
         client: newClient,
@@ -70,9 +136,41 @@ exports.signup = async (req, res) => {
       },
     });
   } catch (error) {
-    res.status(500).json({
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors || {})
+        .map((e) => e.message)
+        .filter(Boolean);
+      return res.status(400).json({
+        status: 'fail',
+        message: messages.length ? messages.join(' ') : 'Validation failed.',
+      });
+    }
+
+    if (error.code === 11000 || error.code === '11000') {
+      const dup = signupConflictFromDuplicateKey(error);
+      if (dup) {
+        return res.status(409).json({
+          status: 'fail',
+          ...dup,
+        });
+      }
+      return res.status(409).json({
+        status: 'fail',
+        message: 'A client record with these details already exists.',
+        code: 'DUPLICATE_KEY',
+      });
+    }
+
+    console.error('[signup] Unexpected error:', error);
+
+    const message =
+      process.env.NODE_ENV === 'production'
+        ? 'Something went wrong during signup.'
+        : error.message || 'Something went wrong during signup';
+
+    return res.status(500).json({
       status: 'error',
-      message: error.message || 'Something went wrong during signup',
+      message,
     });
   }
 };
