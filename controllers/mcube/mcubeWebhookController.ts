@@ -1,10 +1,12 @@
 import { Request, Response } from 'express';
 import { McubeDialStatus, McubeInboundPayload } from '../../types/mcube';
 
-const CallLog      = require('../../models/callLog');
-const ZohoDmsUser  = require('../../models/zohoDmsUser');
+const CallLog       = require('../../models/callLog');
+const ZohoDmsUser   = require('../../models/zohoDmsUser');
 const DmsZohoClient = require('../../models/dmsZohoClient');
-const logger       = require('../../utils/logger');
+const logger        = require('../../utils/logger');
+
+// ── Resolvers ─────────────────────────────────────────────────────────────────
 
 async function resolveAgentId(empPhone: string): Promise<string | null> {
   try {
@@ -18,16 +20,26 @@ async function resolveAgentId(empPhone: string): Promise<string | null> {
   }
 }
 
-async function resolveClient(customerPhone: string): Promise<{ client_id: string | null; client_lead_id: string | null }> {
+interface ResolvedClient {
+  client_id:      string | null;
+  client_lead_id: string | null;
+  client_name:    string | null;
+}
+
+async function resolveClient(customerPhone: string): Promise<ResolvedClient> {
   try {
     const client = await DmsZohoClient
       .findOne({ phone: customerPhone })
-      .select('_id lead_id')
+      .select('_id lead_id Name')
       .lean();
-    if (!client) return { client_id: null, client_lead_id: null };
-    return { client_id: client._id, client_lead_id: client.lead_id };
+    if (!client) return { client_id: null, client_lead_id: null, client_name: null };
+    return {
+      client_id:      client._id,
+      client_lead_id: client.lead_id ?? null,
+      client_name:    client.Name    ?? null,
+    };
   } catch {
-    return { client_id: null, client_lead_id: null };
+    return { client_id: null, client_lead_id: null, client_name: null };
   }
 }
 
@@ -63,15 +75,15 @@ function toHangupStatus(dialstatus: McubeDialStatus): string {
 
 // ── Event processors ──────────────────────────────────────────────────────────
 
-async function processOnCall(payload: McubeInboundPayload): Promise<void> {
+async function processOnCall(payload: McubeInboundPayload, req: Request): Promise<void> {
   const startTime = parseDate(payload.starttime) ?? new Date();
   const now       = new Date();
-  const [agentId, { client_id, client_lead_id }] = await Promise.all([
+  const [agentId, { client_id, client_lead_id, client_name }] = await Promise.all([
     resolveAgentId(payload.emp_phone),
     resolveClient(payload.callto),
   ]);
 
-  await CallLog.findOneAndUpdate(
+  const doc = await CallLog.findOneAndUpdate(
     { call_id: payload.callid },
     {
       $setOnInsert: {
@@ -85,6 +97,7 @@ async function processOnCall(payload: McubeInboundPayload): Promise<void> {
         customer_phone:  payload.callto,
         client_id,
         client_lead_id,
+        client_name,
         mcube_did:       payload.clicktocalldid,
         group_name:      payload.groupname,
         start_time:      startTime,
@@ -92,8 +105,14 @@ async function processOnCall(payload: McubeInboundPayload): Promise<void> {
         updated_at:      now,
       },
     },
-    { upsert: true, new: false }
+    { upsert: true, new: true }
   );
+
+  // Broadcast to all connected staff so their call-log lists update in real time
+  const io = (req.app as any).get('io');
+  if (io && doc) {
+    io.emit('call-log:new', doc);
+  }
 
   logger.info('[MCube Webhook] On Call stored', {
     call_id:    payload.callid,
@@ -103,15 +122,15 @@ async function processOnCall(payload: McubeInboundPayload): Promise<void> {
   });
 }
 
-async function processHangup(payload: McubeInboundPayload): Promise<void> {
+async function processHangup(payload: McubeInboundPayload, req: Request): Promise<void> {
   const endTime = parseDate(payload.endtime);
   const now     = new Date();
-  const [agentId, { client_id, client_lead_id }] = await Promise.all([
+  const [agentId, { client_id, client_lead_id, client_name }] = await Promise.all([
     resolveAgentId(payload.emp_phone),
     resolveClient(payload.callto),
   ]);
 
-  await CallLog.findOneAndUpdate(
+  const doc = await CallLog.findOneAndUpdate(
     { call_id: payload.callid },
     {
       $set: {
@@ -133,6 +152,7 @@ async function processHangup(payload: McubeInboundPayload): Promise<void> {
         customer_phone: payload.callto,
         client_id,
         client_lead_id,
+        client_name,
         mcube_did:      payload.clicktocalldid,
         group_name:     payload.groupname,
         start_time:     parseDate(payload.starttime) ?? now,
@@ -141,6 +161,12 @@ async function processHangup(payload: McubeInboundPayload): Promise<void> {
     },
     { upsert: true, new: true }
   );
+
+  // Broadcast to all connected staff so their call-log records update in real time
+  const io = (req.app as any).get('io');
+  if (io && doc) {
+    io.emit('call-log:updated', doc);
+  }
 
   logger.info('[MCube Webhook] On Hangup processed', {
     call_id:     payload.callid,
@@ -168,9 +194,9 @@ export async function handleInboundWebhook(req: Request, res: Response): Promise
 
   try {
     if (isHangup) {
-      await processHangup(payload);
+      await processHangup(payload, req);
     } else {
-      await processOnCall(payload);
+      await processOnCall(payload, req);
     }
   } catch (err: any) {
     logger.error('[MCube Webhook] Failed to persist call log', {
