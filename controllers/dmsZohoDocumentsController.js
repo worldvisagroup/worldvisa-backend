@@ -2379,15 +2379,10 @@ exports.deleteChecklist = async (req, res) => {
 exports.getAllRequestedToReview = async (req, res) => {
   try {
     const username = req.user.username;
-    const { page = 1, limit = 10, requested_by, requested_to, status } = req.query;
+    const { page = 1, limit = 10, requested_by, requested_to, status, sort = 'last_activity_at', order = 'desc' } = req.query;
     const skip = (page - 1) * limit;
-
-    // "Requested to me" = I am the current requested_to on a review entry.
-    // Simple indexed field — no heuristics needed.
-    const matchConditions = { 'requested_reviews.requested_to': username };
-    if (requested_by) matchConditions['requested_reviews.requested_by'] = requested_by;
-    if (requested_to) matchConditions['requested_reviews.requested_to'] = requested_to;
-    if (status) matchConditions['requested_reviews.status'] = status;
+    const sortDir = order === 'asc' ? 1 : -1;
+    const sortField = sort === 'requested_at' ? 'requested_reviews.requested_at' : 'last_activity_at';
 
     const result = await dmsZohoDocument.aggregate([
       { $match: { 'requested_reviews.requested_to': username } },
@@ -2400,7 +2395,9 @@ exports.getAllRequestedToReview = async (req, res) => {
           ...(status && { 'requested_reviews.status': status })
         }
       },
-      { $sort: { 'requested_reviews.requested_at': -1 } },
+      // Compute last activity from the timeline array (covers comments, status changes, new requests)
+      { $addFields: { last_activity_at: { $arrayElemAt: ['$timeline.timestamp', -1] } } },
+      { $sort: { [sortField]: sortDir } },
       {
         $lookup: {
           from: 'dmszohoclients',
@@ -2477,20 +2474,23 @@ exports.getAllRequestedToReview = async (req, res) => {
 exports.getAllRequestedFromReview = async (req, res) => {
   try {
     const username = req.user.username;
-    const { page = 1, limit = 10, requested_to, status } = req.query;
+    const { page = 1, limit = 10, requested_to, status, sort = 'last_activity_at', order = 'desc' } = req.query;
     const skip = (page - 1) * limit;
+    const sortDir = order === 'asc' ? 1 : -1;
+    const sortField = sort === 'requested_at' ? 'requested_reviews.requested_at' : 'last_activity_at';
 
     const result = await dmsZohoDocument.aggregate([
       { $match: { 'requested_reviews.requested_by': username } },
       { $unwind: '$requested_reviews' },
-      { 
+      {
         $match: {
           'requested_reviews.requested_by': username,
           ...(requested_to && { 'requested_reviews.requested_to': requested_to }),
           ...(status && { 'requested_reviews.status': status })
         }
       },
-      { $sort: { 'requested_reviews.requested_at': -1 } },
+      { $addFields: { last_activity_at: { $arrayElemAt: ['$timeline.timestamp', -1] } } },
+      { $sort: { [sortField]: sortDir } },
       {
         $lookup: {
           from: 'dmszohoclients',
@@ -2565,8 +2565,10 @@ exports.getAllRequestedFromReview = async (req, res) => {
 
 exports.getAllRequestedReview = async (req, res) => {
   try {
-    const { page = 1, limit = 10, requested_by, requested_to, status } = req.query;
+    const { page = 1, limit = 10, requested_by, requested_to, status, sort = 'last_activity_at', order = 'desc' } = req.query;
     const skip = (page - 1) * limit;
+    const sortDir = order === 'asc' ? 1 : -1;
+    const sortField = sort === 'requested_at' ? 'latest_review_at' : 'last_activity_at';
 
     // Build document-level filter: match docs where any review entry satisfies the criteria
     const reviewFilter = {};
@@ -2609,8 +2611,9 @@ exports.getAllRequestedReview = async (req, res) => {
           latest_review_at: { $last: '$requested_reviews.requested_at' },
         },
       },
-      // Sort documents by most recent review activity (descending)
-      { $sort: { latest_review_at: -1 } },
+      // Compute last activity from timeline (covers comments, status changes, new requests)
+      { $addFields: { last_activity_at: { $arrayElemAt: ['$timeline.timestamp', -1] } } },
+      { $sort: { [sortField]: sortDir } },
       {
         $lookup: {
           from: 'dmszohoclients',
