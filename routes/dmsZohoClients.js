@@ -5,6 +5,12 @@ const { getVisaApplication } = require('../controllers/visaApplicationController
 const { addNotificationByClient } = require('../controllers/zohoDmsAuthController');
 const { apiKeyMiddleware } = require('../utils/helperFunction');
 const { inviteClient } = require('../controllers/clerk/clerkInvitationController');
+const {
+  getClientProfile,
+  updateClientProfile,
+  presignClientProfileImageUpload,
+  commitClientProfileImage,
+} = require('../controllers/clientProfileController');
 const { protect, protectClient } = require('../middleware/clerk/clerkAuth');
 const multer = require('multer');
 const router = express.Router();
@@ -46,6 +52,11 @@ router.patch('/admin/update/:record_id', protect, dmsZohoClientController.update
 router.get('/sync/lead-owner', protect, dmsZohoClientController.checkAndSyncLeadOwner);
 
 router.post('/webhook/update-lead-owner', apiKeyMiddleware, dmsZohoClientController.updateLeadOwnerFromZoho);
+
+router.get('/profile/:lead_id',   protect, getClientProfile);
+router.patch('/profile/:lead_id', protect, updateClientProfile);
+router.post('/profile/:lead_id/profile-image/presign', protect, presignClientProfileImageUpload);
+router.post('/profile/:lead_id/profile-image/commit', protect, commitClientProfileImage);
 
 router.get('/:id', protect, dmsZohoClientController.getClientById);
 

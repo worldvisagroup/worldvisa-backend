@@ -139,6 +139,21 @@ const dmsZohoClientSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  suggested_anzsco: {
+    type: String,
+    default: null,
+    trim: true,
+  },
+  assessing_authority: {
+    type: String,
+    default: null,
+    trim: true,
+  },
+  service_type: {
+    type: String,
+    default: null,
+    trim: true,
+  },
   role: {
     type: String,
     enum: ['client', 'master_admin', 'supervisor', 'team_leader', 'admin'],

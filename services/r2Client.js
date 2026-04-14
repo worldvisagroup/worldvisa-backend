@@ -52,6 +52,26 @@ function getEmailAttachmentKey({ direction, messageId, attachmentId, filename })
   return `email-attachments/outbound/${slug}-${safeName}`;
 }
 
+/**
+ * Build an R2 key for a client profile image.
+ *
+ * Example:
+ *   client-profile-images/<lead_id>/<slug>-avatar.png
+ */
+function getClientProfileImageKey({ lead_id, filename }) {
+  const safeName = (filename || 'image')
+    .replace(/[^a-zA-Z0-9._-]/g, '_')
+    .replace(/_+/g, '_')
+    .slice(0, 100);
+
+  const slug = crypto
+    .randomBytes(8)
+    .toString('hex')
+    .slice(0, 12);
+
+  return `client-profile-images/${String(lead_id)}/${slug}-${safeName}`;
+}
+
 // ─── Upload ───────────────────────────────────────────────────────────────────
 
 
@@ -72,6 +92,23 @@ async function uploadToR2(key, body, contentType = 'application/octet-stream') {
   }
 
   return key; // caller uses getSignedAttachmentUrl(key) at read time
+}
+
+// ─── Signed Upload URL (PUT) ──────────────────────────────────────────────────
+
+async function getSignedUploadUrl(key, { contentType, expiresIn = 600 } = {}) {
+  if (!process.env.R2_BUCKET_NAME) throw new Error('R2_BUCKET_NAME env var is not set');
+
+  const params = {
+    Bucket: process.env.R2_BUCKET_NAME,
+    Key: key,
+  };
+
+  if (contentType) {
+    params.ContentType = contentType;
+  }
+
+  return getSignedUrl(r2Client, new PutObjectCommand(params), { expiresIn });
 }
 
 // ─── Signed URL ───────────────────────────────────────────────────────────────
@@ -109,6 +146,8 @@ module.exports = {
   r2Client,
   uploadToR2,
   deleteFromR2,
-  getSignedAttachmentUrl, 
+  getSignedAttachmentUrl,
+  getSignedUploadUrl,
   getEmailAttachmentKey,
+  getClientProfileImageKey,
 };
