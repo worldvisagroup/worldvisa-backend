@@ -4,15 +4,17 @@ import { initiateOutboundCall } from '../../services/mcube/mcubeOutboundService'
 const logger = require('../../utils/logger');
 
 export async function handleOutboundCall(req: Request, res: Response): Promise<void> {
-  const user     = (req as any).user;
-  const exenumber = user?.agent_number as string | undefined;
+  const { exenumber, custnumber, refurl, refid } = req.body as {
+    exenumber: string;
+    custnumber: string;
+    refurl?: string | number;
+    refid?: string;
+  };
 
   if (!exenumber) {
-    res.status(400).json({ error: 'agent_number is not configured on your profile. Contact an administrator.' });
+    res.status(400).json({ error: 'exenumber is required' });
     return;
   }
-
-  const { custnumber, refurl, refid } = req.body as { custnumber: string; refurl?: string | number; refid?: string };
 
   if (!custnumber) {
     res.status(400).json({ error: 'custnumber is required' });
