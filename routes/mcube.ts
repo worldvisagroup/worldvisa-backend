@@ -3,7 +3,6 @@ import { handleInboundWebhook } from '../controllers/mcube/mcubeWebhookControlle
 import { handleOutboundCall }   from '../controllers/mcube/mcubeOutboundController';
 import { listCallLogs, getCallLogDetail } from '../controllers/mcube/callLogController';
 import { validateMcubeWebhook } from '../middleware/mcube/validateMcubeWebhook';
-import { validateMcubeApiToken } from '../middleware/mcube/validateMcubeApiToken';
 
 const { protect } = require('../middleware/clerk/clerkAuth');
 
@@ -13,7 +12,7 @@ const router = Router();
 router.post('/webhook/inbound', validateMcubeWebhook, handleInboundWebhook);
 
 // ── Outbound call (staff only) ─────────────────────────────────────────────
-router.post('/calls/outbound', validateMcubeApiToken, handleOutboundCall);
+router.post('/calls/outbound', protect, handleOutboundCall);
 
 // ── Call log history (staff only) ─────────────────────────────────────────
 router.get('/call-logs',           protect, listCallLogs);
