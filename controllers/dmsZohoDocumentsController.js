@@ -2382,20 +2382,19 @@ exports.getAllRequestedToReview = async (req, res) => {
     const { page = 1, limit = 10, requested_by, requested_to, status } = req.query;
     const skip = (page - 1) * limit;
 
-    // Build match conditions for filtering
-    // Use participants to match — tracks all users who ever held this review (incl. forwarders)
-    const matchConditions = { 'requested_reviews.participants': username };
+    // "Requested to me" = I am the current requested_to on a review entry.
+    // Simple indexed field — no heuristics needed.
+    const matchConditions = { 'requested_reviews.requested_to': username };
     if (requested_by) matchConditions['requested_reviews.requested_by'] = requested_by;
     if (requested_to) matchConditions['requested_reviews.requested_to'] = requested_to;
     if (status) matchConditions['requested_reviews.status'] = status;
 
-    // Use aggregation pipeline with $facet to get both data and count in single query
     const result = await dmsZohoDocument.aggregate([
-      { $match: { 'requested_reviews.participants': username } },
+      { $match: { 'requested_reviews.requested_to': username } },
       { $unwind: '$requested_reviews' },
       {
         $match: {
-          'requested_reviews.participants': username,
+          'requested_reviews.requested_to': username,
           ...(requested_by && { 'requested_reviews.requested_by': requested_by }),
           ...(requested_to && { 'requested_reviews.requested_to': requested_to }),
           ...(status && { 'requested_reviews.status': status })
