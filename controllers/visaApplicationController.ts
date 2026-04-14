@@ -6,6 +6,8 @@ import type {
   OnboardingStatus,
   ApplicationFilterResult,
 } from '../types/visaApplication.types';
+import { VISA_SERVICE_TYPE_VALUES } from '../constants/checklistDocument';
+import { isVisaApplicationCountry, VISA_APPLICATION_STATUS_VALUES } from '../constants/visaApplication';
 
 // ─── JS Module Imports ────────────────────────────────────────────────────────
 
@@ -65,6 +67,9 @@ const { sanitizeSearchTerm, escapeString } = require('../utils/querySanitizer.js
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+const VALID_SERVICE_TYPES = VISA_SERVICE_TYPE_VALUES.filter(v => v !== 'All');
+const VALID_SERVICE_TYPES_COQL = VALID_SERVICE_TYPES.map(s => `'${escapeString(s)}'`).join(', ');
+
 function buildWhereClause(
   username: string,
   role: string,
@@ -120,10 +125,7 @@ async function getProfileImageUrlMap(
 
 // ─── Visa Application Filter ──────────────────────────────────────────────────
 
-/**
- * Builds COQL `where` prefix + core module filters for visa application list/search.
- * @param extraAndCondition — optional fragment e.g. `(Name like '%x%')` (no leading `and`)
- */
+
 function buildVisaListWhereClauseAndCoreFilters(
   username: string,
   role: string,
@@ -135,6 +137,7 @@ function buildVisaListWhereClauseAndCoreFilters(
   applicationState: string | undefined,
   country: string,
   extraAndCondition?: string,
+  serviceType?: string,
 ): { whereClause: string; coreFilters: string } {
   const userWhere = buildWhereClause(username, role, giveMine, startDate, endDate);
   const whereClause = extraAndCondition
@@ -152,20 +155,30 @@ function buildVisaListWhereClauseAndCoreFilters(
 
   coreFilters += ` and (Qualified_Country = '${country}'))`;
 
+  const normalizedServiceType = typeof serviceType === 'string' ? serviceType.trim() : '';
+  const serviceFilter = normalizedServiceType && VALID_SERVICE_TYPES.includes(normalizedServiceType as any)
+    ? `Service_Finalized = '${escapeString(normalizedServiceType)}'`
+    : `Service_Finalized in (${VALID_SERVICE_TYPES_COQL})`;
+
   if ((role === 'admin' || role === 'master_admin') && handledBy) {
-    coreFilters += ` and ((Service_Finalized = 'Permanent Residency')`;
+    coreFilters += ` and ((${serviceFilter}`;
     const handledByList = handledBy.split(',').map(h => h.trim()).join("', '");
     coreFilters += ` and (Application_Handled_By in ('${handledByList}'))))`;
   } else {
-    coreFilters += ` and (Service_Finalized = 'Permanent Residency'))`;
+    coreFilters += ` and (${serviceFilter}))`;
   }
 
   if (applicationStage) {
     const stages = applicationStage.split(',').map(s => s.trim()).join("', '");
     coreFilters += ` and (Application_Stage in ('${stages}'))`;
   } else {
-    const defaultStages = (country === 'Canada' ? APPLICATION_STAGES_CANADA : APPLICATION_STAGES)
-      .map(s => `'${s}'`).join(', ');
+    const defaultStageValues =
+      country === 'Germany'
+        ? VISA_APPLICATION_STATUS_VALUES
+        : (country === 'Canada' ? APPLICATION_STAGES_CANADA : APPLICATION_STAGES);
+
+    const defaultStages = defaultStageValues
+      .map(s => `'${escapeString(s)}'`).join(', ');
     coreFilters += ` and (Application_Stage in (${defaultStages}))`;
   }
 
@@ -187,11 +200,14 @@ async function getFilteredVisaApplications(
   applicationStage: string | undefined,
   applicationState: string | undefined,
   country: string,
+  serviceType: string | undefined,
 ): Promise<ApplicationFilterResult> {
   const offset = (page - 1) * limit;
   const { whereClause, coreFilters } = buildVisaListWhereClauseAndCoreFilters(
     username, role, giveMine, startDate, endDate,
     handledBy, applicationStage, applicationState, country,
+    undefined,
+    serviceType,
   );
 
   const countQuery = buildVisaApplicationCountQuery(whereClause, coreFilters);
@@ -209,11 +225,7 @@ async function getFilteredVisaApplications(
   };
 }
 
-/**
- * One search term matched against Name, Email, or Phone. COQL has no OR for these in one query,
- * so we run three queries, merge by id, sort, then paginate in memory.
- * Each branch fetches at most `min(200, max(limit, page*limit))` rows — totals and deep pages may be incomplete if more rows match.
- */
+
 async function getFilteredVisaApplicationsByUnifiedSearch(
   username: string,
   role: string,
@@ -228,6 +240,7 @@ async function getFilteredVisaApplicationsByUnifiedSearch(
   applicationState: string | undefined,
   country: string,
   escapedSearch: string,
+  serviceType: string | undefined,
 ): Promise<ApplicationFilterResult> {
   const orderBy = recentActivity === 'false' ? 'Created_Time' : 'Recent_Activity';
   const perQueryLimit = Math.min(
@@ -241,6 +254,7 @@ async function getFilteredVisaApplicationsByUnifiedSearch(
       username, role, giveMine, startDate, endDate,
       handledBy, applicationStage, applicationState, country,
       `(${field} like '%${escapedSearch}%')`,
+      serviceType,
     );
     return buildVisaApplicationListQuery(whereClause, coreFilters, orderBy, perQueryLimit, 0);
   });
@@ -429,11 +443,12 @@ export const getApplicationsWithAttachments = async (req: Request, res: Response
     const {
       startDate, endDate, giveMine, recentActivity,
       handledBy, applicationStage, applicationState,
+      serviceType,
     } = req.query as Record<string, string | undefined>;
     const country = (req.query.country as string) || 'Australia';
 
-    if (!SUPPORTED_COUNTRIES.includes(country)) {
-      res.status(400).json({ error: `Invalid country parameter. Supported values: ${SUPPORTED_COUNTRIES.join(', ')}` });
+    if (!isVisaApplicationCountry(country)) {
+      res.status(400).json({ error: 'Invalid country parameter. Provide a valid country name.' });
       return;
     }
 
@@ -464,6 +479,7 @@ export const getApplicationsWithAttachments = async (req: Request, res: Response
           handledBy, applicationStage, applicationState,
           country,
           escapeString(trimmedSearch),
+          serviceType,
         )
       : await getFilteredVisaApplications(
           username, role,
@@ -472,6 +488,7 @@ export const getApplicationsWithAttachments = async (req: Request, res: Response
           giveMine, recentActivity,
           handledBy, applicationStage, applicationState,
           country,
+          serviceType,
         );
 
     if (!filteredApplications.length) {
