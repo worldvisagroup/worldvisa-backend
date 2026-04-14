@@ -84,6 +84,10 @@ const dmsZohoDocumentSchema = new mongoose.Schema({
           },
         },
       ],
+      participants: {
+        type: [String],
+        default: [],
+      },
     },
   ],
   reject_message: {
@@ -128,6 +132,7 @@ dmsZohoDocumentSchema.index({ record_id: 1 });
 // Indexes for requested_reviews queries
 dmsZohoDocumentSchema.index({ 'requested_reviews.requested_to': 1 });
 dmsZohoDocumentSchema.index({ 'requested_reviews.requested_by': 1 });
+dmsZohoDocumentSchema.index({ 'requested_reviews.participants': 1 });
 
 // Index on status - used in listDocuments and filtering
 dmsZohoDocumentSchema.index({ status: 1 });

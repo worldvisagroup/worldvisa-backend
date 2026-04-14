@@ -2383,18 +2383,19 @@ exports.getAllRequestedToReview = async (req, res) => {
     const skip = (page - 1) * limit;
 
     // Build match conditions for filtering
-    const matchConditions = { 'requested_reviews.requested_to': username };
+    // Use participants to match — tracks all users who ever held this review (incl. forwarders)
+    const matchConditions = { 'requested_reviews.participants': username };
     if (requested_by) matchConditions['requested_reviews.requested_by'] = requested_by;
     if (requested_to) matchConditions['requested_reviews.requested_to'] = requested_to;
     if (status) matchConditions['requested_reviews.status'] = status;
 
     // Use aggregation pipeline with $facet to get both data and count in single query
     const result = await dmsZohoDocument.aggregate([
-      { $match: { 'requested_reviews.requested_to': username } },
+      { $match: { 'requested_reviews.participants': username } },
       { $unwind: '$requested_reviews' },
-      { 
+      {
         $match: {
-          'requested_reviews.requested_to': username,
+          'requested_reviews.participants': username,
           ...(requested_by && { 'requested_reviews.requested_by': requested_by }),
           ...(requested_to && { 'requested_reviews.requested_to': requested_to }),
           ...(status && { 'requested_reviews.status': status })
@@ -2438,7 +2439,8 @@ exports.getAllRequestedToReview = async (req, res) => {
                   status: '$requested_reviews.status',
                   _id: '$requested_reviews._id',
                   messages: '$requested_reviews.messages',
-                  requested_at: '$requested_reviews.requested_at'
+                  requested_at: '$requested_reviews.requested_at',
+                  participants: '$requested_reviews.participants'
                 }
               }
             },
@@ -2567,26 +2569,56 @@ exports.getAllRequestedReview = async (req, res) => {
     const { page = 1, limit = 10, requested_by, requested_to, status } = req.query;
     const skip = (page - 1) * limit;
 
-    const matchConditions = { 'requested_reviews.0': { $exists: true } };
+    // Build document-level filter: match docs where any review entry satisfies the criteria
+    const reviewFilter = {};
+    if (requested_by) reviewFilter.requested_by = requested_by;
+    if (requested_to) reviewFilter.requested_to = requested_to;
+    if (status) reviewFilter.status = status;
+
+    const documentMatch = {
+      'requested_reviews.0': { $exists: true },
+      ...(Object.keys(reviewFilter).length > 0 && { requested_reviews: { $elemMatch: reviewFilter } }),
+    };
 
     const result = await dmsZohoDocument.aggregate([
-      { $match: matchConditions },
+      { $match: documentMatch },
+      // Unwind to sort entries chronologically per document
       { $unwind: '$requested_reviews' },
-      { 
-        $match: {
-          ...(requested_by && { 'requested_reviews.requested_by': requested_by }),
-          ...(requested_to && { 'requested_reviews.requested_to': requested_to }),
-          ...(status && { 'requested_reviews.status': status })
-        }
+      { $sort: { _id: 1, 'requested_reviews.requested_at': 1 } },
+      // Group back: build full chain (chronological) + track latest for outer sort
+      {
+        $group: {
+          _id: '$_id',
+          record_id: { $first: '$record_id' },
+          workdrive_file_id: { $first: '$workdrive_file_id' },
+          workdrive_parent_id: { $first: '$workdrive_parent_id' },
+          file_name: { $first: '$file_name' },
+          document_name: { $first: '$document_name' },
+          document_type: { $first: '$document_type' },
+          document_category: { $first: '$document_category' },
+          uploaded_by: { $first: '$uploaded_by' },
+          uploaded_at: { $first: '$uploaded_at' },
+          status: { $first: '$status' },
+          comments: { $first: '$comments' },
+          download_url: { $first: '$download_url' },
+          document_link: { $first: '$document_link' },
+          description: { $first: '$description' },
+          timeline: { $first: '$timeline' },
+          moved_files: { $first: '$moved_files' },
+          review_chain: { $push: '$requested_reviews' },       // full chronological chain
+          latest_review: { $last: '$requested_reviews' },       // most recent entry
+          latest_review_at: { $last: '$requested_reviews.requested_at' },
+        },
       },
-      { $sort: { 'requested_reviews.requested_at': -1 } },
+      // Sort documents by most recent review activity (descending)
+      { $sort: { latest_review_at: -1 } },
       {
         $lookup: {
           from: 'dmszohoclients',
           localField: 'record_id',
           foreignField: 'lead_id',
-          as: 'client_info'
-        }
+          as: 'client_info',
+        },
       },
       {
         $facet: {
@@ -2611,24 +2643,24 @@ exports.getAllRequestedReview = async (req, res) => {
                 description: 1,
                 timeline: 1,
                 moved_files: 1,
+                review_chain: 1,
                 requested_review: {
-                  requested_by: '$requested_reviews.requested_by',
-                  requested_to: '$requested_reviews.requested_to',
-                  status: '$requested_reviews.status',
-                  _id: '$requested_reviews._id',
-                  messages: '$requested_reviews.messages',
-                  requested_at: '$requested_reviews.requested_at'
-                }
-              }
+                  requested_by: '$latest_review.requested_by',
+                  requested_to: '$latest_review.requested_to',
+                  status: '$latest_review.status',
+                  _id: '$latest_review._id',
+                  messages: '$latest_review.messages',
+                  requested_at: '$latest_review.requested_at',
+                  participants: '$latest_review.participants',
+                },
+              },
             },
             { $skip: skip },
-            { $limit: parseInt(limit, 10) }
+            { $limit: parseInt(limit, 10) },
           ],
-          totalCount: [
-            { $count: 'count' }
-          ]
-        }
-      }
+          totalCount: [{ $count: 'count' }],
+        },
+      },
     ]);
 
     const paginatedReviews = result[0].data || [];
@@ -2848,7 +2880,7 @@ exports.addRequestedReviews = async (req, res) => {
       });
     }
 
-    document.requested_reviews.push({ requested_by, requested_to, messages, status: 'pending', requested_at: new Date() });
+    document.requested_reviews.push({ requested_by, requested_to, messages, status: 'pending', requested_at: new Date(), participants: [requested_by, requested_to] });
 
     await document.save();
 
@@ -2951,6 +2983,154 @@ exports.addRequestedReviews = async (req, res) => {
   }
 };
 
+exports.sendRequestedReview = async (req, res) => {
+  try {
+    const { docId } = req.params;
+    const { requested_to, message } = req.body;
+    const requested_by = req.user.username; 
+
+    if (!requested_to || !Array.isArray(requested_to) || requested_to.length === 0) {
+      return res.status(400).json({ success: false, message: 'requested_to must be a non-empty array.' });
+    }
+
+    const document = await dmsZohoDocument.findById(docId);
+    if (!document) {
+      return res.status(404).json({ success: false, message: 'Document not found.' });
+    }
+
+    const user = await DmsZohoClient.findOne({ lead_id: document?.record_id });
+    let moduleName = MODULE_VISA_APPLICATION;
+    if (user?.record_type === REQ_MODULE_SPOUSE_SKILL_ASSESSMENT) {
+      moduleName = MODULE_SPOUSE_SKILL_ASSESSMENT;
+    }
+
+    const created = [];
+    const updated = [];
+    const now = new Date();
+
+    for (const recipient of [...new Set(requested_to)]) {
+      const existing = document.requested_reviews.find(r => r.requested_to === recipient);
+
+      if (existing) {
+        // Update — reset to pending, add message, expand participants
+        existing.status = 'pending';
+        existing.requested_at = now;
+        if (message) {
+          existing.messages.push({ username: requested_by, message, added_at: now });
+        }
+        if (!existing.participants) existing.participants = [];
+        if (!existing.participants.includes(requested_by)) existing.participants.push(requested_by);
+        if (!existing.participants.includes(recipient)) existing.participants.push(recipient);
+        updated.push(recipient);
+      } else {
+        // Create — new review entry
+        document.requested_reviews.push({
+          requested_by,
+          requested_to: recipient,
+          status: 'pending',
+          requested_at: now,
+          participants: [requested_by, recipient],
+          messages: message ? [{ username: requested_by, message, added_at: now }] : [],
+        });
+        created.push(recipient);
+      }
+    }
+
+    await document.save();
+
+    const allRecipients = [...created, ...updated];
+
+    // Timeline entry
+    try {
+      await addToTimeline(
+        document._id,
+        `Review request sent to: ${allRecipients.map(capitalizeFn).join(', ')} by ${capitalizeFn(requested_by)}`,
+        `${requested_by} sent review request to ${allRecipients.join(', ')}`,
+        capitalizeFn(requested_by)
+      );
+    } catch (err) {
+      console.error('Timeline error:', err);
+    }
+
+    // Notify each newly created recipient
+    if (created.length > 0) {
+      // Notify original requesters (other than the current sender) that the doc moved to a higher stage
+      const existingReviews = document.requested_reviews.filter(r => !created.includes(r.requested_to));
+      const originalRequesters = [...new Set(existingReviews.map(r => r.requested_by))].filter(
+        r => r !== requested_by
+      );
+
+      for (const originalRequester of originalRequesters) {
+        const originalUser = await ZohoDmsUser.findOne({ username: originalRequester });
+        if (originalUser) {
+          await addNotificationAndEmit({
+            req,
+            leadId: document?.record_id,
+            documentId: document._id,
+            userId: originalUser._id,
+            title: 'Review forwarded to higher stage',
+            message: `${capitalizeFn(requested_by)} has forwarded the review of "${document.document_name}" to ${created.map(capitalizeFn).join(', ')} for further review`,
+            category: 'request review',
+            source: 'requested_reviews',
+            applicationType: moduleName,
+            documentName: document.document_name,
+          });
+        }
+      }
+
+      // Notify each new recipient
+      for (const recipient of created) {
+        const recipientUser = await ZohoDmsUser.findOne({ username: recipient });
+        if (recipientUser) {
+          await addNotificationAndEmit({
+            req,
+            leadId: document?.record_id,
+            documentId: document._id,
+            userId: recipientUser._id,
+            title: `Review requested by ${capitalizeFn(requested_by)}`,
+            message: `${capitalizeFn(requested_by)} has requested you to review "${document.document_name}"`,
+            category: 'request review',
+            source: 'requested_reviews',
+            applicationType: moduleName,
+            documentName: document.document_name,
+          });
+        }
+      }
+    }
+
+    // Activity log (fire-and-forget)
+    const _company = getCompanyLabel(document.document_category);
+    const _docLabel = _company ? `${_company} - ${document.document_name}` : document.document_name;
+    const actionLabel =
+      created.length > 0 && updated.length > 0
+        ? `sent new requests to ${created.join(', ')} and re-sent to ${updated.join(', ')}`
+        : created.length > 0
+        ? `forwarded review to ${created.join(', ')}`
+        : `re-sent review request to ${updated.join(', ')}`;
+
+    addActivityLog({
+      lead_id: document.record_id,
+      activity_type: 'review_requested',
+      summary: `${requested_by} ${actionLabel} for "${_docLabel}"`,
+      actor_type: 'staff',
+      actor_name: requested_by,
+      document_id: document._id,
+      document_name: document.document_name,
+      document_category: document.document_category,
+      metadata: { created, updated },
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Review requests processed.',
+      data: { created, updated },
+    });
+  } catch (error) {
+    console.error('Error in sendRequestedReview:', error);
+    res.status(500).json({ success: false, message: 'Failed to process review requests.' });
+  }
+};
+
 exports.editRequestedReview = async (req, res) => {
   try {
     const { docId } = req.params;
@@ -2972,8 +3152,12 @@ exports.editRequestedReview = async (req, res) => {
       });
     }
 
-    if (requested_by !== undefined) review.requested_by = requested_by;
-    if (requested_to !== undefined) review.requested_to = requested_to;
+    // Never overwrite requested_by — original requester must stay visible in all_me
+    if (requested_to !== undefined) {
+      review.requested_to = requested_to;
+      if (!review.participants) review.participants = [];
+      if (!review.participants.includes(requested_to)) review.participants.push(requested_to);
+    }
     if (messages !== undefined) review.messages = messages;
     if (status !== undefined) {
       review.status = status;

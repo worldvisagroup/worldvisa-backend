@@ -155,7 +155,9 @@ router.get('/documents/requested_reviews/all', protect, dmsZohoDocumentsControll
 
 router.get('/documents/requested_reviews/search', protect, dmsZohoDocumentsController.searchRequestedReviewDocuments);
 
-// Requested Revviews
+// Requested Reviews
+router.post('/documents/:docId/requested_reviews/send', protect, dmsZohoDocumentsController.sendRequestedReview);
+
 router.get('/documents/:docId/requested_reviews', dmsZohoDocumentsController.getRequestedReviewsByDocId);
 
 router.post('/documents/:docId/requested_reviews', dmsZohoDocumentsController.addRequestedReviews);
