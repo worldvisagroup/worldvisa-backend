@@ -80,7 +80,7 @@ function buildWhereClause(
   const conditions: string[] = [];
 
   if (role === 'admin' || giveMine === 'true') {
-    conditions.push(`Application_Handled_By like '${username}'`);
+    conditions.push(`Application_Handled_By like '%${username}%'`);
   }
 
   if (startDate && endDate) {

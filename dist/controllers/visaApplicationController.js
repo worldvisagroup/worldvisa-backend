@@ -24,7 +24,7 @@ const VALID_SERVICE_TYPES_COQL = VALID_SERVICE_TYPES.map(s => `'${escapeString(s
 function buildWhereClause(username, role, giveMine, startDate, endDate) {
     const conditions = [];
     if (role === 'admin' || giveMine === 'true') {
-        conditions.push(`Application_Handled_By like '${username}'`);
+        conditions.push(`Application_Handled_By like '%${username}%'`);
     }
     if (startDate && endDate) {
         conditions.push(`(Created_Time >= '${startDate}T00:00:00+00:00' and Created_Time <= '${endDate}T23:59:59+00:00')`);
