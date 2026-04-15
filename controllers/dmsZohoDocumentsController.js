@@ -1723,7 +1723,7 @@ exports.searchZohoApplications = async (req, res) => {
     const whereParts = [];
 
     // Restrict to user's own applications if admin or giveMine is set
-    if (role === "admin" || giveMine === 'true') {
+    if (giveMine === 'true') {
       whereParts.push(`Application_Handled_By like '%${username}%'`);
     }
 
