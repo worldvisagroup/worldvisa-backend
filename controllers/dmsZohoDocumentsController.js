@@ -228,6 +228,7 @@ exports.uploadDocument = async (req, res) => {
             emailTemplateData: {
               clientName: user.name,
               leadOwnerName: user.lead_owner,
+              companyName: getCompanyLabel(doc.document_category) || null,
               uploadedAt: new Date().toISOString(),
             },
           });
@@ -368,6 +369,7 @@ exports.updateDocument = async (req, res) => {
             emailTemplateData: {
               clientName: user.name,
               leadOwnerName: user.lead_owner,
+              companyName: getCompanyLabel(document.document_category) || null,
               uploadedAt: new Date().toISOString(),
             },
           });
@@ -475,6 +477,7 @@ exports.updateStatus = async (req, res) => {
             emailTemplateData: {
               rejectReason: reject_message || null,
               reviewedBy: changed_by || null,
+              companyName: _statusCompany || null,
             },
             fcmPayload: {
               title: status === 'approved' ? 'Document Approved' : 'Action Required',
@@ -697,6 +700,7 @@ exports.addComment = async (req, res) => {
               emailTemplateData: {
                 clientName:    req.user.name,
                 leadOwnerName: req.user.lead_owner,
+                companyName:   _commentCompany || null,
                 documentName:  document.document_name,
               },
             });
@@ -3005,6 +3009,7 @@ exports.sendRequestedReview = async (req, res) => {
     if (user?.record_type === REQ_MODULE_SPOUSE_SKILL_ASSESSMENT) {
       moduleName = MODULE_SPOUSE_SKILL_ASSESSMENT;
     }
+    const companyName = getCompanyLabel(document.document_category) || null;
 
     const created = [];
     const updated = [];
@@ -3095,8 +3100,49 @@ exports.sendRequestedReview = async (req, res) => {
             source: 'requested_reviews',
             applicationType: moduleName,
             documentName: document.document_name,
+            emailNotificationType: 'review_requested',
+            emailSubject: `Review requested: ${document.document_name}`,
+            emailTemplateData: {
+              clientName: user?.name || null,
+              companyName,
+              applicationType: moduleName,
+              documentName: document.document_name,
+              comment: message || null,
+              requestedBy: requested_by,
+              requestedAt: now.toISOString(),
+            },
           });
         }
+      }
+    }
+
+    // Notify re-requested (updated) recipients
+    for (const recipient of updated) {
+      const recipientUser = await ZohoDmsUser.findOne({ username: recipient });
+      if (recipientUser) {
+        await addNotificationAndEmit({
+          req,
+          leadId: document?.record_id,
+          documentId: document._id,
+          userId: recipientUser._id,
+          title: `Review reminder from ${capitalizeFn(requested_by)}`,
+          message: `${capitalizeFn(requested_by)} has re-requested your review of "${document.document_name}"`,
+          category: 'request review',
+          source: 'requested_reviews',
+          applicationType: moduleName,
+          documentName: document.document_name,
+          emailNotificationType: 'review_requested',
+          emailSubject: `Review reminder: ${document.document_name}`,
+          emailTemplateData: {
+            clientName: user?.name || null,
+            companyName,
+            applicationType: moduleName,
+            documentName: document.document_name,
+            comment: message || null,
+            requestedBy: requested_by,
+            requestedAt: now.toISOString(),
+          },
+        });
       }
     }
 

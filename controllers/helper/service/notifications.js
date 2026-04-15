@@ -1,9 +1,6 @@
 const logger = require('../../../utils/logger');
 
-/**
- * Resolve sender profile_image_url from users table by sender type and id.
- * Staff: ZohoDmsUser.profile_image_url; client: no field, returns null.
- */
+
 async function getSenderProfileImageUrl(senderType, senderId) {
   if (!senderType || !senderId) return null;
   try {
@@ -122,11 +119,11 @@ async function addNotificationAndEmit({
           let recipientRole = null;
 
           // Try admin/staff user first
-          const adminUser = await ZohoDmsUser.findById(userId).select('username role').lean();
+          const adminUser = await ZohoDmsUser.findById(userId).select('username role email').lean();
           if (adminUser) {
             recipientRole = adminUser.role;
             recipientName = adminUser.username;
-            // Email resolved from role via env vars inside notificationService
+            recipientEmail = adminUser.email || null;
           } else {
             // Fall back to client user
             const clientUser = await DmsZohoClient.findById(userId).select('name email').lean();

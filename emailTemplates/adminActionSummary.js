@@ -46,6 +46,7 @@ function render(notifications, { recipientName, leadId } = {}) {
         ? '[CHECKLIST]'
         : '[COMMENT]';
 
+      const companyName = n.templateData?.companyName || '—';
       const reviewedBy = n.templateData?.reviewedBy || n.templateData?.changedBy || '—';
       const remarks = type === 'document_rejected' && n.templateData?.rejectReason
         ? escHtml(n.templateData.rejectReason)
@@ -55,6 +56,7 @@ function render(notifications, { recipientName, leadId } = {}) {
         <tr style="background-color:${bg};">
           <td style="padding:10px 12px;font-size:12px;font-weight:700;color:#000000;border-bottom:1px solid #e0e0e0;white-space:nowrap;">${statusLabel}</td>
           <td style="padding:10px 12px;font-size:13px;color:#111111;border-bottom:1px solid #e0e0e0;">${escHtml(n.entityName || '—')}</td>
+          <td style="padding:10px 12px;font-size:13px;color:#555555;border-bottom:1px solid #e0e0e0;">${escHtml(companyName)}</td>
           <td style="padding:10px 12px;font-size:13px;color:#555555;border-bottom:1px solid #e0e0e0;">${escHtml(reviewedBy)}</td>
           <td style="padding:10px 12px;font-size:13px;color:#555555;border-bottom:1px solid #e0e0e0;">${remarks}</td>
         </tr>`;
@@ -93,6 +95,7 @@ function render(notifications, { recipientName, leadId } = {}) {
         <tr style="background-color:#f0f0f0;">
           <th style="padding:10px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;white-space:nowrap;">Status</th>
           <th style="padding:10px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;">Document Name</th>
+          <th style="padding:10px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;">Company</th>
           <th style="padding:10px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;">Reviewed By</th>
           <th style="padding:10px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;">Remarks</th>
         </tr>

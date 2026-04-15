@@ -17,10 +17,10 @@ const WINDOW_MS_BY_ROLE = {
 };
 
 
-function resolveRecipientEmail(role, clientEmail) {
-  if (role === 'client') return clientEmail || null;
+function resolveRecipientEmail(role, userEmail) {
+  if (role === 'client') return userEmail || null;
+  if (role === 'supervisor') return userEmail || process.env.EMAIL_SUPERVISOR || null;
   if (role === 'master_admin') return process.env.EMAIL_MASTER_ADMIN || null;
-  if (role === 'supervisor') return process.env.EMAIL_SUPERVISOR || null;
   return process.env.EMAIL_ADMIN_TEAM || null;
 }
 
@@ -50,9 +50,6 @@ async function createEmailNotification(params) {
   const windowMs = WINDOW_MS_BY_ROLE[recipientRole] ?? (30 * 60 * 1000);
   const scheduledFor = sendImmediately ? new Date() : new Date(Date.now() + windowMs);
 
-  // Deduplicate immediate types that can be triggered multiple times for the same lead.
-  // Uses an atomic findOneAndUpdate+upsert to prevent race conditions when multiple
-  // events fire simultaneously (e.g. bulk checklist assignment).
   const dedupeTypes = ['checklist_created', 'checklist_updated', 'checklist_requested'];
   if (dedupeTypes.includes(notificationType)) {
     const { Types } = require('mongoose');
