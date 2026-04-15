@@ -8,7 +8,8 @@ const MODULE_SPOUSE_SKILL_ASSESSMENT = 'Spouse_Skill_Assessment';
 const APPLICATION_STATE_ACTIVE = 'Active';
 const QUALIFIED_COUNTRY_AUSTRALIA = 'Australia';
 const QUALIFIED_COUNTRY_CANADA = 'Canada';
-const SUPPORTED_COUNTRIES = ['Australia', 'Canada'];
+const QUALIFIED_COUNTRY_GERMANY = 'Germany';
+const SUPPORTED_COUNTRIES = ['Australia', 'Canada', 'Germany'];
 const SERVICE_FINALIZED_PERMANENT_RESIDENCY = 'Permanent Residency';
 
 const APPLICATION_STAGES = [
@@ -29,6 +30,49 @@ const APPLICATION_STAGES = [
   'Stage 3 Documentation: Approved',
   'Stage 3 Visa Application',
   'SEND CHECKLIST'
+];
+
+const APPLICATION_STAGES_GERMANY = [
+  'Stage 4 Authority Selection',
+  'Stage 4 Documentation: Review',
+  'Stage 1 Documentation: Approved',
+  'Stage 3 Documentation: Approved',
+  'Stage 4 Documentation: Approved',
+  'Stage 5 Documentation: Approved',
+  'Stage 1 Documentation: Rejected',
+  'Stage 4 Documentation: Rejected',
+  'Stage 3 Application Lodged',
+  'Stage 4 Application Lodged',
+  'Stage 3 Further Information Requested',
+  'Stage 4 Further Information Requested',
+  'Stage 1 Milestone Completed',
+  'Stage 3 Milestone Completed',
+  'Stage 4 Milestone Completed',
+  'Stage 5 Milestone Completed',
+  'Stage 1 Review/Appeal/Fresh Application',
+  'Stage 3 Review/Appeal/Fresh Application',
+  'Stage 4 Review/Appeal/Fresh Application',
+  'Lodge Application 1',
+  'Lodge Application 2',
+  'Lodge Application 3',
+  'Lodge Application 4',
+  'INIVITATION TO APPLY',
+  'LODGE APPLICATION',
+  'SEND CHECK LIST',
+  'MEDICALS',
+  'VISA GRAND',
+  'Invitation to Apply',
+  'Application Lodged',
+  'Skill Assessment Stage',
+  'Visa Rejected',
+  'Visa Grant',
+  'Language Test',
+  'SA Application Lodge',
+  'VA Application Lodge',
+  'Stage 3 Visa Application',
+  'Stage 1 Documentation Reviewed',
+  'Stage 2 Milestone Completed',
+  'Invitation to Apply 2',
 ];
 
 const APPLICATION_STAGES_CANADA = [
@@ -96,10 +140,12 @@ module.exports = {
   APPLICATION_STATE_ACTIVE,
   QUALIFIED_COUNTRY_AUSTRALIA,
   QUALIFIED_COUNTRY_CANADA,
+  QUALIFIED_COUNTRY_GERMANY,
   SUPPORTED_COUNTRIES,
   SERVICE_FINALIZED_PERMANENT_RESIDENCY,
   APPLICATION_STAGES,
   APPLICATION_STAGES_CANADA,
+  APPLICATION_STAGES_GERMANY,
   STAGE_1_STAGES,
   MIN_PAGE,
   MIN_LIMIT,

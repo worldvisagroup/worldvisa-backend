@@ -24,7 +24,8 @@ const VALID_SERVICE_TYPES_COQL = VALID_SERVICE_TYPES.map(s => `'${escapeString(s
 function buildWhereClause(username, role, giveMine, startDate, endDate) {
     const conditions = [];
     if (role === 'admin' || giveMine === 'true') {
-        conditions.push(`Application_Handled_By like '%${username}%'`);
+        const safeUsername = escapeString((username ?? '').trim());
+        conditions.push(`Application_Handled_By like '%${safeUsername}%'`);
     }
     if (startDate && endDate) {
         conditions.push(`(Created_Time >= '${startDate}T00:00:00+00:00' and Created_Time <= '${endDate}T23:59:59+00:00')`);
@@ -36,6 +37,17 @@ function buildWhereClause(username, role, giveMine, startDate, endDate) {
         conditions.push(`Created_Time <= '${endDate}T23:59:59+00:00'`);
     }
     return conditions.length > 0 ? ` where ${conditions.join(' and ')}` : '';
+}
+function joinWhere(baseWhereClause, extraAndCondition) {
+    const base = (baseWhereClause || '').trim();
+    const extra = typeof extraAndCondition === 'string' ? extraAndCondition.trim() : '';
+    if (!extra)
+        return baseWhereClause;
+    if (base) {
+        // baseWhereClause already includes a leading `where ...`
+        return `${baseWhereClause} and ${extra}`;
+    }
+    return ` where ${extra}`;
 }
 async function fetchOnboardingMap(recordIds) {
     const records = (await DmsZohoClient
@@ -65,9 +77,7 @@ async function getProfileImageUrlMap(usernames) {
 // ─── Visa Application Filter ──────────────────────────────────────────────────
 function buildVisaListWhereClauseAndCoreFilters(username, role, giveMine, startDate, endDate, handledBy, applicationStage, applicationState, country, extraAndCondition, serviceType) {
     const userWhere = buildWhereClause(username, role, giveMine, startDate, endDate);
-    const whereClause = extraAndCondition
-        ? (userWhere ? `${userWhere} and ${extraAndCondition}` : ` where ${extraAndCondition}`)
-        : userWhere;
+    const whereClause = joinWhere(userWhere, extraAndCondition);
     const filterJoin = whereClause ? ' and' : ' where';
     let coreFilters = `${filterJoin} (((`;
     if (applicationState) {
@@ -111,8 +121,38 @@ async function getFilteredVisaApplications(username, role, page, limit, startDat
     const orderBy = recentActivity === 'false' ? 'Created_Time' : 'Recent_Activity';
     const listQuery = buildVisaApplicationListQuery(whereClause, coreFilters, orderBy, limit, offset);
     const [countResponse, zohoResponse] = await Promise.all([
-        zohoRequest('coql', 'POST', { select_query: countQuery }),
-        zohoRequest('coql', 'POST', { select_query: listQuery }),
+        (async () => {
+            try {
+                return await zohoRequest('coql', 'POST', { select_query: countQuery });
+            }
+            catch (err) {
+                const error = err;
+                if (error.response?.status === 400) {
+                    logger.error('[VisaApplications] Zoho COQL rejected (count)', {
+                        status: error.response?.status,
+                        zohoData: error.response?.data,
+                        select_query: countQuery,
+                    });
+                }
+                throw err;
+            }
+        })(),
+        (async () => {
+            try {
+                return await zohoRequest('coql', 'POST', { select_query: listQuery });
+            }
+            catch (err) {
+                const error = err;
+                if (error.response?.status === 400) {
+                    logger.error('[VisaApplications] Zoho COQL rejected (list)', {
+                        status: error.response?.status,
+                        zohoData: error.response?.data,
+                        select_query: listQuery,
+                    });
+                }
+                throw err;
+            }
+        })(),
     ]);
     return {
         data: zohoResponse?.data || [],
@@ -127,7 +167,22 @@ async function getFilteredVisaApplicationsByUnifiedSearch(username, role, page, 
         const { whereClause, coreFilters } = buildVisaListWhereClauseAndCoreFilters(username, role, giveMine, startDate, endDate, handledBy, applicationStage, applicationState, country, `(${field} like '%${escapedSearch}%')`, serviceType);
         return buildVisaApplicationListQuery(whereClause, coreFilters, orderBy, perQueryLimit, 0);
     });
-    const responses = await Promise.all(selectQueries.map((select_query) => zohoRequest('coql', 'POST', { select_query })));
+    const responses = await Promise.all(selectQueries.map(async (select_query) => {
+        try {
+            return await zohoRequest('coql', 'POST', { select_query });
+        }
+        catch (err) {
+            const error = err;
+            if (error.response?.status === 400) {
+                logger.error('[VisaApplications] Zoho COQL rejected (unified search)', {
+                    status: error.response?.status,
+                    zohoData: error.response?.data,
+                    select_query,
+                });
+            }
+            throw err;
+        }
+    }));
     const sortKey = (app) => {
         const v = app[orderBy];
         if (v == null)
