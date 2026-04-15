@@ -6,8 +6,6 @@ import type {
   OnboardingStatus,
   ApplicationFilterResult,
 } from '../types/visaApplication.types';
-import { VISA_SERVICE_TYPE_VALUES } from '../constants/checklistDocument';
-import { isVisaApplicationCountry, VISA_APPLICATION_STATUS_VALUES } from '../constants/visaApplication';
 
 // ─── JS Module Imports ────────────────────────────────────────────────────────
 
@@ -67,9 +65,6 @@ const { sanitizeSearchTerm, escapeString } = require('../utils/querySanitizer.js
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const VALID_SERVICE_TYPES = VISA_SERVICE_TYPE_VALUES.filter(v => v !== 'All');
-const VALID_SERVICE_TYPES_COQL = VALID_SERVICE_TYPES.map(s => `'${escapeString(s)}'`).join(', ');
-
 function buildWhereClause(
   username: string,
   role: string,
@@ -80,8 +75,7 @@ function buildWhereClause(
   const conditions: string[] = [];
 
   if (role === 'admin' || giveMine === 'true') {
-    const safeUsername = escapeString((username ?? '').trim());
-    conditions.push(`Application_Handled_By like '%${safeUsername}%'`);
+    conditions.push(`Application_Handled_By like '${username}'`);
   }
 
   if (startDate && endDate) {
@@ -93,19 +87,6 @@ function buildWhereClause(
   }
 
   return conditions.length > 0 ? ` where ${conditions.join(' and ')}` : '';
-}
-
-function joinWhere(baseWhereClause: string, extraAndCondition?: string): string {
-  const base = (baseWhereClause || '').trim();
-  const extra = typeof extraAndCondition === 'string' ? extraAndCondition.trim() : '';
-  if (!extra) return baseWhereClause;
-
-  if (base) {
-    // baseWhereClause already includes a leading `where ...`
-    return `${baseWhereClause} and ${extra}`;
-  }
-
-  return ` where ${extra}`;
 }
 
 async function fetchOnboardingMap(recordIds: string[]): Promise<Map<string, Record<string, unknown>>> {
@@ -139,7 +120,10 @@ async function getProfileImageUrlMap(
 
 // ─── Visa Application Filter ──────────────────────────────────────────────────
 
-
+/**
+ * Builds COQL `where` prefix + core module filters for visa application list/search.
+ * @param extraAndCondition — optional fragment e.g. `(Name like '%x%')` (no leading `and`)
+ */
 function buildVisaListWhereClauseAndCoreFilters(
   username: string,
   role: string,
@@ -151,10 +135,11 @@ function buildVisaListWhereClauseAndCoreFilters(
   applicationState: string | undefined,
   country: string,
   extraAndCondition?: string,
-  serviceType?: string,
 ): { whereClause: string; coreFilters: string } {
   const userWhere = buildWhereClause(username, role, giveMine, startDate, endDate);
-  const whereClause = joinWhere(userWhere, extraAndCondition);
+  const whereClause = extraAndCondition
+    ? (userWhere ? `${userWhere} and ${extraAndCondition}` : ` where ${extraAndCondition}`)
+    : userWhere;
 
   const filterJoin = whereClause ? ' and' : ' where';
   let coreFilters = `${filterJoin} (((`;
@@ -167,30 +152,20 @@ function buildVisaListWhereClauseAndCoreFilters(
 
   coreFilters += ` and (Qualified_Country = '${country}'))`;
 
-  const normalizedServiceType = typeof serviceType === 'string' ? serviceType.trim() : '';
-  const serviceFilter = normalizedServiceType && VALID_SERVICE_TYPES.includes(normalizedServiceType as any)
-    ? `Service_Finalized = '${escapeString(normalizedServiceType)}'`
-    : `Service_Finalized in (${VALID_SERVICE_TYPES_COQL})`;
-
   if ((role === 'admin' || role === 'master_admin') && handledBy) {
-    coreFilters += ` and ((${serviceFilter}`;
+    coreFilters += ` and ((Service_Finalized = 'Permanent Residency')`;
     const handledByList = handledBy.split(',').map(h => h.trim()).join("', '");
     coreFilters += ` and (Application_Handled_By in ('${handledByList}'))))`;
   } else {
-    coreFilters += ` and (${serviceFilter}))`;
+    coreFilters += ` and (Service_Finalized = 'Permanent Residency'))`;
   }
 
   if (applicationStage) {
     const stages = applicationStage.split(',').map(s => s.trim()).join("', '");
     coreFilters += ` and (Application_Stage in ('${stages}'))`;
   } else {
-    const defaultStageValues =
-      country === 'Germany'
-        ? VISA_APPLICATION_STATUS_VALUES
-        : (country === 'Canada' ? APPLICATION_STAGES_CANADA : APPLICATION_STAGES);
-
-    const defaultStages = defaultStageValues
-      .map(s => `'${escapeString(s)}'`).join(', ');
+    const defaultStages = (country === 'Canada' ? APPLICATION_STAGES_CANADA : APPLICATION_STAGES)
+      .map(s => `'${s}'`).join(', ');
     coreFilters += ` and (Application_Stage in (${defaultStages}))`;
   }
 
@@ -212,14 +187,11 @@ async function getFilteredVisaApplications(
   applicationStage: string | undefined,
   applicationState: string | undefined,
   country: string,
-  serviceType: string | undefined,
 ): Promise<ApplicationFilterResult> {
   const offset = (page - 1) * limit;
   const { whereClause, coreFilters } = buildVisaListWhereClauseAndCoreFilters(
     username, role, giveMine, startDate, endDate,
     handledBy, applicationStage, applicationState, country,
-    undefined,
-    serviceType,
   );
 
   const countQuery = buildVisaApplicationCountQuery(whereClause, coreFilters);
@@ -227,36 +199,8 @@ async function getFilteredVisaApplications(
   const listQuery  = buildVisaApplicationListQuery(whereClause, coreFilters, orderBy, limit, offset);
 
   const [countResponse, zohoResponse] = await Promise.all([
-    (async () => {
-      try {
-        return await zohoRequest('coql', 'POST', { select_query: countQuery });
-      } catch (err) {
-        const error = err as { response?: { status?: number; data?: unknown }; message?: string };
-        if (error.response?.status === 400) {
-          logger.error('[VisaApplications] Zoho COQL rejected (count)', {
-            status: error.response?.status,
-            zohoData: error.response?.data,
-            select_query: countQuery,
-          });
-        }
-        throw err;
-      }
-    })(),
-    (async () => {
-      try {
-        return await zohoRequest('coql', 'POST', { select_query: listQuery });
-      } catch (err) {
-        const error = err as { response?: { status?: number; data?: unknown }; message?: string };
-        if (error.response?.status === 400) {
-          logger.error('[VisaApplications] Zoho COQL rejected (list)', {
-            status: error.response?.status,
-            zohoData: error.response?.data,
-            select_query: listQuery,
-          });
-        }
-        throw err;
-      }
-    })(),
+    zohoRequest('coql', 'POST', { select_query: countQuery }),
+    zohoRequest('coql', 'POST', { select_query: listQuery }),
   ]);
 
   return {
@@ -265,7 +209,11 @@ async function getFilteredVisaApplications(
   };
 }
 
-
+/**
+ * One search term matched against Name, Email, or Phone. COQL has no OR for these in one query,
+ * so we run three queries, merge by id, sort, then paginate in memory.
+ * Each branch fetches at most `min(200, max(limit, page*limit))` rows — totals and deep pages may be incomplete if more rows match.
+ */
 async function getFilteredVisaApplicationsByUnifiedSearch(
   username: string,
   role: string,
@@ -280,7 +228,6 @@ async function getFilteredVisaApplicationsByUnifiedSearch(
   applicationState: string | undefined,
   country: string,
   escapedSearch: string,
-  serviceType: string | undefined,
 ): Promise<ApplicationFilterResult> {
   const orderBy = recentActivity === 'false' ? 'Created_Time' : 'Recent_Activity';
   const perQueryLimit = Math.min(
@@ -294,27 +241,12 @@ async function getFilteredVisaApplicationsByUnifiedSearch(
       username, role, giveMine, startDate, endDate,
       handledBy, applicationStage, applicationState, country,
       `(${field} like '%${escapedSearch}%')`,
-      serviceType,
     );
     return buildVisaApplicationListQuery(whereClause, coreFilters, orderBy, perQueryLimit, 0);
   });
 
   const responses = await Promise.all(
-    selectQueries.map(async (select_query) => {
-      try {
-        return await zohoRequest('coql', 'POST', { select_query });
-      } catch (err) {
-        const error = err as { response?: { status?: number; data?: unknown }; message?: string };
-        if (error.response?.status === 400) {
-          logger.error('[VisaApplications] Zoho COQL rejected (unified search)', {
-            status: error.response?.status,
-            zohoData: error.response?.data,
-            select_query,
-          });
-        }
-        throw err;
-      }
-    }),
+    selectQueries.map((select_query) => zohoRequest('coql', 'POST', { select_query })),
   );
 
   const sortKey = (app: ZohoRecord): number => {
@@ -497,12 +429,11 @@ export const getApplicationsWithAttachments = async (req: Request, res: Response
     const {
       startDate, endDate, giveMine, recentActivity,
       handledBy, applicationStage, applicationState,
-      serviceType,
     } = req.query as Record<string, string | undefined>;
     const country = (req.query.country as string) || 'Australia';
 
-    if (!isVisaApplicationCountry(country)) {
-      res.status(400).json({ error: 'Invalid country parameter. Provide a valid country name.' });
+    if (!SUPPORTED_COUNTRIES.includes(country)) {
+      res.status(400).json({ error: `Invalid country parameter. Supported values: ${SUPPORTED_COUNTRIES.join(', ')}` });
       return;
     }
 
@@ -533,7 +464,6 @@ export const getApplicationsWithAttachments = async (req: Request, res: Response
           handledBy, applicationStage, applicationState,
           country,
           escapeString(trimmedSearch),
-          serviceType,
         )
       : await getFilteredVisaApplications(
           username, role,
@@ -542,7 +472,6 @@ export const getApplicationsWithAttachments = async (req: Request, res: Response
           giveMine, recentActivity,
           handledBy, applicationStage, applicationState,
           country,
-          serviceType,
         );
 
     if (!filteredApplications.length) {

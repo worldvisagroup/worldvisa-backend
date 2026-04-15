@@ -5,8 +5,6 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deleteApplicationNote = exports.updateApplicationNote = exports.addApplicationNote = exports.getApplicationNotes = exports.getSpouseVisaApplicationById = exports.getSpouseApplicationsWithAttachments = exports.getVisaApplication = exports.getVisaApplicationById = exports.getApplicationsWithAttachments = void 0;
 const mongoose_1 = __importDefault(require("mongoose"));
-const checklistDocument_1 = require("../constants/checklistDocument");
-const visaApplication_1 = require("../constants/visaApplication");
 // ─── JS Module Imports ────────────────────────────────────────────────────────
 const { zohoRequest } = require('./zohoDms/zohoApi.js');
 const dmsZohoDocument = require('../models/dmsZohoDocument');
@@ -19,13 +17,10 @@ const { REQ_MODULE_SPOUSE_SKILL_ASSESSMENT, MODULE_VISA_APPLICATION, MODULE_SPOU
 const { buildVisaApplicationCountQuery, buildVisaApplicationListQuery, buildVisaApplicationDetailQuery, buildSpouseApplicationCountQuery, buildSpouseApplicationListQuery, buildSpouseApplicationDetailQuery, buildClientApplicationDetailQuery, } = require('../queries/visaApplicationCoql');
 const { sanitizeSearchTerm, escapeString } = require('../utils/querySanitizer.js');
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const VALID_SERVICE_TYPES = checklistDocument_1.VISA_SERVICE_TYPE_VALUES.filter(v => v !== 'All');
-const VALID_SERVICE_TYPES_COQL = VALID_SERVICE_TYPES.map(s => `'${escapeString(s)}'`).join(', ');
 function buildWhereClause(username, role, giveMine, startDate, endDate) {
     const conditions = [];
     if (role === 'admin' || giveMine === 'true') {
-        const safeUsername = escapeString((username ?? '').trim());
-        conditions.push(`Application_Handled_By like '%${safeUsername}%'`);
+        conditions.push(`Application_Handled_By like '${username}'`);
     }
     if (startDate && endDate) {
         conditions.push(`(Created_Time >= '${startDate}T00:00:00+00:00' and Created_Time <= '${endDate}T23:59:59+00:00')`);
@@ -37,17 +32,6 @@ function buildWhereClause(username, role, giveMine, startDate, endDate) {
         conditions.push(`Created_Time <= '${endDate}T23:59:59+00:00'`);
     }
     return conditions.length > 0 ? ` where ${conditions.join(' and ')}` : '';
-}
-function joinWhere(baseWhereClause, extraAndCondition) {
-    const base = (baseWhereClause || '').trim();
-    const extra = typeof extraAndCondition === 'string' ? extraAndCondition.trim() : '';
-    if (!extra)
-        return baseWhereClause;
-    if (base) {
-        // baseWhereClause already includes a leading `where ...`
-        return `${baseWhereClause} and ${extra}`;
-    }
-    return ` where ${extra}`;
 }
 async function fetchOnboardingMap(recordIds) {
     const records = (await DmsZohoClient
@@ -75,9 +59,15 @@ async function getProfileImageUrlMap(usernames) {
     return Object.fromEntries(users.map((u) => [u.username, u]));
 }
 // ─── Visa Application Filter ──────────────────────────────────────────────────
-function buildVisaListWhereClauseAndCoreFilters(username, role, giveMine, startDate, endDate, handledBy, applicationStage, applicationState, country, extraAndCondition, serviceType) {
+/**
+ * Builds COQL `where` prefix + core module filters for visa application list/search.
+ * @param extraAndCondition — optional fragment e.g. `(Name like '%x%')` (no leading `and`)
+ */
+function buildVisaListWhereClauseAndCoreFilters(username, role, giveMine, startDate, endDate, handledBy, applicationStage, applicationState, country, extraAndCondition) {
     const userWhere = buildWhereClause(username, role, giveMine, startDate, endDate);
-    const whereClause = joinWhere(userWhere, extraAndCondition);
+    const whereClause = extraAndCondition
+        ? (userWhere ? `${userWhere} and ${extraAndCondition}` : ` where ${extraAndCondition}`)
+        : userWhere;
     const filterJoin = whereClause ? ' and' : ' where';
     let coreFilters = `${filterJoin} (((`;
     if (applicationState) {
@@ -87,102 +77,55 @@ function buildVisaListWhereClauseAndCoreFilters(username, role, giveMine, startD
         coreFilters += `(Application_State = 'Active')`;
     }
     coreFilters += ` and (Qualified_Country = '${country}'))`;
-    const normalizedServiceType = typeof serviceType === 'string' ? serviceType.trim() : '';
-    const serviceFilter = normalizedServiceType && VALID_SERVICE_TYPES.includes(normalizedServiceType)
-        ? `Service_Finalized = '${escapeString(normalizedServiceType)}'`
-        : `Service_Finalized in (${VALID_SERVICE_TYPES_COQL})`;
     if ((role === 'admin' || role === 'master_admin') && handledBy) {
-        coreFilters += ` and ((${serviceFilter}`;
+        coreFilters += ` and ((Service_Finalized = 'Permanent Residency')`;
         const handledByList = handledBy.split(',').map(h => h.trim()).join("', '");
         coreFilters += ` and (Application_Handled_By in ('${handledByList}'))))`;
     }
     else {
-        coreFilters += ` and (${serviceFilter}))`;
+        coreFilters += ` and (Service_Finalized = 'Permanent Residency'))`;
     }
     if (applicationStage) {
         const stages = applicationStage.split(',').map(s => s.trim()).join("', '");
         coreFilters += ` and (Application_Stage in ('${stages}'))`;
     }
     else {
-        const defaultStageValues = country === 'Germany'
-            ? visaApplication_1.VISA_APPLICATION_STATUS_VALUES
-            : (country === 'Canada' ? APPLICATION_STAGES_CANADA : APPLICATION_STAGES);
-        const defaultStages = defaultStageValues
-            .map(s => `'${escapeString(s)}'`).join(', ');
+        const defaultStages = (country === 'Canada' ? APPLICATION_STAGES_CANADA : APPLICATION_STAGES)
+            .map(s => `'${s}'`).join(', ');
         coreFilters += ` and (Application_Stage in (${defaultStages}))`;
     }
     coreFilters += `)`;
     return { whereClause, coreFilters };
 }
-async function getFilteredVisaApplications(username, role, page, limit, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country, serviceType) {
+async function getFilteredVisaApplications(username, role, page, limit, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country) {
     const offset = (page - 1) * limit;
-    const { whereClause, coreFilters } = buildVisaListWhereClauseAndCoreFilters(username, role, giveMine, startDate, endDate, handledBy, applicationStage, applicationState, country, undefined, serviceType);
+    const { whereClause, coreFilters } = buildVisaListWhereClauseAndCoreFilters(username, role, giveMine, startDate, endDate, handledBy, applicationStage, applicationState, country);
     const countQuery = buildVisaApplicationCountQuery(whereClause, coreFilters);
     const orderBy = recentActivity === 'false' ? 'Created_Time' : 'Recent_Activity';
     const listQuery = buildVisaApplicationListQuery(whereClause, coreFilters, orderBy, limit, offset);
     const [countResponse, zohoResponse] = await Promise.all([
-        (async () => {
-            try {
-                return await zohoRequest('coql', 'POST', { select_query: countQuery });
-            }
-            catch (err) {
-                const error = err;
-                if (error.response?.status === 400) {
-                    logger.error('[VisaApplications] Zoho COQL rejected (count)', {
-                        status: error.response?.status,
-                        zohoData: error.response?.data,
-                        select_query: countQuery,
-                    });
-                }
-                throw err;
-            }
-        })(),
-        (async () => {
-            try {
-                return await zohoRequest('coql', 'POST', { select_query: listQuery });
-            }
-            catch (err) {
-                const error = err;
-                if (error.response?.status === 400) {
-                    logger.error('[VisaApplications] Zoho COQL rejected (list)', {
-                        status: error.response?.status,
-                        zohoData: error.response?.data,
-                        select_query: listQuery,
-                    });
-                }
-                throw err;
-            }
-        })(),
+        zohoRequest('coql', 'POST', { select_query: countQuery }),
+        zohoRequest('coql', 'POST', { select_query: listQuery }),
     ]);
     return {
         data: zohoResponse?.data || [],
         info: { count: countResponse?.data?.[0]?.total || 0 },
     };
 }
-async function getFilteredVisaApplicationsByUnifiedSearch(username, role, page, limit, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country, escapedSearch, serviceType) {
+/**
+ * One search term matched against Name, Email, or Phone. COQL has no OR for these in one query,
+ * so we run three queries, merge by id, sort, then paginate in memory.
+ * Each branch fetches at most `min(200, max(limit, page*limit))` rows — totals and deep pages may be incomplete if more rows match.
+ */
+async function getFilteredVisaApplicationsByUnifiedSearch(username, role, page, limit, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country, escapedSearch) {
     const orderBy = recentActivity === 'false' ? 'Created_Time' : 'Recent_Activity';
     const perQueryLimit = Math.min(VISA_LIST_SEARCH_COQL_MAX, Math.max(limit, page * limit));
     const fields = ['Name', 'Email', 'Phone'];
     const selectQueries = fields.map((field) => {
-        const { whereClause, coreFilters } = buildVisaListWhereClauseAndCoreFilters(username, role, giveMine, startDate, endDate, handledBy, applicationStage, applicationState, country, `(${field} like '%${escapedSearch}%')`, serviceType);
+        const { whereClause, coreFilters } = buildVisaListWhereClauseAndCoreFilters(username, role, giveMine, startDate, endDate, handledBy, applicationStage, applicationState, country, `(${field} like '%${escapedSearch}%')`);
         return buildVisaApplicationListQuery(whereClause, coreFilters, orderBy, perQueryLimit, 0);
     });
-    const responses = await Promise.all(selectQueries.map(async (select_query) => {
-        try {
-            return await zohoRequest('coql', 'POST', { select_query });
-        }
-        catch (err) {
-            const error = err;
-            if (error.response?.status === 400) {
-                logger.error('[VisaApplications] Zoho COQL rejected (unified search)', {
-                    status: error.response?.status,
-                    zohoData: error.response?.data,
-                    select_query,
-                });
-            }
-            throw err;
-        }
-    }));
+    const responses = await Promise.all(selectQueries.map((select_query) => zohoRequest('coql', 'POST', { select_query })));
     const sortKey = (app) => {
         const v = app[orderBy];
         if (v == null)
@@ -296,10 +239,10 @@ const getApplicationsWithAttachments = async (req, res) => {
         }
         const page = parseInt(req.query.page, 10) || 1;
         const limit = parseInt(req.query.limit, 10) || 10;
-        const { startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, serviceType, } = req.query;
+        const { startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, } = req.query;
         const country = req.query.country || 'Australia';
-        if (!(0, visaApplication_1.isVisaApplicationCountry)(country)) {
-            res.status(400).json({ error: 'Invalid country parameter. Provide a valid country name.' });
+        if (!SUPPORTED_COUNTRIES.includes(country)) {
+            res.status(400).json({ error: `Invalid country parameter. Supported values: ${SUPPORTED_COUNTRIES.join(', ')}` });
             return;
         }
         const hasSearchParam = Object.prototype.hasOwnProperty.call(req.query, 'search');
@@ -315,8 +258,8 @@ const getApplicationsWithAttachments = async (req, res) => {
         const username = req.user.username ?? '';
         const role = req.user.role ?? '';
         const { data: filteredApplications, info } = trimmedSearch
-            ? await getFilteredVisaApplicationsByUnifiedSearch(username, role, page, limit, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country, escapeString(trimmedSearch), serviceType)
-            : await getFilteredVisaApplications(username, role, page, limit, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country, serviceType);
+            ? await getFilteredVisaApplicationsByUnifiedSearch(username, role, page, limit, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country, escapeString(trimmedSearch))
+            : await getFilteredVisaApplications(username, role, page, limit, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country);
         if (!filteredApplications.length) {
             res.json({
                 data: [],
