@@ -157,14 +157,10 @@ router.get('/documents/requested_reviews/search', protect, dmsZohoDocumentsContr
 
 // Requested Reviews
 router.post('/documents/:docId/requested_reviews/send', protect, dmsZohoDocumentsController.sendRequestedReview);
-
-router.get('/documents/:docId/requested_reviews', dmsZohoDocumentsController.getRequestedReviewsByDocId);
-
-router.post('/documents/:docId/requested_reviews', dmsZohoDocumentsController.addRequestedReviews);
-
-router.put('/documents/:docId/requested_reviews', dmsZohoDocumentsController.editRequestedReview);
-
-router.delete('/documents/:docId/requested_reviews', dmsZohoDocumentsController.deleteRequestedReview);
+router.get('/documents/:docId/requested_reviews', protect, dmsZohoDocumentsController.getRequestedReviewsByDocId);
+router.post('/documents/:docId/requested_reviews', protect, dmsZohoDocumentsController.addRequestedReviews);
+router.put('/documents/:docId/requested_reviews', protect, dmsZohoDocumentsController.editRequestedReview);
+router.delete('/documents/:docId/requested_reviews', protect, dmsZohoDocumentsController.deleteRequestedReview);
 
 // Requested Review Messages
 
