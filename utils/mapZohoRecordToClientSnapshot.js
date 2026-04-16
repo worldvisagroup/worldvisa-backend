@@ -1,5 +1,3 @@
-const { isVisaApplicationCountry } = require('../constants/visaApplication');
-
 function parseZohoDate(value) {
   if (value == null || value === '') return null;
   const d = new Date(String(value));
@@ -31,9 +29,7 @@ function mapZohoRecordToClientSnapshot(zohoRow, recordType) {
   out.send_check_list = strOrNull(zohoRow.Send_Check_List);
   out.quality_check_from = strOrNull(zohoRow.Quality_Check_From);
   out.application_state = strOrNull(zohoRow.Application_State);
-  const country = strOrNull(zohoRow.Qualified_Country);
-  out.qualified_country =
-    country && isVisaApplicationCountry(country) ? country : null;
+  out.qualified_country = strOrNull(zohoRow.Qualified_Country);
 
   if (recordType === 'visa_application') {
     out.spouse_skill_assessment = strOrNull(zohoRow.Spouse_Skill_Assessment);
