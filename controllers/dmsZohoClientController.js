@@ -1277,8 +1277,50 @@ exports.updateLeadOwnerFromZoho = async (req, res) => {
 
   } catch (error) {
     if (error.code === 11000) {
+      const keyPattern = error.keyPattern || {};
+      const keyValue = error.keyValue || {};
+
+      const conflictField =
+        keyPattern.lead_id || keyValue.lead_id ? 'lead_id'
+          : keyPattern.email || keyValue.email ? 'email'
+            : 'unknown';
+
+      if (conflictField === 'lead_id') {
+        return res.status(409).json({
+          status: 'fail',
+          code: 'LEAD_ID_ALREADY_EXISTS',
+          field: 'lead_id',
+          lead_id,
+          message: `A record with lead_id ${lead_id} already exists.`,
+        });
+      }
+
+      if (conflictField === 'email') {
+        const conflictEmail =
+          keyValue.email != null
+            ? String(keyValue.email)
+            : email
+              ? String(email).toLowerCase().trim()
+              : null;
+
+        return res.status(409).json({
+          status: 'fail',
+          code: 'EMAIL_ALREADY_EXISTS',
+          field: 'email',
+          lead_id,
+          ...(conflictEmail ? { email: conflictEmail } : {}),
+          message: conflictEmail
+            ? `A record with email ${conflictEmail} already exists.`
+            : 'A record with this email already exists.',
+        });
+      }
+
       return res.status(409).json({
-        status:  'fail',
+        status: 'fail',
+        code: 'DUPLICATE_KEY',
+        field: 'unknown',
+        lead_id,
+        ...(email ? { email: String(email).toLowerCase().trim() } : {}),
         message: 'A record with this lead_id or email already exists.',
       });
     }
