@@ -7,6 +7,8 @@ const { zohoRequest } = require('./zohoDms/zohoApi');
 const bcrypt = require('bcryptjs');
 const { inviteClientAfterSignup } = require('../services/clerk/clerkInvitationService');
 const { escapeRegexForMongo, sanitizeSearchTerm } = require('../utils/querySanitizer');
+const { VISA_DETAIL_FIELDS, SPOUSE_DETAIL_FIELDS } = require('../queries/visaApplicationCoql');
+const { mapZohoRecordToClientSnapshot } = require('../utils/mapZohoRecordToClientSnapshot');
 
 const signToken = (id, lead_id, email) => {
   return jwt.sign({ id, lead_id, email, role: 'client' }, process.env.JWT_SECRET, {
@@ -43,10 +45,63 @@ function signupConflictFromDuplicateKey(error) {
   return null;
 }
 
+// ─── Shared field helpers ─────────────────────────────────────────────────────
+
+function strOrNull(v) {
+  if (v == null) return null;
+  const s = String(v).trim();
+  return s === '' ? null : s;
+}
+
+function parseDateOrNull(v) {
+  if (!v) return null;
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * Builds a MongoDB $set-compatible object from a signup/webhook body.
+ * Only includes keys explicitly present in the body (partial-update safe).
+ */
+function buildApplicationPayload(body) {
+  const out = {};
+
+  const strFields = [
+    ['application_handled_by', 'lead_owner'],
+    ['lead_owner',             'lead_owner'],
+    ['service_type',            'service_type'],
+    ['application_stage',       'application_stage'],
+    ['dms_application_status',  'dms_application_status'],
+    ['qualified_country',       'qualified_country'],
+    ['deadline_for_lodgment',   'deadline_for_lodgment'],
+    ['application_state',       'application_state'],
+    ['quality_check_from',      'quality_check_from'],
+    ['assessing_authority',     'assessing_authority'],
+    ['suggested_anzsco',        'suggested_anzsco'],
+    ['send_check_list',         'send_check_list'],
+    ['package_finalize',        'package_finalize'],
+    ['spouse_skill_assessment', 'spouse_skill_assessment'],
+    ['spouse_name',             'spouse_name'],
+    ['main_applicant',          'main_applicant'],
+  ];
+
+  for (const [bodyKey, dbKey] of strFields) {
+    if (bodyKey in body) out[dbKey] = strOrNull(body[bodyKey]);
+  }
+
+  if ('recent_activity'    in body) out.recent_activity    = parseDateOrNull(body.recent_activity);
+  if ('zoho_created_time'  in body) out.zoho_created_time  = parseDateOrNull(body.zoho_created_time);
+  if ('zoho_modified_time' in body) out.zoho_modified_time = parseDateOrNull(body.zoho_modified_time);
+  if ('checklist_requested' in body) out.checklist_requested = Boolean(body.checklist_requested);
+
+  return out;
+}
+
+
 
 exports.signup = async (req, res) => {
   try {
-    const { name, email, phone, lead_id, lead_owner, record_type } = req.body;
+    const { name, email, phone, lead_id, lead_owner, record_type, full_name } = req.body;
 
     if (!name || !email || !phone || !lead_id || !lead_owner || !record_type) {
       return res.status(400).json({
@@ -56,7 +111,7 @@ exports.signup = async (req, res) => {
     }
 
     const normalizedEmail = String(email).toLowerCase().trim();
-    const normalizedPhone = String(phone).replace(/[\s+]/g, '');
+    const normalizedPhone = String(phone).replace(/\s/g, '');
     const phoneDigits = String(phone).replace(/\D/g, '');
     if (!phoneDigits.length) {
       return res.status(400).json({
@@ -98,6 +153,8 @@ exports.signup = async (req, res) => {
       }
     }
 
+    const optionalFields = buildApplicationPayload(req.body);
+
     const newClient = await DmsZohoClient.create({
       name,
       email: normalizedEmail,
@@ -105,6 +162,8 @@ exports.signup = async (req, res) => {
       lead_id,
       lead_owner,
       record_type,
+      ...(full_name ? { full_name } : {}),
+      ...optionalFields,
     });
 
     addActivityLog({
@@ -912,8 +971,8 @@ exports.getClientById = async (req, res) => {
     const zohoModule = client.record_type === 'spouse_skill_assessment'
       ? 'Spouse_Skill_Assessment' : 'Visa_Applications';
     const zohoFields = client.record_type === 'spouse_skill_assessment'
-      ? 'id, Name, Email, DMS_Application_Status, Application_Stage, Deadline_For_Lodgment, Record_Type, Recent_Activity, Package_Finalize, Assessing_Authority, Suggested_Anzsco, Spouse_Name, Application_Handled_By'
-      : 'id, Name, Email, DMS_Application_Status, Application_Stage, Deadline_For_Lodgment, Record_Type, Recent_Activity, Package_Finalize, Qualified_Country, Service_Finalized, Checklist_Requested, Send_Check_List, Application_Handled_By';
+      ? SPOUSE_DETAIL_FIELDS
+      : VISA_DETAIL_FIELDS;
 
     const [docsResult, docsTotal, docStats, appRes] = await Promise.allSettled([
       DmsZohoDocument.find({ record_id: client.lead_id })
@@ -937,6 +996,18 @@ exports.getClientById = async (req, res) => {
     const statRows            = docStats.status   === 'fulfilled' ? docStats.value             : [];
     const applicationData     = appRes.status     === 'fulfilled' ? appRes.value?.data?.[0] ?? null : null;
     const documents_by_status = Object.fromEntries(statRows.map(s => [s._id, s.count]));
+
+    if (applicationData?.id) {
+      const snap = mapZohoRecordToClientSnapshot(
+        applicationData,
+        client.record_type === 'spouse_skill_assessment' ? 'spouse_skill_assessment' : 'visa_application',
+      );
+      await DmsZohoClient.findOneAndUpdate(
+        { lead_id: client.lead_id },
+        { $set: snap },
+        { runValidators: true },
+      ).exec();
+    }
 
     res.status(200).json({
       status: 'success',
@@ -1119,29 +1190,99 @@ exports.checkAndSyncLeadOwner = async (req, res) => {
 };
 
 exports.updateLeadOwnerFromZoho = async (req, res) => {
-  const { lead_id, application_handled_by } = req.body;
+  const { lead_id, name, email, phone, record_type, full_name } = req.body;
 
-  if (!lead_id || !application_handled_by) {
-    return res.status(400).json({ status: 'fail', message: 'lead_id and application_handled_by are required' });
+  if (!lead_id) {
+    return res.status(400).json({ status: 'fail', message: 'lead_id is required' });
   }
 
   try {
-    const updated = await DmsZohoClient.findOneAndUpdate(
-      { lead_id },
-      { $set: { lead_owner: application_handled_by.trim() } },
-      { new: true, select: 'lead_id lead_owner record_type name' }
-    );
+    // Build update payload from all provided body fields
+    const setFields = buildApplicationPayload(req.body);
+    if (name)       setFields.name      = String(name).trim();
+    if (full_name !== undefined) setFields.full_name = strOrNull(full_name);
+    if (email)      setFields.email     = String(email).toLowerCase().trim();
+    if (phone)      setFields.phone     = String(phone).replace(/\s/g, '');
 
-    if (!updated) {
-      return res.status(404).json({ status: 'fail', message: `No client found with lead_id: ${lead_id}` });
+    // ── UPDATE PATH ──────────────────────────────────────────────────────────
+    const existing = await DmsZohoClient.findOne({ lead_id }).select('_id name record_type').lean();
+
+    if (existing) {
+      const updated = await DmsZohoClient.findOneAndUpdate(
+        { lead_id },
+        { $set: setFields },
+        { new: true, runValidators: true }
+      );
+
+      addActivityLog({
+        lead_id,
+        activity_type: 'application_synced',
+        summary:       `Application updated from Zoho for ${updated.name}`,
+        actor_type:    'system',
+        actor_name:    'Zoho Webhook',
+        actor_role:    null,
+        metadata:      { record_type: updated.record_type, lead_owner: updated.lead_owner },
+      });
+
+      return res.status(200).json({
+        status: 'success',
+        action: 'updated',
+        data: {
+          lead_id:     updated.lead_id,
+          lead_owner:  updated.lead_owner,
+          record_type: updated.record_type,
+          name:        updated.name,
+        },
+      });
     }
 
-    res.status(200).json({
-      status: 'success',
-      message: 'lead_owner updated successfully',
-      data: { lead_id: updated.lead_id, lead_owner: updated.lead_owner, record_type: updated.record_type, name: updated.name },
+    // ── CREATE PATH ──────────────────────────────────────────────────────────
+    if (!name || !email || !phone || !record_type) {
+      return res.status(404).json({
+        status:  'fail',
+        message: `No application found with lead_id: ${lead_id}. Provide name, email, phone, and record_type to create one.`,
+      });
+    }
+
+    const newClient = await DmsZohoClient.create({
+      name:        String(name).trim(),
+      email:       String(email).toLowerCase().trim(),
+      phone:       String(phone).replace(/\s/g, ''),
+      lead_id,
+      record_type,
+      ...(full_name ? { full_name } : {}),
+      ...setFields,
     });
+
+    addActivityLog({
+      lead_id,
+      activity_type: 'application_created',
+      summary:       `Application created from Zoho sync for ${newClient.name}`,
+      actor_type:    'system',
+      actor_name:    'Zoho Webhook',
+      actor_role:    null,
+      metadata:      { record_type, lead_owner: newClient.lead_owner },
+    });
+
+    return res.status(201).json({
+      status: 'success',
+      action: 'created',
+      data: {
+        lead_id:     newClient.lead_id,
+        lead_owner:  newClient.lead_owner,
+        record_type: newClient.record_type,
+        name:        newClient.name,
+      },
+    });
+
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        status:  'fail',
+        message: 'A record with this lead_id or email already exists.',
+      });
+    }
+    console.error('[updateLeadOwnerFromZoho] Error:', error);
     res.status(500).json({ status: 'error', message: error.message || 'Something went wrong' });
   }
 };

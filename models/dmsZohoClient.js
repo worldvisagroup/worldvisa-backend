@@ -154,6 +154,77 @@ const dmsZohoClientSchema = new mongoose.Schema({
     default: null,
     trim: true,
   },
+  application_stage: {
+    type: String,
+    default: null,
+    trim: true,
+  },
+  dms_application_status: {
+    type: String,
+    default: null,
+    trim: true,
+  },
+  qualified_country: {
+    type: String,
+    default: null,
+    trim: true,
+  },
+  deadline_for_lodgment: {
+    type: String,
+    default: null,
+    trim: true,
+  },
+  recent_activity: {
+    type: Date,
+    default: null,
+  },
+  zoho_created_time: {
+    type: Date,
+    default: null,
+  },
+  zoho_modified_time: {
+    type: Date,
+    default: null,
+  },
+  package_finalize: {
+    type: String,
+    default: null,
+    trim: true,
+  },
+  checklist_requested: {
+    type: Boolean,
+    default: false,
+  },
+  send_check_list: {
+    type: String,
+    default: null,
+    trim: true,
+  },
+  spouse_skill_assessment: {
+    type: String,
+    default: null,
+    trim: true,
+  },
+  spouse_name: {
+    type: String,
+    default: null,
+    trim: true,
+  },
+  main_applicant: {
+    type: String,
+    default: null,
+    trim: true,
+  },
+  application_state: {
+    type: String,
+    default: null,
+    trim: true,
+  },
+  quality_check_from: {
+    type: String,
+    default: null,
+    trim: true,
+  },
   role: {
     type: String,
     enum: ['client', 'master_admin', 'supervisor', 'team_leader', 'admin'],
