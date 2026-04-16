@@ -1,11 +1,5 @@
-const { isVisaApplicationCountry } = require('../dist/constants/visaApplication');
+const { isVisaApplicationCountry } = require('../constants/visaApplication');
 
-/**
- * Maps a Zoho COQL row to DmsZohoClient $set fields (CRM snapshot).
- * @param {Record<string, unknown>} zohoRow
- * @param {'visa_application' | 'spouse_skill_assessment'} recordType
- * @returns {Record<string, unknown>}
- */
 function parseZohoDate(value) {
   if (value == null || value === '') return null;
   const d = new Date(String(value));
