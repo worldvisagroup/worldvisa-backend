@@ -74,7 +74,7 @@ async function processOnCall(payload, req) {
     const doc = await CallLog.findOneAndUpdate({ call_id: payload.callid }, {
         $setOnInsert: {
             call_id: payload.callid,
-            direction: payload.direction ?? 'inbound',
+            direction: payload.direction?.toLowerCase() ?? 'inbound',
             status: toOnCallStatus(payload.dialstatus),
             dial_status: payload.dialstatus,
             agent_phone: payload.emp_phone,
@@ -127,7 +127,7 @@ async function processHangup(payload, req) {
         // Create document if on-call event was missed
         $setOnInsert: {
             call_id: payload.callid,
-            direction: payload.direction ?? 'inbound',
+            direction: payload.direction?.toLowerCase() ?? 'inbound',
             agent_phone: payload.emp_phone,
             agent_name: payload.agentname,
             agent_id: agentId,
@@ -165,7 +165,6 @@ async function handleInboundWebhook(req, res) {
         res.status(400).json({ error: 'Invalid payload' });
         return;
     }
-    // Respond immediately — MCube does not wait for processing
     res.status(200).json({ received: true });
     const isHangup = Boolean(payload.endtime);
     try {

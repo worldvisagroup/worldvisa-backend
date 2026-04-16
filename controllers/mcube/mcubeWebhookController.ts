@@ -88,7 +88,7 @@ async function processOnCall(payload: McubeInboundPayload, req: Request): Promis
     {
       $setOnInsert: {
         call_id:         payload.callid,
-        direction:       payload.direction ?? 'inbound',
+        direction:       payload.direction?.toLowerCase() ?? 'inbound',
         status:          toOnCallStatus(payload.dialstatus),
         dial_status:     payload.dialstatus,
         agent_phone:     payload.emp_phone,
@@ -149,7 +149,7 @@ async function processHangup(payload: McubeInboundPayload, req: Request): Promis
       // Create document if on-call event was missed
       $setOnInsert: {
         call_id:        payload.callid,
-        direction:      payload.direction ?? 'inbound',
+        direction:      payload.direction?.toLowerCase() ?? 'inbound',
         agent_phone:    payload.emp_phone,
         agent_name:     payload.agentname,
         agent_id:       agentId,
@@ -195,7 +195,6 @@ export async function handleInboundWebhook(req: Request, res: Response): Promise
     return;
   }
 
-  // Respond immediately — MCube does not wait for processing
   res.status(200).json({ received: true });
 
   const isHangup = Boolean(payload.endtime);
