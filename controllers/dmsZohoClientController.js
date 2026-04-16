@@ -66,9 +66,9 @@ function parseDateOrNull(v) {
 function buildApplicationPayload(body) {
   const out = {};
 
+  // NOTE: lead_owner is required in the schema, so webhook updates must never
+  // accidentally $set it to null/empty when Zoho omits/clears a field.
   const strFields = [
-    ['application_handled_by', 'lead_owner'],
-    ['lead_owner',             'lead_owner'],
     ['service_type',            'service_type'],
     ['application_stage',       'application_stage'],
     ['dms_application_status',  'dms_application_status'],
@@ -84,6 +84,17 @@ function buildApplicationPayload(body) {
     ['spouse_name',             'spouse_name'],
     ['main_applicant',          'main_applicant'],
   ];
+
+  // Prefer explicit lead_owner over application_handled_by, support both keys,
+  // and never include lead_owner if it normalizes to null/empty.
+  const rawOwner =
+    ('lead_owner' in body ? body.lead_owner : undefined) ??
+    ('application_handled_by' in body ? body.application_handled_by : undefined) ??
+    ('Application_Handled_By' in body ? body.Application_Handled_By : undefined);
+  if (rawOwner !== undefined) {
+    const normalizedOwner = strOrNull(rawOwner);
+    if (normalizedOwner !== null) out.lead_owner = normalizedOwner;
+  }
 
   for (const [bodyKey, dbKey] of strFields) {
     if (bodyKey in body) out[dbKey] = strOrNull(body[bodyKey]);
@@ -1203,6 +1214,19 @@ exports.updateLeadOwnerFromZoho = async (req, res) => {
     if (full_name !== undefined) setFields.full_name = strOrNull(full_name);
     if (email)      setFields.email     = String(email).toLowerCase().trim();
     if (phone)      setFields.phone     = String(phone).replace(/\s/g, '');
+
+    // If Zoho explicitly includes an owner key but it normalizes to empty/null,
+    // reject the request instead of attempting to null out a required field.
+    const ownerKeyPresent =
+      ('lead_owner' in req.body) ||
+      ('application_handled_by' in req.body) ||
+      ('Application_Handled_By' in req.body);
+    if (ownerKeyPresent && !('lead_owner' in setFields)) {
+      return res.status(400).json({
+        status: 'fail',
+        message: 'lead_owner must be a non-empty string',
+      });
+    }
 
     // ── UPDATE PATH ──────────────────────────────────────────────────────────
     const existing = await DmsZohoClient.findOne({ lead_id }).select('_id name record_type').lean();
