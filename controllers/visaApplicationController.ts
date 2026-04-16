@@ -43,6 +43,12 @@ const {
   SEARCH_TERM_MAX_LENGTH: number;
   VISA_LIST_SEARCH_COQL_MAX: number;
 };
+const { mapZohoRecordToClientSnapshot } = require('../utils/mapZohoRecordToClientSnapshot') as {
+  mapZohoRecordToClientSnapshot: (
+    row: ZohoRecord,
+    recordType: 'visa_application' | 'spouse_skill_assessment',
+  ) => Record<string, unknown>;
+};
 const {
   buildVisaApplicationCountQuery,
   buildVisaApplicationListQuery,
@@ -557,6 +563,8 @@ export const getVisaApplicationById = async (req: Request, res: Response): Promi
     const record_id   = application.id;
     const spouseName  = (application.Spouse_Name as string | undefined)?.trim() || null;
 
+    const snapshot = mapZohoRecordToClientSnapshot(application, 'visa_application');
+
     const [documentsCount, client, spouseClient, qcRequest] = await Promise.all([
       dmsZohoDocument.countDocuments({ record_id }),
       DmsZohoClient.findOne({ lead_id: record_id })
@@ -572,6 +580,12 @@ export const getVisaApplicationById = async (req: Request, res: Response): Promi
         .select('_id status requested_at requested_by requested_to')
         .lean() as Promise<Record<string, unknown> | null>,
     ]);
+
+    await DmsZohoClient.findOneAndUpdate(
+      { lead_id: record_id },
+      { $set: snapshot },
+      { runValidators: true },
+    ).exec();
 
     res.json({
       data: {
@@ -780,6 +794,8 @@ export const getSpouseVisaApplicationById = async (req: Request, res: Response):
     const application = zohoResponseData[0] as ZohoRecord;
     const record_id   = application.id;
 
+    const spouseSnapshot = mapZohoRecordToClientSnapshot(application, 'spouse_skill_assessment');
+
     const [documentsCount, client, qcRequest] = await Promise.all([
       dmsZohoDocument.countDocuments({ record_id }),
       DmsZohoClient.findOne({ lead_id: record_id })
@@ -789,6 +805,12 @@ export const getSpouseVisaApplicationById = async (req: Request, res: Response):
         .select('_id status requested_at requested_by requested_to')
         .lean() as Promise<Record<string, unknown> | null>,
     ]);
+
+    await DmsZohoClient.findOneAndUpdate(
+      { lead_id: record_id },
+      { $set: spouseSnapshot },
+      { runValidators: true },
+    ).exec();
 
     res.json({
       data: {

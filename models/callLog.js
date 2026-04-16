@@ -6,7 +6,6 @@ const CALL_STATUSES = ['initiated', 'answered', 'completed', 'missed', 'busy', '
 
 const callLogSchema = new mongoose.Schema(
   {
-    /** MCube unique call ID — used as idempotency key */
     call_id: {
       type: String,
       required: true,
@@ -25,7 +24,6 @@ const callLogSchema = new mongoose.Schema(
       default: 'initiated',
     },
 
-    /** Raw MCube dialstatus value for reference */
     dial_status: {
       type: String,
       default: '',
@@ -41,39 +39,33 @@ const callLogSchema = new mongoose.Schema(
       default: '',
     },
 
-    /** Resolved ZohoDmsUser — linked via agent_number match */
     agent_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'ZohoDmsUser',
       default: null,
     },
 
-    /** Customer (caller/callee) phone number */
     customer_phone: {
       type: String,
       required: true,
     },
 
-    /** Resolved DmsZohoClient — matched by customer_phone. Null if number is unknown. */
     client_id: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'DmsZohoClient',
       default: null,
     },
 
-    /** Zoho lead_id of the matched client — for quick lookup without populate */
     client_lead_id: {
       type: String,
       default: null,
     },
 
-    /** Denormalized client display name — avoids $lookup on search queries */
     client_name: {
       type: String,
       default: null,
     },
 
-    /** MCube DID number that received the call */
     mcube_did: {
       type: String,
       default: '',
@@ -94,7 +86,6 @@ const callLogSchema = new mongoose.Schema(
       default: null,
     },
 
-    /** Raw duration string from MCube — "HH:MM:SS" */
     answered_duration: {
       type: String,
       default: null,
@@ -106,9 +97,19 @@ const callLogSchema = new mongoose.Schema(
       default: null,
     },
 
-    /** AWS S3 recording URL delivered on hangup */
     recording_url: {
       type: String,
+      default: null,
+    },
+
+    call_note: {
+      type: String,
+      default: null,
+    },
+
+    call_agent_status: {
+      type: String,
+      enum: ['unanswered', 'client_busy', 'client_asked_call_later', 'not_connected', 'answered', 'none', null],
       default: null,
     },
 

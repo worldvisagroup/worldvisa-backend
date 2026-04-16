@@ -16,6 +16,7 @@ const QualityCheckRequest = require('../models/qualityCheckRequest');
 const { addActivityLog } = require('./helper/service/activityLog');
 const logger = require('../utils/logger');
 const { REQ_MODULE_SPOUSE_SKILL_ASSESSMENT, MODULE_VISA_APPLICATION, MODULE_SPOUSE_SKILL_ASSESSMENT, APPLICATION_STAGES, APPLICATION_STAGES_CANADA, SUPPORTED_COUNTRIES, SEARCH_TERM_MAX_LENGTH, VISA_LIST_SEARCH_COQL_MAX, } = require('./helper/constants.js');
+const { mapZohoRecordToClientSnapshot } = require('../utils/mapZohoRecordToClientSnapshot');
 const { buildVisaApplicationCountQuery, buildVisaApplicationListQuery, buildVisaApplicationDetailQuery, buildSpouseApplicationCountQuery, buildSpouseApplicationListQuery, buildSpouseApplicationDetailQuery, buildClientApplicationDetailQuery, } = require('../queries/visaApplicationCoql');
 const { sanitizeSearchTerm, escapeString } = require('../utils/querySanitizer.js');
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -320,6 +321,7 @@ const getVisaApplicationById = async (req, res) => {
         const application = zohoResponseData[0];
         const record_id = application.id;
         const spouseName = application.Spouse_Name?.trim() || null;
+        const snapshot = mapZohoRecordToClientSnapshot(application, 'visa_application');
         const [documentsCount, client, spouseClient, qcRequest] = await Promise.all([
             dmsZohoDocument.countDocuments({ record_id }),
             DmsZohoClient.findOne({ lead_id: record_id })
@@ -335,6 +337,7 @@ const getVisaApplicationById = async (req, res) => {
                 .select('_id status requested_at requested_by requested_to')
                 .lean(),
         ]);
+        await DmsZohoClient.findOneAndUpdate({ lead_id: record_id }, { $set: snapshot }, { runValidators: true }).exec();
         res.json({
             data: {
                 ...application,
@@ -507,6 +510,7 @@ const getSpouseVisaApplicationById = async (req, res) => {
         }
         const application = zohoResponseData[0];
         const record_id = application.id;
+        const spouseSnapshot = mapZohoRecordToClientSnapshot(application, 'spouse_skill_assessment');
         const [documentsCount, client, qcRequest] = await Promise.all([
             dmsZohoDocument.countDocuments({ record_id }),
             DmsZohoClient.findOne({ lead_id: record_id })
@@ -516,6 +520,7 @@ const getSpouseVisaApplicationById = async (req, res) => {
                 .select('_id status requested_at requested_by requested_to')
                 .lean(),
         ]);
+        await DmsZohoClient.findOneAndUpdate({ lead_id: record_id }, { $set: spouseSnapshot }, { runValidators: true }).exec();
         res.json({
             data: {
                 ...application,

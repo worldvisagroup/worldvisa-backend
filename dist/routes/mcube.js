@@ -13,4 +13,5 @@ router.post('/calls/outbound', protect, mcubeOutboundController_1.handleOutbound
 // ── Call log history (staff only) ─────────────────────────────────────────
 router.get('/call-logs', protect, callLogController_1.listCallLogs);
 router.get('/call-logs/:callId', protect, callLogController_1.getCallLogDetail);
+router.patch('/call-logs/:callId/notes', protect, callLogController_1.updateCallNotes);
 module.exports = router;

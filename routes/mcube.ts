@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { handleInboundWebhook } from '../controllers/mcube/mcubeWebhookController';
 import { handleOutboundCall }   from '../controllers/mcube/mcubeOutboundController';
-import { listCallLogs, getCallLogDetail } from '../controllers/mcube/callLogController';
+import { listCallLogs, getCallLogDetail, updateCallNotes } from '../controllers/mcube/callLogController';
 import { validateMcubeWebhook } from '../middleware/mcube/validateMcubeWebhook';
 
 const { protect } = require('../middleware/clerk/clerkAuth');
@@ -15,7 +15,8 @@ router.post('/webhook/inbound', validateMcubeWebhook, handleInboundWebhook);
 router.post('/calls/outbound', protect, handleOutboundCall);
 
 // ── Call log history (staff only) ─────────────────────────────────────────
-router.get('/call-logs',           protect, listCallLogs);
-router.get('/call-logs/:callId',   protect, getCallLogDetail);
+router.get('/call-logs',                  protect, listCallLogs);
+router.get('/call-logs/:callId',          protect, getCallLogDetail);
+router.patch('/call-logs/:callId/notes',  protect, updateCallNotes);
 
 export = router;

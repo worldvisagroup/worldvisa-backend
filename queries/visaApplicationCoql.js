@@ -115,6 +115,8 @@ function buildClientApplicationDetailQuery(applicationId, moduleName) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 module.exports = {
+  VISA_DETAIL_FIELDS,
+  SPOUSE_DETAIL_FIELDS,
   buildVisaApplicationCountQuery,
   buildVisaApplicationListQuery,
   buildVisaApplicationDetailQuery,

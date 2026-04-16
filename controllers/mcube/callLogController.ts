@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import type { CallLogListQuery, DateRangePreset } from '../../types/callLog.types';
+import type { CallAgentStatus, CallLogListQuery, DateRangePreset } from '../../types/callLog.types';
 
 const CallLog = require('../../models/callLog');
 const logger  = require('../../utils/logger');
@@ -212,5 +212,66 @@ export async function getCallLogDetail(req: Request, res: Response): Promise<voi
   } catch (err: any) {
     logger.error('[CallLog] getCallLogDetail failed', { error: err.message });
     res.status(500).json({ status: 'error', message: 'Failed to fetch call log' });
+  }
+}
+
+// ── Update call notes (agent disposition after hangup) ─────────────────────
+
+const VALID_AGENT_STATUSES = new Set<CallAgentStatus>([
+  'unanswered', 'client_busy', 'client_asked_call_later',
+  'not_connected', 'answered', 'none',
+]);
+
+export async function updateCallNotes(req: Request, res: Response): Promise<void> {
+  try {
+    const { callId } = req.params;
+
+    if (!callId) {
+      res.status(400).json({ status: 'fail', message: 'callId param is required' });
+      return;
+    }
+
+    const { call_note, call_agent_status } = req.body as {
+      call_note?:         string | null;
+      call_agent_status?: string | null;
+    };
+
+    if (
+      call_agent_status !== undefined &&
+      call_agent_status !== null &&
+      !VALID_AGENT_STATUSES.has(call_agent_status as CallAgentStatus)
+    ) {
+      res.status(400).json({ status: 'fail', message: 'Invalid call_agent_status value' });
+      return;
+    }
+
+    const updateFields: Record<string, unknown> = { updated_at: new Date() };
+    if (call_note         !== undefined) updateFields.call_note         = call_note;
+    if (call_agent_status !== undefined) updateFields.call_agent_status = call_agent_status;
+
+    // Role guard: non-privileged users may only update their own call logs
+    const userRole = (req as any).user?.role as string | undefined;
+    const userId   = String((req as any).user?._id);
+
+    const filter: Record<string, unknown> = { call_id: callId };
+    if (!PRIVILEGED_ROLES.has(userRole ?? '')) {
+      filter.agent_id = new mongoose.Types.ObjectId(userId);
+    }
+
+    const callLog = await CallLog.findOneAndUpdate(
+      filter,
+      { $set: updateFields },
+      { new: true },
+    );
+
+    if (!callLog) {
+      res.status(404).json({ status: 'fail', message: 'Call log not found or access denied' });
+      return;
+    }
+
+    res.status(200).json({ status: 'success', data: { callLog } });
+  } catch (err: any) {
+    logger.error('[CallLog] updateCallNotes failed', { error: err.message });
+    res.status(500).json({ status: 'error', message: 'Failed to update call notes' });
   }
 }

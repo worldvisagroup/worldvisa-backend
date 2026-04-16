@@ -11,7 +11,6 @@ function strOrNull(v) {
 }
 
 function mapZohoRecordToClientSnapshot(zohoRow, recordType) {
-  /** @type {Record<string, unknown>} */
   const out = {};
 
   const handled = strOrNull(zohoRow.Application_Handled_By);

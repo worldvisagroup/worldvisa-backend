@@ -112,6 +112,10 @@ async function processOnCall(payload: McubeInboundPayload, req: Request): Promis
   const io = (req.app as any).get('io');
   if (io && doc) {
     io.emit('call-log:new', doc);
+    // Targeted: open phone panel only for the specific agent
+    if (agentId) {
+      io.to(`user:${agentId}`).emit('call:inbound', doc);
+    }
   }
 
   logger.info('[MCube Webhook] On Call stored', {
@@ -166,6 +170,10 @@ async function processHangup(payload: McubeInboundPayload, req: Request): Promis
   const io = (req.app as any).get('io');
   if (io && doc) {
     io.emit('call-log:updated', doc);
+    // Targeted: show disposition modal only for the specific agent
+    if (agentId) {
+      io.to(`user:${agentId}`).emit('call:hangup', doc);
+    }
   }
 
   logger.info('[MCube Webhook] On Hangup processed', {

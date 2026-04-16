@@ -1,5 +1,6 @@
 export type DateRangePreset = 'last_24h' | 'last_7d' | 'last_30d' | 'last_90d';
 export type CallStatus = 'initiated' | 'answered' | 'completed' | 'missed' | 'busy' | 'cancelled';
+export type CallAgentStatus = 'unanswered' | 'client_busy' | 'client_asked_call_later' | 'not_connected' | 'answered' | 'none';
 export type CallDirection = 'inbound' | 'outbound';
 export interface CallLogListQuery {
     /** Free-text search across phone numbers, agent name, and client name */
@@ -49,6 +50,8 @@ export interface CallLogDocument {
     answered_duration: string | null;
     disconnected_by: string | null;
     recording_url: string | null;
+    call_note: string | null;
+    call_agent_status: CallAgentStatus | null;
     created_at: string;
     updated_at: string;
 }

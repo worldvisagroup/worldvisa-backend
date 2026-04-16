@@ -8,6 +8,14 @@ export type CallStatus =
   | 'busy'
   | 'cancelled';
 
+export type CallAgentStatus =
+  | 'unanswered'
+  | 'client_busy'
+  | 'client_asked_call_later'
+  | 'not_connected'
+  | 'answered'
+  | 'none';
+
 export type CallDirection = 'inbound' | 'outbound';
 
 // ── Query ─────────────────────────────────────────────────────────────────────
@@ -65,6 +73,8 @@ export interface CallLogDocument {
   answered_duration: string | null;
   disconnected_by:   string | null;
   recording_url:     string | null;
+  call_note:         string | null;
+  call_agent_status: CallAgentStatus | null;
   created_at:        string;
   updated_at:        string;
 }
