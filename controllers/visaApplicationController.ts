@@ -668,10 +668,10 @@ async function getFilteredVisaApplications(
   }
 
   if (role === 'admin' || giveMine === 'true') {
-    query.lead_owner = username;
+    query.lead_owner = leadOwnerMatchUser(username);
   }
 
-  if ((role === 'admin' || role === 'master_admin') && handledBy) {
+  if (role === 'master_admin' && handledBy) {
     const handledByList = handledBy.split(',').map((h) => h.trim()).filter(Boolean);
     if (handledByList.length) {
       query.lead_owner = {
@@ -738,10 +738,10 @@ async function getFilteredVisaApplicationsByUnifiedSearch(
   }
 
   if (role === 'admin' || giveMine === 'true') {
-    query.lead_owner = username;
+    query.lead_owner = leadOwnerMatchUser(username);
   }
 
-  if ((role === 'admin' || role === 'master_admin') && handledBy) {
+  if (role === 'master_admin' && handledBy) {
     const handledByList = handledBy.split(',').map((h) => h.trim()).filter(Boolean);
     if (handledByList.length) {
       query.lead_owner = {
@@ -797,10 +797,10 @@ async function getFilteredSpouseApplications(
   };
 
   if (role === 'admin' || giveMine === 'true') {
-    query.lead_owner = username;
+    query.lead_owner = leadOwnerMatchUser(username);
   }
 
-  if (handledBy) {
+  if (role === 'master_admin' && handledBy) {
     const handledByList = handledBy.split(',').map((h) => h.trim()).filter(Boolean);
     if (handledByList.length) {
       query.lead_owner = {
@@ -853,10 +853,10 @@ async function getFilteredSpouseApplicationsByUnifiedSearch(
   };
 
   if (role === 'admin' || giveMine === 'true') {
-    query.lead_owner = username;
+    query.lead_owner = leadOwnerMatchUser(username);
   }
 
-  if (handledBy) {
+  if (role === 'master_admin' && handledBy) {
     const handledByList = handledBy.split(',').map((h) => h.trim()).filter(Boolean);
     if (handledByList.length) {
       query.lead_owner = {
@@ -895,6 +895,11 @@ async function getFilteredSpouseApplicationsByUnifiedSearch(
 
 function escapeRegExp(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Case-insensitive exact match for Zoho Application_Handled_By vs stored staff username (often lowercased). */
+function leadOwnerMatchUser(username: string): RegExp {
+  return new RegExp(`^${escapeRegExp(username.trim())}$`, 'i');
 }
 
 function toZohoOffsetDateTime(value: unknown, offsetMinutes: number): string | null {

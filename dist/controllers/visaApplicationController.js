@@ -497,9 +497,9 @@ async function getFilteredVisaApplications(username, role, page, limit, startDat
         query.service_type = { $in: VALID_SERVICE_TYPES };
     }
     if (role === 'admin' || giveMine === 'true') {
-        query.lead_owner = username;
+        query.lead_owner = leadOwnerMatchUser(username);
     }
-    if ((role === 'admin' || role === 'master_admin') && handledBy) {
+    if (role === 'master_admin' && handledBy) {
         const handledByList = handledBy.split(',').map((h) => h.trim()).filter(Boolean);
         if (handledByList.length) {
             query.lead_owner = {
@@ -544,9 +544,9 @@ async function getFilteredVisaApplicationsByUnifiedSearch(username, role, page, 
         query.service_type = { $in: VALID_SERVICE_TYPES };
     }
     if (role === 'admin' || giveMine === 'true') {
-        query.lead_owner = username;
+        query.lead_owner = leadOwnerMatchUser(username);
     }
-    if ((role === 'admin' || role === 'master_admin') && handledBy) {
+    if (role === 'master_admin' && handledBy) {
         const handledByList = handledBy.split(',').map((h) => h.trim()).filter(Boolean);
         if (handledByList.length) {
             query.lead_owner = {
@@ -583,9 +583,9 @@ async function getFilteredSpouseApplications(username, role, page, limit, startD
         qualified_country: country,
     };
     if (role === 'admin' || giveMine === 'true') {
-        query.lead_owner = username;
+        query.lead_owner = leadOwnerMatchUser(username);
     }
-    if (handledBy) {
+    if (role === 'master_admin' && handledBy) {
         const handledByList = handledBy.split(',').map((h) => h.trim()).filter(Boolean);
         if (handledByList.length) {
             query.lead_owner = {
@@ -619,9 +619,9 @@ async function getFilteredSpouseApplicationsByUnifiedSearch(username, role, page
         qualified_country: country,
     };
     if (role === 'admin' || giveMine === 'true') {
-        query.lead_owner = username;
+        query.lead_owner = leadOwnerMatchUser(username);
     }
-    if (handledBy) {
+    if (role === 'master_admin' && handledBy) {
         const handledByList = handledBy.split(',').map((h) => h.trim()).filter(Boolean);
         if (handledByList.length) {
             query.lead_owner = {
@@ -654,6 +654,10 @@ async function getFilteredSpouseApplicationsByUnifiedSearch(username, role, page
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function escapeRegExp(input) {
     return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+/** Case-insensitive exact match for Zoho Application_Handled_By vs stored staff username (often lowercased). */
+function leadOwnerMatchUser(username) {
+    return new RegExp(`^${escapeRegExp(username.trim())}$`, 'i');
 }
 function toZohoOffsetDateTime(value, offsetMinutes) {
     if (value == null)

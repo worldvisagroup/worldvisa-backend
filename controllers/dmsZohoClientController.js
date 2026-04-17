@@ -1199,15 +1199,12 @@ exports.updateLeadOwnerFromZoho = async (req, res) => {
   }
 
   try {
-    // Build update payload from all provided body fields
     const setFields = buildApplicationPayload(req.body);
     if (name)       setFields.name      = String(name).trim();
     if (full_name !== undefined) setFields.full_name = strOrNull(full_name);
     if (email)      setFields.email     = String(email).toLowerCase().trim();
     if (phone)      setFields.phone     = String(phone).replace(/\s/g, '');
 
-    // If Zoho explicitly includes an owner key but it normalizes to empty/null,
-    // reject the request instead of attempting to null out a required field.
     const ownerKeyPresent =
       ('lead_owner' in req.body) ||
       ('application_handled_by' in req.body) ||
