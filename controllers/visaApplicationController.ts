@@ -897,7 +897,6 @@ function escapeRegExp(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/** Case-insensitive exact match for Zoho Application_Handled_By vs stored staff username (often lowercased). */
 function leadOwnerMatchUser(username: string): RegExp {
   return new RegExp(`^${escapeRegExp(username.trim())}$`, 'i');
 }

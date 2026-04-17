@@ -232,9 +232,9 @@ const getAnalyticsDashboard = async (req, res) => {
         { $sort: { _id: 1 } },
       ]),
 
-      // Delivery trend: in-app (system-generated activity log entries)
+      // Delivery trend: in-app (user-triggered activity log entries; exclude system)
       ApplicationActivityLog.aggregate([
-        { $match: { createdAt: { $gte: periodStart }, actor_type: 'system' } },
+        { $match: { createdAt: { $gte: periodStart }, actor_type: { $in: ['client', 'staff'] } } },
         dailyGroupPipeline('createdAt'),
         { $sort: { _id: 1 } },
       ]),

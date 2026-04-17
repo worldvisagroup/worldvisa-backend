@@ -256,6 +256,8 @@ dmsZohoClientSchema.index({ name: 'text', email: 'text', phone: 'text', lead_id:
 dmsZohoClientSchema.index({ name: 1, record_type: 1 });
 dmsZohoClientSchema.index({ 'fcmTokens.token': 1 }, { sparse: true });
 dmsZohoClientSchema.index({ role: 1 });
+dmsZohoClientSchema.index({ record_type: 1, zoho_created_time: -1 });
+dmsZohoClientSchema.index({ record_type: 1, created_at: -1 });
 dmsZohoClientSchema.index({
   record_type: 1,
   qualified_country: 1,

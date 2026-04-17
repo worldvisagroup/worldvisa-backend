@@ -22,5 +22,6 @@ qualityCheckRequestSchema.index({ requested_to: 1 });
 qualityCheckRequestSchema.index({ requested_by: 1 });
 qualityCheckRequestSchema.index({ requested_to: 1, status: 1 });
 qualityCheckRequestSchema.index({ requested_by: 1, status: 1 });
+qualityCheckRequestSchema.index({ status: 1, recordType: 1, requested_at: -1 });
 
 module.exports = mongoose.model('QualityCheckRequest', qualityCheckRequestSchema);

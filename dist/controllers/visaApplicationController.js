@@ -655,7 +655,6 @@ async function getFilteredSpouseApplicationsByUnifiedSearch(username, role, page
 function escapeRegExp(input) {
     return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
-/** Case-insensitive exact match for Zoho Application_Handled_By vs stored staff username (often lowercased). */
 function leadOwnerMatchUser(username) {
     return new RegExp(`^${escapeRegExp(username.trim())}$`, 'i');
 }
