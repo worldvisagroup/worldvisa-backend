@@ -1008,7 +1008,7 @@ exports.getQualityCheckApplications = async (req, res) => {
   try {
     const username = req.user.username;
     const role = req.user.role;
-    const { country, search, status, recordType } = req.query;
+    const { search, status, recordType } = req.query;
 
     // Extract pagination parameters
     const page = parseInt(req.query.page, 10) || 1;
@@ -1024,11 +1024,9 @@ exports.getQualityCheckApplications = async (req, res) => {
       });
     }
 
-    if (country && !SUPPORTED_COUNTRIES.includes(country)) {
-      return res.status(400).json({ success: false, message: `Invalid country parameter. Supported values: ${SUPPORTED_COUNTRIES.join(', ')}` });
-    }
-
-    const VALID_STATUSES = ['pending', 'reviewed', 'removed'];
+    // Mongo-only endpoint: status comes from QualityCheckRequest.
+    // Do not return "removed" to the frontend.
+    const VALID_STATUSES = ['pending', 'reviewed'];
     if (status && !VALID_STATUSES.includes(status)) {
       return res.status(400).json({ success: false, message: `Invalid status. Supported values: ${VALID_STATUSES.join(', ')}` });
     }
@@ -1038,86 +1036,95 @@ exports.getQualityCheckApplications = async (req, res) => {
       return res.status(400).json({ success: false, message: `Invalid recordType. Supported values: ${VALID_RECORD_TYPES.join(', ')}` });
     }
 
-    // Build base conditions
-    const baseConditions = [];
-    baseConditions.push(`Quality_Check_From is not null`);
+    const qcQuery = {
+      status: { $ne: 'removed' },
+    };
 
     if (role !== 'master_admin') {
-      baseConditions.push(`Quality_Check_From like '${username}'`);
+      qcQuery.requested_to = username;
     }
 
+    if (status) {
+      qcQuery.status = status;
+    }
+
+    if (recordType) {
+      qcQuery.recordType = recordType;
+    }
+
+    // Search across leadId and client name (Mongo-backed).
     if (search) {
       const safeTerm = sanitizeSearchTerm(search).substring(0, SEARCH_TERM_MAX_LENGTH);
-      baseConditions.push(`Name like '%${safeTerm}%'`);
+      const rx = new RegExp(escapeRegexForMongo(safeTerm), 'i');
+
+      // First phase: find matching clients to get lead IDs by name/lead_id.
+      const matchingClients = await DmsZohoClient.find({
+        $or: [{ lead_id: rx }, { name: rx }],
+      })
+        .select('lead_id')
+        .lean()
+        .limit(5000);
+
+      const leadIdsFromClients = matchingClients.map((c) => c.lead_id).filter(Boolean);
+
+      qcQuery.$or = [
+        { leadId: rx },
+        ...(leadIdsFromClients.length > 0 ? [{ leadId: { $in: leadIdsFromClients } }] : []),
+      ];
     }
 
-    // Visa Applications conditions (includes optional country filter)
-    const visaConditions = [...baseConditions];
-    if (country) visaConditions.push(`Qualified_Country = '${country}'`);
-    const visaWhere = ` where ${visaConditions.join(' and ')}`;
-
-    // Spouse conditions (no Qualified_Country field)
-    const spouseWhere = ` where ${baseConditions.join(' and ')}`;
-
-    // Determine which modules to query based on recordType filter
-    const queryVisa   = !recordType || recordType === REQ_MODULE_VISA_APPLICATION;
-    const querySpouse = !recordType || recordType === REQ_MODULE_SPOUSE_SKILL_ASSESSMENT;
-
-    // Build Zoho queries
-    const visaSelect   = `select id, Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Record_Type from Visa_Applications${visaWhere} order by Created_Time desc limit ${offset}, ${limit}`;
-    const spouseSelect = `select id, Name, Email, Phone, Created_Time, Application_Handled_By, Quality_Check_From, DMS_Application_Status, Main_Applicant, Record_Type from Spouse_Skill_Assessment${spouseWhere} order by Created_Time desc limit ${offset}, ${limit}`;
-    const visaCount    = `select COUNT(id) as count from Visa_Applications${visaWhere}`;
-    const spouseCount  = `select COUNT(id) as count from Spouse_Skill_Assessment${spouseWhere}`;
-
-    // Execute only the needed queries in parallel
-    const [visaRes, spouseRes, visaCountRes, spouseCountRes] = await Promise.all([
-      queryVisa   ? zohoRequest('coql', 'POST', { select_query: visaSelect })   : Promise.resolve({ data: [] }),
-      querySpouse ? zohoRequest('coql', 'POST', { select_query: spouseSelect }) : Promise.resolve({ data: [] }),
-      queryVisa   ? zohoRequest('coql', 'POST', { select_query: visaCount })    : Promise.resolve({ data: [{ count: 0 }] }),
-      querySpouse ? zohoRequest('coql', 'POST', { select_query: spouseCount })  : Promise.resolve({ data: [{ count: 0 }] }),
+    const [qcDocs, totalRecords] = await Promise.all([
+      QualityCheckRequest.find(qcQuery)
+        .select('leadId recordType status messages migrated requested_at requested_by requested_to')
+        .sort({ requested_at: -1, createdAt: -1 })
+        .skip(offset)
+        .limit(limit)
+        .lean(),
+      QualityCheckRequest.countDocuments(qcQuery),
     ]);
 
-    // Merge and sort by Created_Time desc
-    let data = [
-      ...(visaRes.data || []),
-      ...(spouseRes.data || [])
-    ].sort((a, b) => new Date(b.Created_Time) - new Date(a.Created_Time));
+    const leadIds = qcDocs.map((d) => d.leadId).filter(Boolean);
+    const clients = leadIds.length
+      ? await DmsZohoClient.find({ lead_id: { $in: leadIds } })
+          .select(
+            'lead_id name email phone record_type lead_owner zoho_created_time created_at qualified_country dms_application_status main_applicant',
+          )
+          .lean()
+      : [];
 
-    // Enrich with MongoDB QualityCheckRequest data (status, qcId, messageCount, migrated)
-    if (data.length > 0) {
-      const leadIds = data.map(r => r.id);
-      const qcDocs = await QualityCheckRequest.find({ leadId: { $in: leadIds } })
-        .select('leadId status messages migrated requested_at requested_by requested_to')
-        .lean();
-
-      const qcByLeadId = {};
-      for (const doc of qcDocs) {
-        qcByLeadId[doc.leadId] = doc;
-      }
-
-      data = data.map(record => {
-        const qc = qcByLeadId[record.id] || null;
-        return {
-          ...record,
-          qcId:           qc ? qc._id : null,
-          qcStatus:       qc ? qc.status : null,
-          messageCount:   qc ? qc.messages.length : 0,
-          migrated:       qc ? qc.migrated : false,
-          qcRequestedAt:  qc ? qc.requested_at : null,
-          qcRequestedBy:  qc ? qc.requested_by : null,
-          qcRequestedTo:  qc ? qc.requested_to : null,
-        };
-      });
-
-      // Apply status filter in-memory (status lives in MongoDB, not Zoho)
-      if (status) {
-        data = data.filter(r => r.qcStatus === status);
-      }
+    const clientByLeadId = {};
+    for (const c of clients) {
+      clientByLeadId[c.lead_id] = c;
     }
 
-    // Calculate totals (Zoho counts; status filter is in-memory so totalRecords reflects Zoho count)
-    const totalZohoRecords = (visaCountRes.data?.[0]?.count || 0) + (spouseCountRes.data?.[0]?.count || 0);
-    const totalRecords = status ? data.length : totalZohoRecords;
+    const data = qcDocs.map((qc) => {
+      const client = clientByLeadId[qc.leadId] || null;
+      const createdTime = client?.zoho_created_time || client?.created_at || qc?.requested_at || null;
+
+      return {
+        id: qc.leadId,
+        Name: client?.name ?? null,
+        Email: client?.email ?? null,
+        Phone: client?.phone ?? null,
+        Created_Time: createdTime,
+        Application_Handled_By: client?.lead_owner ?? null,
+        Quality_Check_From: qc.requested_to ?? null,
+        DMS_Application_Status: client?.dms_application_status ?? null,
+        Main_Applicant: client?.main_applicant ?? null,
+        Record_Type: qc.recordType ?? client?.record_type ?? null,
+
+        // QC fields (Mongo-backed)
+        leadId: qc.leadId,
+        qcId: qc._id,
+        qcStatus: qc.status ?? null,
+        messageCount: Array.isArray(qc.messages) ? qc.messages.length : 0,
+        migrated: Boolean(qc.migrated),
+        qcRequestedAt: qc.requested_at ?? null,
+        qcRequestedBy: qc.requested_by ?? null,
+        qcRequestedTo: qc.requested_to ?? null,
+      };
+    });
+
     const totalPages = Math.ceil(totalRecords / limit);
 
     return res.status(200).json({
