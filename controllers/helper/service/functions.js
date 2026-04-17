@@ -1,64 +1,50 @@
-const dmsZohoDocument = require("../../../models/dmsZohoDocument");
+const dmsZohoDocument = require('../../../models/dmsZohoDocument');
+const DmsZohoClient = require('../../../models/dmsZohoClient');
+const {
+  MODULE_VISA_APPLICATION,
+  MODULE_SPOUSE_SKILL_ASSESSMENT,
+  REQ_MODULE_VISA_APPLICATION,
+  REQ_MODULE_SPOUSE_SKILL_ASSESSMENT,
+} = require('../constants');
 
 /**
- * Helper function to update the Recent_Activity field for a given Zoho record.
- * @param {Function} zohoRequest - The function to make Zoho API requests.
- * @param {String} moduleName - The Zoho module name (e.g., "Visa_Applications", "Spouse_Skill_Assessment").
- * @param {String} recordId - The Zoho record id to update.
- * @param {String} [activityDateTime] - The activity date string to set in Recent_Activity (defaults to today).
- * @returns {Promise<Object>} - The Zoho API response.
+ * Map Zoho CRM module API name to DmsZohoClient.record_type.
+ * @param {string} moduleName
+ * @returns {string}
  */
-async function updateRecentActivity(zohoRequest, moduleName, recordId) {
-  try {
-
-    if (typeof zohoRequest !== 'function') {
-      throw new Error('zohoRequest function is required for updateRecentActivity');
-    }
-    if (!moduleName || typeof moduleName !== 'string') {
-      throw new Error('moduleName (string) is required for updateRecentActivity');
-    }
-    if (!recordId || typeof recordId !== 'string') {
-      throw new Error('recordId (string) is required for updateRecentActivity');
-    }
-
-    // Format date as 'YYYY-MM-DDTHH:mm:ss±HH:MM' (e.g., '2023-05-28T04:25:36-07:00')
-    const date = new Date();
-    const pad = (n) => n.toString().padStart(2, '0');
-    // Get timezone offset in minutes, convert to ±HH:MM
-    const tzOffsetMin = date.getTimezoneOffset();
-    const absOffsetMin = Math.abs(tzOffsetMin);
-    const offsetSign = tzOffsetMin > 0 ? '-' : '+';
-    const offsetHours = pad(Math.floor(absOffsetMin / 60));
-    const offsetMinutes = pad(absOffsetMin % 60);
-    const offset = `${offsetSign}${offsetHours}:${offsetMinutes}`;
-    // Format date string
-    const activityValue =
-      date.getFullYear() + '-' +
-      pad(date.getMonth() + 1) + '-' +
-      pad(date.getDate()) + 'T' +
-      pad(date.getHours()) + ':' +
-      pad(date.getMinutes()) + ':' +
-      pad(date.getSeconds()) +
-      offset;
-
-    const body = {
-      data: [
-        {
-          id: recordId,
-          Recent_Activity: activityValue.trim().toString()
-        }
-      ]
-    };
-
-    // Zoho expects the module name as the endpoint, e.g., "Visa_Applications"
-    const response = await zohoRequest(moduleName, "PUT", body);
-    return response;
-  } catch (error) {
-    console.log("Error occured updating recent activity");
-    throw new Error('Error occured updating recent activity: ', error)
+function moduleNameToRecordType(moduleName) {
+  if (moduleName === MODULE_SPOUSE_SKILL_ASSESSMENT) {
+    return REQ_MODULE_SPOUSE_SKILL_ASSESSMENT;
   }
+  return REQ_MODULE_VISA_APPLICATION;
 }
 
+/**
+ * Set recent_activity on the mirrored DmsZohoClient row (MongoDB).
+ * @param {string} moduleName - Zoho module name (e.g. Visa_Applications, Spouse_Skill_Assessment).
+ * @param {string} recordId - lead_id (Zoho record id) on DmsZohoClient.
+ * @returns {Promise<import('mongoose').UpdateResult>}
+ */
+async function updateRecentActivityInMongo(moduleName, recordId) {
+  if (!moduleName || typeof moduleName !== 'string') {
+    throw new Error('moduleName (string) is required for updateRecentActivityInMongo');
+  }
+  if (!recordId || typeof recordId !== 'string') {
+    throw new Error('recordId (string) is required for updateRecentActivityInMongo');
+  }
+
+  const recordType = moduleNameToRecordType(moduleName);
+
+  try {
+    return await DmsZohoClient.updateOne(
+      { lead_id: recordId, record_type: recordType },
+      { $set: { recent_activity: new Date() } },
+    );
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    throw new Error(`Failed to update recent_activity in MongoDB: ${msg}`);
+  }
+}
 
 async function addToTimeline(docId, event, details, triggered_by) {
   if (!dmsZohoDocument) {
@@ -83,7 +69,7 @@ async function addToTimeline(docId, event, details, triggered_by) {
     event,
     details: details || '',
     triggered_by,
-    timestamp: new Date()
+    timestamp: new Date(),
   };
 
   if (!Array.isArray(document.timeline)) {
@@ -95,7 +81,6 @@ async function addToTimeline(docId, event, details, triggered_by) {
 
   return timelineEntry;
 }
-
 
 async function addMovedFiles(docId, file_id, file_name, moved_by = 'Unknown') {
   if (!dmsZohoDocument) {
@@ -124,7 +109,7 @@ async function addMovedFiles(docId, file_id, file_name, moved_by = 'Unknown') {
     file_id,
     file_name,
     moved_by,
-    moved_at: new Date()
+    moved_at: new Date(),
   };
 
   if (!Array.isArray(document.moved_files)) {
@@ -137,9 +122,8 @@ async function addMovedFiles(docId, file_id, file_name, moved_by = 'Unknown') {
   return movedFileEntry;
 }
 
-
 module.exports = {
-  updateRecentActivity,
+  updateRecentActivityInMongo,
   addToTimeline,
-  addMovedFiles
+  addMovedFiles,
 };

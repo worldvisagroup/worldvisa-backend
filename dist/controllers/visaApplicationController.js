@@ -7,233 +7,19 @@ exports.deleteApplicationNote = exports.updateApplicationNote = exports.addAppli
 const mongoose_1 = __importDefault(require("mongoose"));
 const checklistDocument_1 = require("../constants/checklistDocument");
 const visaApplication_1 = require("../constants/visaApplication");
-// ─── JS Module Imports ────────────────────────────────────────────────────────
-const { zohoRequest } = require('./zohoDms/zohoApi.js');
 const dmsZohoDocument = require('../models/dmsZohoDocument');
 const DmsZohoClient = require('../models/dmsZohoClient');
 const ZohoDmsUser = require('../models/zohoDmsUser');
 const QualityCheckRequest = require('../models/qualityCheckRequest');
 const { addActivityLog } = require('./helper/service/activityLog');
 const logger = require('../utils/logger');
-const { REQ_MODULE_SPOUSE_SKILL_ASSESSMENT, MODULE_VISA_APPLICATION, MODULE_SPOUSE_SKILL_ASSESSMENT, APPLICATION_STAGES, APPLICATION_STAGES_CANADA, SUPPORTED_COUNTRIES, SEARCH_TERM_MAX_LENGTH, VISA_LIST_SEARCH_COQL_MAX, } = require('./helper/constants.js');
-const { mapZohoRecordToClientSnapshot } = require('../utils/mapZohoRecordToClientSnapshot');
-const { buildVisaApplicationCountQuery, buildVisaApplicationListQuery, buildVisaApplicationDetailQuery, buildSpouseApplicationCountQuery, buildSpouseApplicationListQuery, buildSpouseApplicationDetailQuery, buildClientApplicationDetailQuery, } = require('../queries/visaApplicationCoql');
+const { SUPPORTED_COUNTRIES, SEARCH_TERM_MAX_LENGTH, } = require('./helper/constants.js');
 const { sanitizeSearchTerm, escapeString } = require('../utils/querySanitizer.js');
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const VALID_SERVICE_TYPES = checklistDocument_1.VISA_SERVICE_TYPE_VALUES.filter(v => v !== 'All');
-const VALID_SERVICE_TYPES_COQL = VALID_SERVICE_TYPES.map(s => `'${escapeString(s)}'`).join(', ');
-function buildWhereClause(username, role, giveMine, startDate, endDate) {
-    const conditions = [];
-    if (role === 'admin' || giveMine === 'true') {
-        conditions.push(`Application_Handled_By like '${username}'`);
-    }
-    if (startDate && endDate) {
-        conditions.push(`(Created_Time >= '${startDate}T00:00:00+00:00' and Created_Time <= '${endDate}T23:59:59+00:00')`);
-    }
-    else if (startDate) {
-        conditions.push(`Created_Time >= '${startDate}T00:00:00+00:00'`);
-    }
-    else if (endDate) {
-        conditions.push(`Created_Time <= '${endDate}T23:59:59+00:00'`);
-    }
-    return conditions.length > 0 ? ` where ${conditions.join(' and ')}` : '';
-}
-async function fetchOnboardingMap(recordIds) {
-    const records = (await DmsZohoClient
-        .find({ lead_id: { $in: recordIds } })
-        .select('lead_id clerk_id clerk_invitation_id account_status email_verified')
-        .lean());
-    return new Map(records.map(c => [c.lead_id, c]));
-}
-function buildOnboardingStatus(clientRecord) {
-    return {
-        client_record_exists: clientRecord !== null,
-        clerk_id: clientRecord?.clerk_id ?? null,
-        clerk_invitation_id: clientRecord?.clerk_invitation_id ?? null,
-        account_status: clientRecord?.account_status ?? null,
-        email_verified: clientRecord?.email_verified ?? null,
-    };
-}
-async function getProfileImageUrlMap(usernames) {
-    const unique = [...new Set(usernames.filter(Boolean))];
-    if (!unique.length)
-        return {};
-    const users = await ZohoDmsUser.find({ username: { $in: unique } })
-        .select('username profile_image_url')
-        .lean();
-    return Object.fromEntries(users.map((u) => [u.username, u]));
-}
-// ─── Visa Application Filter ──────────────────────────────────────────────────
-function buildVisaListWhereClauseAndCoreFilters(username, role, giveMine, startDate, endDate, handledBy, applicationStage, applicationState, country, extraAndCondition, serviceType) {
-    const userWhere = buildWhereClause(username, role, giveMine, startDate, endDate);
-    const whereClause = extraAndCondition
-        ? (userWhere ? `${userWhere} and ${extraAndCondition}` : ` where ${extraAndCondition}`)
-        : userWhere;
-    const filterJoin = whereClause ? ' and' : ' where';
-    let coreFilters = `${filterJoin} (((`;
-    if (applicationState) {
-        coreFilters += `(Application_State = '${applicationState}')`;
-    }
-    else {
-        coreFilters += `(Application_State = 'Active')`;
-    }
-    coreFilters += ` and (Qualified_Country = '${country}'))`;
-    const normalizedServiceType = typeof serviceType === 'string' ? serviceType.trim() : '';
-    const serviceFilter = normalizedServiceType && VALID_SERVICE_TYPES.includes(normalizedServiceType)
-        ? `Service_Finalized = '${escapeString(normalizedServiceType)}'`
-        : `Service_Finalized in (${VALID_SERVICE_TYPES_COQL})`;
-    if ((role === 'admin' || role === 'master_admin') && handledBy) {
-        coreFilters += ` and ((${serviceFilter}`;
-        const handledByList = handledBy.split(',').map(h => h.trim()).join("', '");
-        coreFilters += ` and (Application_Handled_By in ('${handledByList}'))))`;
-    }
-    else {
-        coreFilters += ` and (${serviceFilter}))`;
-    }
-    if (applicationStage) {
-        const stages = applicationStage.split(',').map(s => s.trim()).join("', '");
-        coreFilters += ` and (Application_Stage in ('${stages}'))`;
-    }
-    else {
-        const defaultStageValues = country === 'Germany'
-            ? visaApplication_1.VISA_APPLICATION_STATUS_VALUES
-            : (country === 'Canada' ? APPLICATION_STAGES_CANADA : APPLICATION_STAGES);
-        const defaultStages = defaultStageValues
-            .map(s => `'${escapeString(s)}'`).join(', ');
-        coreFilters += ` and (Application_Stage in (${defaultStages}))`;
-    }
-    coreFilters += `)`;
-    return { whereClause, coreFilters };
-}
-async function getFilteredVisaApplications(username, role, page, limit, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country, serviceType) {
-    const offset = (page - 1) * limit;
-    const { whereClause, coreFilters } = buildVisaListWhereClauseAndCoreFilters(username, role, giveMine, startDate, endDate, handledBy, applicationStage, applicationState, country, undefined, serviceType);
-    const countQuery = buildVisaApplicationCountQuery(whereClause, coreFilters);
-    const orderBy = recentActivity === 'false' ? 'Created_Time' : 'Recent_Activity';
-    const listQuery = buildVisaApplicationListQuery(whereClause, coreFilters, orderBy, limit, offset);
-    const [countResponse, zohoResponse] = await Promise.all([
-        zohoRequest('coql', 'POST', { select_query: countQuery }),
-        zohoRequest('coql', 'POST', { select_query: listQuery }),
-    ]);
-    return {
-        data: zohoResponse?.data || [],
-        info: { count: countResponse?.data?.[0]?.total || 0 },
-    };
-}
-async function getFilteredVisaApplicationsByUnifiedSearch(username, role, page, limit, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country, escapedSearch, serviceType) {
-    const orderBy = recentActivity === 'false' ? 'Created_Time' : 'Recent_Activity';
-    const perQueryLimit = Math.min(VISA_LIST_SEARCH_COQL_MAX, Math.max(limit, page * limit));
-    const fields = ['Name', 'Email', 'Phone'];
-    const selectQueries = fields.map((field) => {
-        const { whereClause, coreFilters } = buildVisaListWhereClauseAndCoreFilters(username, role, giveMine, startDate, endDate, handledBy, applicationStage, applicationState, country, `(${field} like '%${escapedSearch}%')`, serviceType);
-        return buildVisaApplicationListQuery(whereClause, coreFilters, orderBy, perQueryLimit, 0);
-    });
-    const responses = await Promise.all(selectQueries.map((select_query) => zohoRequest('coql', 'POST', { select_query })));
-    const sortKey = (app) => {
-        const v = app[orderBy];
-        if (v == null)
-            return 0;
-        const t = new Date(String(v)).getTime();
-        return Number.isNaN(t) ? 0 : t;
-    };
-    const byId = new Map();
-    for (const resp of responses) {
-        const rows = resp?.data || [];
-        for (const app of rows) {
-            if (!app?.id)
-                continue;
-            const existing = byId.get(app.id);
-            if (!existing || sortKey(app) > sortKey(existing)) {
-                byId.set(app.id, app);
-            }
-        }
-    }
-    const merged = [...byId.values()].sort((a, b) => sortKey(b) - sortKey(a));
-    const offset = (page - 1) * limit;
-    return {
-        data: merged.slice(offset, offset + limit),
-        info: { count: merged.length },
-    };
-}
-// ─── Spouse Application Filter ────────────────────────────────────────────────
-function buildSpouseListWhereClauseAndAdditionalFilters(username, role, giveMine, startDate, endDate, applicationStage, handledBy, country, extraAndCondition) {
-    const userWhere = buildWhereClause(username, role, giveMine, startDate, endDate);
-    const whereClause = extraAndCondition
-        ? (userWhere ? `${userWhere} and ${extraAndCondition}` : ` where ${extraAndCondition}`)
-        : userWhere;
-    const additionalConditions = [];
-    additionalConditions.push(`(Qualified_Country = '${escapeString(country)}')`);
-    if (applicationStage) {
-        const stages = applicationStage.split(',').map(s => s.trim()).join("', '");
-        additionalConditions.push(`Application_Stage in ('${stages}')`);
-    }
-    if (handledBy) {
-        const handledByList = handledBy.split(',').map(h => h.trim()).filter(Boolean).join("', '");
-        if (handledByList) {
-            additionalConditions.push(`(Application_Handled_By in ('${handledByList}'))`);
-        }
-    }
-    let additionalFilters = '';
-    if (additionalConditions.length > 0) {
-        const join = whereClause ? ' and' : ' where';
-        additionalFilters = `${join} ${additionalConditions.join(' and ')}`;
-    }
-    else if (!whereClause) {
-        additionalFilters = ` where Created_Time >= '2000-01-01T00:00:00+00:00'`;
-    }
-    return { whereClause, additionalFilters };
-}
-async function getFilteredSpouseApplications(username, role, page, limit, startDate, endDate, giveMine, recentActivity, applicationStage, handledBy, country) {
-    const offset = (page - 1) * limit;
-    const { whereClause, additionalFilters } = buildSpouseListWhereClauseAndAdditionalFilters(username, role, giveMine, startDate, endDate, applicationStage, handledBy, country);
-    const countQuery = buildSpouseApplicationCountQuery(whereClause, additionalFilters);
-    const orderBy = recentActivity === 'false' ? 'Created_Time' : 'Recent_Activity';
-    const listQuery = buildSpouseApplicationListQuery(whereClause, additionalFilters, orderBy, limit, offset);
-    const [countResponse, zohoResponse] = await Promise.all([
-        zohoRequest('coql', 'POST', { select_query: countQuery }),
-        zohoRequest('coql', 'POST', { select_query: listQuery }),
-    ]);
-    return {
-        data: zohoResponse?.data || [],
-        info: { count: countResponse?.data?.[0]?.total || 0 },
-    };
-}
-async function getFilteredSpouseApplicationsByUnifiedSearch(username, role, page, limit, startDate, endDate, giveMine, recentActivity, applicationStage, handledBy, country, escapedSearch) {
-    const orderBy = recentActivity === 'false' ? 'Created_Time' : 'Recent_Activity';
-    const perQueryLimit = Math.min(VISA_LIST_SEARCH_COQL_MAX, Math.max(limit, page * limit));
-    const fields = ['Name', 'Email', 'Phone'];
-    const selectQueries = fields.map((field) => {
-        const { whereClause, additionalFilters } = buildSpouseListWhereClauseAndAdditionalFilters(username, role, giveMine, startDate, endDate, applicationStage, handledBy, country, `(${field} like '%${escapedSearch}%')`);
-        return buildSpouseApplicationListQuery(whereClause, additionalFilters, orderBy, perQueryLimit, 0);
-    });
-    const responses = await Promise.all(selectQueries.map((select_query) => zohoRequest('coql', 'POST', { select_query })));
-    const sortKey = (app) => {
-        const v = app[orderBy];
-        if (v == null)
-            return 0;
-        const t = new Date(String(v)).getTime();
-        return Number.isNaN(t) ? 0 : t;
-    };
-    const byId = new Map();
-    for (const resp of responses) {
-        const rows = resp?.data || [];
-        for (const app of rows) {
-            if (!app?.id)
-                continue;
-            const existing = byId.get(app.id);
-            if (!existing || sortKey(app) > sortKey(existing)) {
-                byId.set(app.id, app);
-            }
-        }
-    }
-    const merged = [...byId.values()].sort((a, b) => sortKey(b) - sortKey(a));
-    const offset = (page - 1) * limit;
-    return {
-        data: merged.slice(offset, offset + limit),
-        info: { count: merged.length },
-    };
-}
-// ─── Controllers ──────────────────────────────────────────────────────────────
+// ─── Module constants ─────────────────────────────────────────────────────────
+const VALID_SERVICE_TYPES = checklistDocument_1.VISA_SERVICE_TYPE_VALUES.filter((v) => v !== 'All');
+const VISA_APPLICATION_LIST_SELECT = 'lead_id name email phone record_type lead_owner application_stage application_state qualified_country service_type recent_activity zoho_created_time created_at deadline_for_lodgment assessing_authority suggested_anzsco send_check_list package_finalize spouse_name spouse_skill_assessment main_applicant zoho_modified_time';
+const SPOUSE_APPLICATION_LIST_SELECT = 'lead_id name email phone record_type lead_owner application_stage application_state qualified_country recent_activity zoho_created_time created_at deadline_for_lodgment assessing_authority suggested_anzsco send_check_list package_finalize spouse_name spouse_skill_assessment main_applicant zoho_modified_time quality_check_from dms_application_status checklist_requested service_type';
+// ─── Route handlers ───────────────────────────────────────────────────────────
 const getApplicationsWithAttachments = async (req, res) => {
     try {
         if (!req.user) {
@@ -270,7 +56,7 @@ const getApplicationsWithAttachments = async (req, res) => {
             });
             return;
         }
-        const recordIds = filteredApplications.map(app => app.id);
+        const recordIds = filteredApplications.map((app) => app.id);
         const [attachmentCounts, onboardingMap] = await Promise.all([
             dmsZohoDocument.aggregate([
                 { $match: { record_id: { $in: recordIds } } },
@@ -278,8 +64,8 @@ const getApplicationsWithAttachments = async (req, res) => {
             ]),
             fetchOnboardingMap(recordIds),
         ]);
-        const countMap = new Map(attachmentCounts.map(item => [item._id, item.count]));
-        const data = filteredApplications.map(app => ({
+        const countMap = new Map(attachmentCounts.map((item) => [item._id, item.count]));
+        const data = filteredApplications.map((app) => ({
             ...app,
             AttachmentCount: countMap.get(app.id) || 0,
             application_onboarding: buildOnboardingStatus(onboardingMap.get(app.id) ?? null),
@@ -311,17 +97,17 @@ exports.getApplicationsWithAttachments = getApplicationsWithAttachments;
 const getVisaApplicationById = async (req, res) => {
     try {
         const applicationId = req.params.id;
-        const { data: zohoResponseData } = await zohoRequest('coql', 'POST', {
-            select_query: buildVisaApplicationDetailQuery(applicationId),
-        });
-        if (!zohoResponseData || zohoResponseData.length === 0) {
+        const applicationDoc = (await DmsZohoClient.findOne({
+            lead_id: applicationId,
+            record_type: 'visa_application',
+        }).lean());
+        if (!applicationDoc) {
             res.status(404).send('Visa application not found');
             return;
         }
-        const application = zohoResponseData[0];
+        const application = toZohoVisaRecord(applicationDoc);
         const record_id = application.id;
-        const spouseName = application.Spouse_Name?.trim() || null;
-        const snapshot = mapZohoRecordToClientSnapshot(application, 'visa_application');
+        const spouseName = applicationDoc.spouse_name?.trim() || null;
         const [documentsCount, client, spouseClient, qcRequest] = await Promise.all([
             dmsZohoDocument.countDocuments({ record_id }),
             DmsZohoClient.findOne({ lead_id: record_id })
@@ -329,15 +115,16 @@ const getVisaApplicationById = async (req, res) => {
                 .lean(),
             spouseName
                 ? DmsZohoClient.findOne({
-                    name: new RegExp(`^${spouseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'),
+                    name: new RegExp(`^${escapeRegExp(spouseName)}$`, 'i'),
                     record_type: 'spouse_skill_assessment',
-                }).select('lead_id').lean()
+                })
+                    .select('lead_id')
+                    .lean()
                 : Promise.resolve(null),
             QualityCheckRequest.findOne({ leadId: record_id, status: 'pending' })
                 .select('_id status requested_at requested_by requested_to')
                 .lean(),
         ]);
-        await DmsZohoClient.findOneAndUpdate({ lead_id: record_id }, { $set: snapshot }, { runValidators: true }).exec();
         res.json({
             data: {
                 ...application,
@@ -380,23 +167,21 @@ const getVisaApplication = async (req, res) => {
         }
         const applicationId = req.user.lead_id ?? '';
         const recordType = req.user.record_type;
-        const moduleName = recordType === REQ_MODULE_SPOUSE_SKILL_ASSESSMENT
-            ? MODULE_SPOUSE_SKILL_ASSESSMENT
-            : MODULE_VISA_APPLICATION;
-        const { data: zohoResponseData } = await zohoRequest('coql', 'POST', {
-            select_query: buildClientApplicationDetailQuery(applicationId, moduleName),
-        });
-        if (!zohoResponseData || zohoResponseData.length === 0) {
+        const applicationDoc = (await DmsZohoClient.findOne({
+            lead_id: applicationId,
+            record_type: recordType,
+        })
+            .select('lead_id name email phone record_type lead_owner application_stage application_state qualified_country service_type recent_activity zoho_created_time created_at deadline_for_lodgment assessing_authority suggested_anzsco send_check_list package_finalize spouse_name spouse_skill_assessment main_applicant zoho_modified_time deadline_extensions')
+            .lean());
+        if (!applicationDoc) {
             res.status(404).send('Visa application not found');
             return;
         }
-        const application = zohoResponseData[0];
+        const application = toZohoVisaRecord(applicationDoc);
         const recordId = application.id;
-        const [documentsCount, clientDoc] = await Promise.all([
-            dmsZohoDocument.countDocuments({ record_id: recordId }),
-            DmsZohoClient.findOne({ lead_id: recordId }).select('deadline_extensions').lean(),
-        ]);
-        const deadline_extensions = clientDoc?.deadline_extensions ?? [];
+        const documentsCount = await dmsZohoDocument.countDocuments({ record_id: recordId });
+        const deadline_extensions = (applicationDoc?.deadline_extensions ??
+            []);
         const approvedByUsernames = deadline_extensions.map((e) => e?.approvedBy).filter(Boolean);
         const approvedByMap = await getProfileImageUrlMap(approvedByUsernames);
         const enrichedDeadlineExtensions = deadline_extensions.map((e) => ({
@@ -436,7 +221,9 @@ const getSpouseApplicationsWithAttachments = async (req, res) => {
         const { startDate, endDate, giveMine, recentActivity, applicationStage, handledBy } = req.query;
         const country = req.query.country || 'Australia';
         if (!SUPPORTED_COUNTRIES.includes(country)) {
-            res.status(400).json({ error: `Invalid country parameter. Supported values: ${SUPPORTED_COUNTRIES.join(', ')}` });
+            res.status(400).json({
+                error: `Invalid country parameter. Supported values: ${SUPPORTED_COUNTRIES.join(', ')}`,
+            });
             return;
         }
         const hasSearchParam = Object.prototype.hasOwnProperty.call(req.query, 'search');
@@ -461,7 +248,7 @@ const getSpouseApplicationsWithAttachments = async (req, res) => {
             });
             return;
         }
-        const recordIds = filteredApplications.map(app => app.id);
+        const recordIds = filteredApplications.map((app) => app.id);
         const [attachmentCounts, onboardingMap] = await Promise.all([
             dmsZohoDocument.aggregate([
                 { $match: { record_id: { $in: recordIds } } },
@@ -469,8 +256,8 @@ const getSpouseApplicationsWithAttachments = async (req, res) => {
             ]),
             fetchOnboardingMap(recordIds),
         ]);
-        const countMap = new Map(attachmentCounts.map(item => [item._id, item.count]));
-        const data = filteredApplications.map(app => ({
+        const countMap = new Map(attachmentCounts.map((item) => [item._id, item.count]));
+        const data = filteredApplications.map((app) => ({
             ...app,
             AttachmentCount: countMap.get(app.id) || 0,
             application_onboarding: buildOnboardingStatus(onboardingMap.get(app.id) ?? null),
@@ -501,16 +288,16 @@ exports.getSpouseApplicationsWithAttachments = getSpouseApplicationsWithAttachme
 const getSpouseVisaApplicationById = async (req, res) => {
     try {
         const applicationId = req.params.id;
-        const { data: zohoResponseData } = await zohoRequest('coql', 'POST', {
-            select_query: buildSpouseApplicationDetailQuery(applicationId),
-        });
-        if (!zohoResponseData || zohoResponseData.length === 0) {
+        const applicationDoc = (await DmsZohoClient.findOne({
+            lead_id: applicationId,
+            record_type: 'spouse_skill_assessment',
+        }).lean());
+        if (!applicationDoc) {
             res.status(404).send('Visa application not found');
             return;
         }
-        const application = zohoResponseData[0];
+        const application = toZohoVisaRecord(applicationDoc);
         const record_id = application.id;
-        const spouseSnapshot = mapZohoRecordToClientSnapshot(application, 'spouse_skill_assessment');
         const [documentsCount, client, qcRequest] = await Promise.all([
             dmsZohoDocument.countDocuments({ record_id }),
             DmsZohoClient.findOne({ lead_id: record_id })
@@ -520,7 +307,6 @@ const getSpouseVisaApplicationById = async (req, res) => {
                 .select('_id status requested_at requested_by requested_to')
                 .lean(),
         ]);
-        await DmsZohoClient.findOneAndUpdate({ lead_id: record_id }, { $set: spouseSnapshot }, { runValidators: true }).exec();
         res.json({
             data: {
                 ...application,
@@ -554,11 +340,10 @@ const getSpouseVisaApplicationById = async (req, res) => {
     }
 };
 exports.getSpouseVisaApplicationById = getSpouseVisaApplicationById;
-// ─── Notes CRUD ───────────────────────────────────────────────────────────────
 const getApplicationNotes = async (req, res) => {
     try {
         const leadId = req.params.id;
-        const client = await DmsZohoClient.findOne({ lead_id: leadId }).select('notes').lean();
+        const client = (await DmsZohoClient.findOne({ lead_id: leadId }).select('notes').lean());
         if (!client) {
             res.status(404).json({ status: 'fail', message: 'Client not found for this application' });
             return;
@@ -590,7 +375,7 @@ const addApplicationNote = async (req, res) => {
         }
         const addedBy = req.user?.username ?? 'Unknown';
         const addedAt = new Date();
-        const updated = await DmsZohoClient.findOneAndUpdate({ lead_id: leadId }, { $push: { notes: { note, addedBy, addedAt } } }, { new: true, runValidators: true }).select('notes');
+        const updated = (await DmsZohoClient.findOneAndUpdate({ lead_id: leadId }, { $push: { notes: { note, addedBy, addedAt } } }, { new: true, runValidators: true }).select('notes'));
         if (!updated) {
             res.status(404).json({ status: 'fail', message: 'Client not found for this application' });
             return;
@@ -635,7 +420,7 @@ const updateApplicationNote = async (req, res) => {
             return;
         }
         const noteObjectId = new mongoose_1.default.Types.ObjectId(noteId);
-        const updated = await DmsZohoClient.findOneAndUpdate({ lead_id: leadId, 'notes._id': noteObjectId }, { $set: { 'notes.$.note': note } }, { new: true, runValidators: true }).select('notes');
+        const updated = (await DmsZohoClient.findOneAndUpdate({ lead_id: leadId, 'notes._id': noteObjectId }, { $set: { 'notes.$.note': note } }, { new: true, runValidators: true }).select('notes'));
         if (!updated) {
             res.status(404).json({ status: 'fail', message: 'Client or note not found for this application' });
             return;
@@ -669,7 +454,7 @@ const deleteApplicationNote = async (req, res) => {
             return;
         }
         const noteObjectId = new mongoose_1.default.Types.ObjectId(noteId);
-        const updated = await DmsZohoClient.findOneAndUpdate({ lead_id: leadId }, { $pull: { notes: { _id: noteObjectId } } }, { new: true }).select('notes');
+        const updated = (await DmsZohoClient.findOneAndUpdate({ lead_id: leadId }, { $pull: { notes: { _id: noteObjectId } } }, { new: true }).select('notes'));
         if (!updated) {
             res.status(404).json({ status: 'fail', message: 'Client not found for this application' });
             return;
@@ -693,3 +478,269 @@ const deleteApplicationNote = async (req, res) => {
     }
 };
 exports.deleteApplicationNote = deleteApplicationNote;
+// ─── List / filter (Mongo) ────────────────────────────────────────────────────
+async function getFilteredVisaApplications(username, role, page, limit, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country, serviceType) {
+    const offset = (page - 1) * limit;
+    const query = {
+        record_type: 'visa_application',
+        qualified_country: country,
+    };
+    const trimmedApplicationState = typeof applicationState === 'string' ? applicationState.trim() : '';
+    if (trimmedApplicationState) {
+        query.application_state = trimmedApplicationState;
+    }
+    const normalizedServiceType = typeof serviceType === 'string' ? serviceType.trim() : '';
+    if (normalizedServiceType && VALID_SERVICE_TYPES.includes(normalizedServiceType)) {
+        query.service_type = normalizedServiceType;
+    }
+    else {
+        query.service_type = { $in: VALID_SERVICE_TYPES };
+    }
+    if (role === 'admin' || giveMine === 'true') {
+        query.lead_owner = username;
+    }
+    if ((role === 'admin' || role === 'master_admin') && handledBy) {
+        const handledByList = handledBy.split(',').map((h) => h.trim()).filter(Boolean);
+        if (handledByList.length) {
+            query.lead_owner = {
+                $in: handledByList.map((h) => new RegExp(`^${escapeRegExp(h)}$`, 'i')),
+            };
+        }
+    }
+    if (applicationStage) {
+        const stages = applicationStage.split(',').map((s) => s.trim()).filter(Boolean);
+        if (stages.length)
+            query.application_stage = { $in: stages };
+    }
+    const createdRange = buildUtcDayRange(startDate, endDate);
+    if (createdRange)
+        query.zoho_created_time = createdRange;
+    const sortField = recentActivity === 'false' ? 'zoho_created_time' : 'recent_activity';
+    const sort = { [sortField]: -1, _id: -1 };
+    const [count, rows] = await Promise.all([
+        DmsZohoClient.countDocuments(query),
+        DmsZohoClient.find(query).select(VISA_APPLICATION_LIST_SELECT).sort(sort).skip(offset).limit(limit).lean(),
+    ]);
+    return {
+        data: rows.map(toZohoVisaRecord),
+        info: { count: count || 0 },
+    };
+}
+async function getFilteredVisaApplicationsByUnifiedSearch(username, role, page, limit, startDate, endDate, giveMine, recentActivity, handledBy, applicationStage, applicationState, country, escapedSearch, serviceType) {
+    const offset = (page - 1) * limit;
+    const query = {
+        record_type: 'visa_application',
+        qualified_country: country,
+    };
+    const trimmedApplicationStateSearch = typeof applicationState === 'string' ? applicationState.trim() : '';
+    if (trimmedApplicationStateSearch) {
+        query.application_state = trimmedApplicationStateSearch;
+    }
+    const normalizedServiceType = typeof serviceType === 'string' ? serviceType.trim() : '';
+    if (normalizedServiceType && VALID_SERVICE_TYPES.includes(normalizedServiceType)) {
+        query.service_type = normalizedServiceType;
+    }
+    else {
+        query.service_type = { $in: VALID_SERVICE_TYPES };
+    }
+    if (role === 'admin' || giveMine === 'true') {
+        query.lead_owner = username;
+    }
+    if ((role === 'admin' || role === 'master_admin') && handledBy) {
+        const handledByList = handledBy.split(',').map((h) => h.trim()).filter(Boolean);
+        if (handledByList.length) {
+            query.lead_owner = {
+                $in: handledByList.map((h) => new RegExp(`^${escapeRegExp(h)}$`, 'i')),
+            };
+        }
+    }
+    if (applicationStage) {
+        const stages = applicationStage.split(',').map((s) => s.trim()).filter(Boolean);
+        if (stages.length)
+            query.application_stage = { $in: stages };
+    }
+    const createdRange = buildUtcDayRange(startDate, endDate);
+    if (createdRange)
+        query.zoho_created_time = createdRange;
+    const safe = escapeRegExp(escapedSearch);
+    const re = new RegExp(safe, 'i');
+    query.$or = [{ name: re }, { email: re }, { phone: re }];
+    const sortField = recentActivity === 'false' ? 'zoho_created_time' : 'recent_activity';
+    const sort = { [sortField]: -1, _id: -1 };
+    const [count, rows] = await Promise.all([
+        DmsZohoClient.countDocuments(query),
+        DmsZohoClient.find(query).select(VISA_APPLICATION_LIST_SELECT).sort(sort).skip(offset).limit(limit).lean(),
+    ]);
+    return {
+        data: rows.map(toZohoVisaRecord),
+        info: { count: count || 0 },
+    };
+}
+async function getFilteredSpouseApplications(username, role, page, limit, startDate, endDate, giveMine, recentActivity, applicationStage, handledBy, country) {
+    const offset = (page - 1) * limit;
+    const query = {
+        record_type: 'spouse_skill_assessment',
+        qualified_country: country,
+    };
+    if (role === 'admin' || giveMine === 'true') {
+        query.lead_owner = username;
+    }
+    if (handledBy) {
+        const handledByList = handledBy.split(',').map((h) => h.trim()).filter(Boolean);
+        if (handledByList.length) {
+            query.lead_owner = {
+                $in: handledByList.map((h) => new RegExp(`^${escapeRegExp(h)}$`, 'i')),
+            };
+        }
+    }
+    if (applicationStage) {
+        const stages = applicationStage.split(',').map((s) => s.trim()).filter(Boolean);
+        if (stages.length)
+            query.application_stage = { $in: stages };
+    }
+    const createdRange = buildUtcDayRange(startDate, endDate);
+    if (createdRange)
+        query.zoho_created_time = createdRange;
+    const sortField = recentActivity === 'false' ? 'zoho_created_time' : 'recent_activity';
+    const sort = { [sortField]: -1, _id: -1 };
+    const [count, rows] = await Promise.all([
+        DmsZohoClient.countDocuments(query),
+        DmsZohoClient.find(query).select(SPOUSE_APPLICATION_LIST_SELECT).sort(sort).skip(offset).limit(limit).lean(),
+    ]);
+    return {
+        data: rows.map(toZohoVisaRecord),
+        info: { count: count || 0 },
+    };
+}
+async function getFilteredSpouseApplicationsByUnifiedSearch(username, role, page, limit, startDate, endDate, giveMine, recentActivity, applicationStage, handledBy, country, escapedSearch) {
+    const offset = (page - 1) * limit;
+    const query = {
+        record_type: 'spouse_skill_assessment',
+        qualified_country: country,
+    };
+    if (role === 'admin' || giveMine === 'true') {
+        query.lead_owner = username;
+    }
+    if (handledBy) {
+        const handledByList = handledBy.split(',').map((h) => h.trim()).filter(Boolean);
+        if (handledByList.length) {
+            query.lead_owner = {
+                $in: handledByList.map((h) => new RegExp(`^${escapeRegExp(h)}$`, 'i')),
+            };
+        }
+    }
+    if (applicationStage) {
+        const stages = applicationStage.split(',').map((s) => s.trim()).filter(Boolean);
+        if (stages.length)
+            query.application_stage = { $in: stages };
+    }
+    const createdRange = buildUtcDayRange(startDate, endDate);
+    if (createdRange)
+        query.zoho_created_time = createdRange;
+    const safe = escapeRegExp(escapedSearch);
+    const re = new RegExp(safe, 'i');
+    query.$or = [{ name: re }, { email: re }, { phone: re }];
+    const sortField = recentActivity === 'false' ? 'zoho_created_time' : 'recent_activity';
+    const sort = { [sortField]: -1, _id: -1 };
+    const [count, rows] = await Promise.all([
+        DmsZohoClient.countDocuments(query),
+        DmsZohoClient.find(query).select(SPOUSE_APPLICATION_LIST_SELECT).sort(sort).skip(offset).limit(limit).lean(),
+    ]);
+    return {
+        data: rows.map(toZohoVisaRecord),
+        info: { count: count || 0 },
+    };
+}
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function escapeRegExp(input) {
+    return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+function toZohoOffsetDateTime(value, offsetMinutes) {
+    if (value == null)
+        return null;
+    if (typeof value === 'string')
+        return value;
+    const asDate = value instanceof Date ? value : typeof value === 'number' ? new Date(value) : new Date(String(value));
+    if (Number.isNaN(asDate.getTime()))
+        return null;
+    const shifted = new Date(asDate.getTime() + offsetMinutes * 60000);
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const yyyy = shifted.getUTCFullYear();
+    const mm = pad2(shifted.getUTCMonth() + 1);
+    const dd = pad2(shifted.getUTCDate());
+    const hh = pad2(shifted.getUTCHours());
+    const min = pad2(shifted.getUTCMinutes());
+    const ss = pad2(shifted.getUTCSeconds());
+    const sign = offsetMinutes >= 0 ? '+' : '-';
+    const abs = Math.abs(offsetMinutes);
+    const offH = pad2(Math.floor(abs / 60));
+    const offM = pad2(abs % 60);
+    return `${yyyy}-${mm}-${dd}T${hh}:${min}:${ss}${sign}${offH}:${offM}`;
+}
+function toZohoVisaRecord(doc) {
+    const leadId = String(doc.lead_id ?? '');
+    return {
+        id: leadId,
+        Name: doc.name ?? null,
+        Email: doc.email ?? null,
+        Phone: doc.phone ?? null,
+        Record_Type: doc.record_type ?? null,
+        Application_Handled_By: doc.lead_owner ?? null,
+        Application_Stage: doc.application_stage ?? null,
+        Application_State: doc.application_state ?? null,
+        Qualified_Country: doc.qualified_country ?? null,
+        Service_Finalized: doc.service_type ?? null,
+        Package_Finalize: doc.package_finalize ?? null,
+        Quality_Check_From: doc.quality_check_from ?? null,
+        DMS_Application_Status: doc.dms_application_status ?? null,
+        Checklist_Requested: doc.checklist_requested ?? false,
+        Deadline_For_Lodgment: doc.deadline_for_lodgment ?? null,
+        Assessing_Authority: doc.assessing_authority ?? null,
+        Suggested_Anzsco: doc.suggested_anzsco ?? null,
+        Send_Check_List: doc.send_check_list ?? null,
+        Spouse_Name: doc.spouse_name ?? null,
+        Spouse_Skill_Assessment: doc.spouse_skill_assessment ?? null,
+        Main_Applicant: doc.main_applicant ?? null,
+        Recent_Activity: toZohoOffsetDateTime(doc.recent_activity, 330),
+        Created_Time: toZohoOffsetDateTime(doc.zoho_created_time ?? doc.created_at, 330),
+        Modified_Time: toZohoOffsetDateTime(doc.zoho_modified_time, 330),
+    };
+}
+function buildUtcDayRange(startDate, endDate) {
+    if (!startDate && !endDate)
+        return null;
+    const range = {};
+    if (startDate) {
+        const d = new Date(`${startDate}T00:00:00.000Z`);
+        if (!Number.isNaN(d.getTime()))
+            range.$gte = d;
+    }
+    if (endDate) {
+        const d = new Date(`${endDate}T23:59:59.999Z`);
+        if (!Number.isNaN(d.getTime()))
+            range.$lte = d;
+    }
+    return Object.keys(range).length ? range : null;
+}
+async function fetchOnboardingMap(recordIds) {
+    const records = (await DmsZohoClient.find({ lead_id: { $in: recordIds } })
+        .select('lead_id clerk_id clerk_invitation_id account_status email_verified')
+        .lean());
+    return new Map(records.map((c) => [c.lead_id, c]));
+}
+function buildOnboardingStatus(clientRecord) {
+    return {
+        client_record_exists: clientRecord !== null,
+        clerk_id: clientRecord?.clerk_id ?? null,
+        clerk_invitation_id: clientRecord?.clerk_invitation_id ?? null,
+        account_status: clientRecord?.account_status ?? null,
+        email_verified: clientRecord?.email_verified ?? null,
+    };
+}
+async function getProfileImageUrlMap(usernames) {
+    const unique = [...new Set(usernames.filter(Boolean))];
+    if (!unique.length)
+        return {};
+    const users = await ZohoDmsUser.find({ username: { $in: unique } }).select('username profile_image_url').lean();
+    return Object.fromEntries(users.map((u) => [u.username, u]));
+}

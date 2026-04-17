@@ -13,12 +13,13 @@ const ZohoDmsUser = require('../models/zohoDmsUser');
 const {
   MODULE_VISA_APPLICATION, MODULE_SPOUSE_SKILL_ASSESSMENT,
   REQ_MODULE_VISA_APPLICATION, REQ_MODULE_SPOUSE_SKILL_ASSESSMENT,
-  APPLICATION_STAGES, APPLICATION_STAGES_CANADA, SUPPORTED_COUNTRIES,
+  APPLICATION_STAGES, APPLICATION_STAGES_CANADA, APPLICATION_STAGES_GERMANY, SUPPORTED_COUNTRIES,
   APPLICATION_STATE_ACTIVE, ADMIN_ROLES,
   SEARCH_TERM_MAX_LENGTH,
+  SERVICE_FINALIZED_PERMANENT_RESIDENCY,
 } = require('./helper/constants');
 const DEFAULT_GLOBAL_SEARCH_LIMIT = 10;
-const { updateRecentActivity, addToTimeline, addMovedFiles } = require('./helper/service/functions');
+const { updateRecentActivityInMongo, addToTimeline, addMovedFiles } = require('./helper/service/functions');
 const { addActivityLog, getCompanyLabel } = require('./helper/service/activityLog');
 const { getAccessToken, refreshAccessToken } = require('./zohoDms/zohoAuth');
 const DmsMovedDocuments = require('../models/movedDocuments');
@@ -202,7 +203,7 @@ exports.uploadDocument = async (req, res) => {
         moduleName = MODULE_VISA_APPLICATION;
       }
       // Update Recent Activity
-      // await updateRecentActivity(zohoRequest, moduleName, clientData.lead_id)
+      // await updateRecentActivityInMongo(moduleName, clientData.lead_id)
       // Add Notification only if user.role is client
       if (user?.lead_owner) {
         let leadOwnerUser = null;
@@ -340,7 +341,7 @@ exports.updateDocument = async (req, res) => {
         }
       }
 
-      await updateRecentActivity(zohoRequest, moduleName, clientData.lead_id);
+      await updateRecentActivityInMongo(moduleName, clientData.lead_id);
 
       // Add Notification only if user.role is client
       if (user?.lead_owner) {
@@ -640,7 +641,7 @@ exports.addComment = async (req, res) => {
         moduleName = MODULE_VISA_APPLICATION;
       }
       // Update Recent Activity
-      await updateRecentActivity(zohoRequest, moduleName, document?.record_id);
+      await updateRecentActivityInMongo(moduleName, document?.record_id);
     }
 
     const _commentCompany = getCompanyLabel(document.document_category);
@@ -1190,7 +1191,7 @@ exports.requestQualityCheck = async (req, res) => {
       });
 
       // Update recent activity with current date
-      await updateRecentActivity(zohoRequest, moduleName, leadId);
+      await updateRecentActivityInMongo(moduleName, leadId);
     }
 
     if (!userDetails) {
@@ -1630,7 +1631,7 @@ exports.updateChecklistRequestStatus = async (req, res) => {
         }
 
         // Update Recent Activity
-        await updateRecentActivity(zohoRequest, moduleName, user.lead_id)
+        await updateRecentActivityInMongo(moduleName, user.lead_id)
       }
     }
 
@@ -1680,7 +1681,7 @@ exports.updateZohoFields = async (req, res) => {
     const response = await zohoRequest(moduleName, 'PUT', updatedData);
 
     // Update Recent Acitivity
-    await updateRecentActivity(zohoRequest, moduleName, leadId);
+    await updateRecentActivityInMongo(moduleName, leadId);
 
     if (response.data) {
       return res.status(200).json({ success: true, message: 'Fields updated successfully.' });
@@ -1722,8 +1723,7 @@ exports.searchZohoApplications = async (req, res) => {
 
     const whereParts = [];
 
-    // Restrict to user's own applications if admin or giveMine is set
-    if (giveMine === 'true') {
+    if (role === 'admin' || giveMine === 'true') {
       whereParts.push(`Application_Handled_By like '%${username}%'`);
     }
 
@@ -1734,19 +1734,15 @@ exports.searchZohoApplications = async (req, res) => {
 
     const userWhereClause = whereParts.length > 0 ? `where(${whereParts.join(' and ')})` : '';
 
-    // Country-specific default stages
     const defaultStages = (country === 'Canada' ? APPLICATION_STAGES_CANADA : APPLICATION_STAGES)
       .map(s => `'${s}'`).join(', ');
 
-    // Core filters: state, country, service, stages
     const coreFilters = ` and((((Application_State = 'Active') and(Qualified_Country = '${country}')) and(Service_Finalized = 'Permanent Residency')) and(Application_Stage in (${defaultStages})))`;
 
     const whereClause = userWhereClause + coreFilters;
 
-    // Build full COQL query
     const selectQuery = `select Name, Email, Phone, Created_Time, Application_Handled_By, DMS_Application_Status, Package_Finalize, Checklist_Requested, Deadline_For_Lodgment, Record_Type, Application_Stage from Visa_Applications ${whereClause}`;
 
-    // Make COQL API request (POST)
     const response = await zohoRequest('coql', 'POST', { select_query: selectQuery });
 
 
@@ -1763,10 +1759,8 @@ exports.searchZohoApplications = async (req, res) => {
       { $group: { _id: "$record_id", count: { $sum: 1 } } }
     ]);
 
-    // Create a Map for O(1) lookup: record_id -> count
     const countMap = new Map(counts.map(item => [item._id, item.count]));
 
-    // Map counts back to applications
     const applicationsWithAttachments = data.map(app => ({
       ...app,
       AttachmentCount: countMap.get(app.id) || 0
@@ -1784,15 +1778,49 @@ exports.searchZohoApplications = async (req, res) => {
 
 const ALLOWED_GLOBAL_SEARCH_ROLES = ['master_admin', 'supervisor', 'team_leader', 'admin'];
 
+/** Union of stage lists so global search is not tied to one destination country */
+const GLOBAL_SEARCH_APPLICATION_STAGES = [
+  ...new Set([
+    ...APPLICATION_STAGES,
+    ...APPLICATION_STAGES_CANADA,
+    ...APPLICATION_STAGES_GERMANY,
+  ]),
+];
+
+const GLOBAL_SEARCH_CLIENT_FIELDS =
+  'lead_id name full_name email phone zoho_created_time created_at lead_owner dms_application_status package_finalize checklist_requested deadline_for_lodgment record_type application_stage quality_check_from qualified_country main_applicant application_state service_type';
+
+function mongoClientToGlobalSearchRow(doc) {
+  const created = doc.zoho_created_time || doc.created_at;
+  let createdTime = null;
+  if (created) {
+    createdTime = created instanceof Date ? created.toISOString() : String(created);
+  }
+  return {
+    id: doc.lead_id,
+    Name: doc.name,
+    Email: doc.email,
+    Phone: doc.phone,
+    Created_Time: createdTime,
+    Application_Handled_By: doc.lead_owner,
+    DMS_Application_Status: doc.dms_application_status,
+    Package_Finalize: doc.package_finalize,
+    Checklist_Requested: doc.checklist_requested,
+    Deadline_For_Lodgment: doc.deadline_for_lodgment,
+    Record_Type: doc.record_type,
+    Application_Stage: doc.application_stage,
+    Quality_Check_From: doc.quality_check_from,
+    Qualified_Country: doc.qualified_country,
+    Main_Applicant: doc.main_applicant,
+  };
+}
+
 exports.globalSearch = async (req, res) => {
   try {
     const username = req.user?.username;
     const role = req.user?.role;
     const rawSearch = req.query.search;
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || DEFAULT_GLOBAL_SEARCH_LIMIT, 1), 50);
-    const country = (req.query.country && SUPPORTED_COUNTRIES.includes(req.query.country))
-      ? req.query.country
-      : 'Australia';
 
     if (!username) {
       return res.status(400).json({
@@ -1816,30 +1844,30 @@ exports.globalSearch = async (req, res) => {
       });
     }
 
-    const escapedSearch = escapeString(trimmedSearch);
     const mongoRegexEscaped = escapeRegexForMongo(trimmedSearch);
     const mongoRegex = { $regex: mongoRegexEscaped, $options: 'i' };
+    const textOr = [
+      { name: mongoRegex },
+      { full_name: mongoRegex },
+      { email: mongoRegex },
+      { phone: mongoRegex },
+      { lead_id: mongoRegex },
+    ];
 
-    const defaultStages = (country === 'Canada' ? APPLICATION_STAGES_CANADA : APPLICATION_STAGES)
-      .map(s => `'${escapeString(s)}'`)
-      .join(', ');
+    const fetchLimit = Math.min(50, limit * 3);
 
-    const handlerFilterVisa = '';
-    const handlerFilterSpouse = '';
+    const visaMatch = {
+      record_type: REQ_MODULE_VISA_APPLICATION,
+      $or: textOr,
+      application_state: APPLICATION_STATE_ACTIVE,
+      service_type: SERVICE_FINALIZED_PERMANENT_RESIDENCY,
+      application_stage: { $in: GLOBAL_SEARCH_APPLICATION_STAGES },
+    };
 
-    // NOTE: id is NOT listed — Zoho COQL returns it automatically; explicit `id` in SELECT causes SYNTAX_ERROR
-    const selectFieldsVisa = 'Name, Email, Phone, Created_Time, Application_Handled_By, DMS_Application_Status, Package_Finalize, Checklist_Requested, Deadline_For_Lodgment, Record_Type, Application_Stage, Quality_Check_From';
-    const selectFieldsSpouse = 'Name, Email, Phone, Created_Time, Application_Handled_By, DMS_Application_Status, Checklist_Requested, Record_Type, Application_Stage, Quality_Check_From, Main_Applicant';
-
-    // Zoho COQL does not support `or` — use 3 separate single-field queries per module
-    const coreFiltersVisa = ` and((((Application_State = '${APPLICATION_STATE_ACTIVE}') and(Qualified_Country = '${escapeString(country)}')) and(Service_Finalized = 'Permanent Residency')) and(Application_Stage in (${defaultStages})))`;
-    // Spouse_Skill_Assessment has no Qualified_Country; use only search + handler filter
-
-    const coqlLimit = Math.min(50, limit * 3);
-    const buildVisaQuery = field =>
-      `select ${selectFieldsVisa} from Visa_Applications where(${field} like '%${escapedSearch}%')${coreFiltersVisa}${handlerFilterVisa} order by Created_Time desc limit 0, ${coqlLimit}`;
-    const buildSpouseQuery = field =>
-      `select ${selectFieldsSpouse} from Spouse_Skill_Assessment where(${field} like '%${escapedSearch}%')${handlerFilterSpouse} order by Created_Time desc limit 0, ${coqlLimit}`;
+    const spouseMatch = {
+      record_type: REQ_MODULE_SPOUSE_SKILL_ASSESSMENT,
+      $or: textOr,
+    };
 
     const requestedReviewPipeline = [
       { $match: { 'requested_reviews.0': { $exists: true } } },
@@ -1897,56 +1925,34 @@ exports.globalSearch = async (req, res) => {
       { $limit: limit }
     );
 
-    // Promise.allSettled: 6 Zoho queries (3 per module, no `or`) + 1 MongoDB — all in parallel
-    const [
-      visaNameR, visaEmailR, visaPhoneR,
-      spouseNameR, spouseEmailR, spousePhoneR,
-      reviewResult
-    ] = await Promise.allSettled([
-      zohoRequest('coql', 'POST', { select_query: buildVisaQuery('Name') }),
-      zohoRequest('coql', 'POST', { select_query: buildVisaQuery('Email') }),
-      zohoRequest('coql', 'POST', { select_query: buildVisaQuery('Phone') }),
-      zohoRequest('coql', 'POST', { select_query: buildSpouseQuery('Name') }),
-      zohoRequest('coql', 'POST', { select_query: buildSpouseQuery('Email') }),
-      zohoRequest('coql', 'POST', { select_query: buildSpouseQuery('Phone') }),
-      dmsZohoDocument.aggregate(requestedReviewPipeline)
+    const sortSpec = { zoho_created_time: -1, created_at: -1 };
+    const [visaR, spouseR, reviewResult] = await Promise.allSettled([
+      DmsZohoClient.find(visaMatch).sort(sortSpec).limit(fetchLimit).select(GLOBAL_SEARCH_CLIENT_FIELDS).lean(),
+      DmsZohoClient.find(spouseMatch).sort(sortSpec).limit(fetchLimit).select(GLOBAL_SEARCH_CLIENT_FIELDS).lean(),
+      dmsZohoDocument.aggregate(requestedReviewPipeline),
     ]);
 
-    // Log any failures
-    for (const [label, r] of [
-      ['visa/Name', visaNameR], ['visa/Email', visaEmailR], ['visa/Phone', visaPhoneR],
-      ['spouse/Name', spouseNameR], ['spouse/Email', spouseEmailR], ['spouse/Phone', spousePhoneR]
-    ]) {
-      if (r.status === 'rejected') console.error(`globalSearch ${label} query failed:`, r.reason?.response?.data || r.reason);
-    }
+    if (visaR.status === 'rejected') console.error('globalSearch visa mongo query failed:', visaR.reason);
+    if (spouseR.status === 'rejected') console.error('globalSearch spouse mongo query failed:', spouseR.reason);
     if (reviewResult.status === 'rejected') console.error('globalSearch review pipeline failed:', reviewResult.reason);
 
-    // Deduplicate by id across all 6 results — a record matching Name AND Email would appear in both
+    const visaDocs = visaR.status === 'fulfilled' ? visaR.value : [];
+    const spouseDocs = spouseR.status === 'fulfilled' ? spouseR.value : [];
+
     const seenIds = new Set();
-    const visaData = [];
-    const spouseData = [];
-
-    for (const r of [visaNameR, visaEmailR, visaPhoneR]) {
-      if (r.status === 'fulfilled') {
-        for (const app of (r.value?.data || [])) {
-          if (app.id && !seenIds.has(app.id)) { seenIds.add(app.id); visaData.push(app); }
-        }
-      }
+    const mergedApps = [];
+    for (const doc of [...visaDocs, ...spouseDocs]) {
+      if (!doc.lead_id || seenIds.has(doc.lead_id)) continue;
+      seenIds.add(doc.lead_id);
+      mergedApps.push(mongoClientToGlobalSearchRow(doc));
     }
-    for (const r of [spouseNameR, spouseEmailR, spousePhoneR]) {
-      if (r.status === 'fulfilled') {
-        for (const app of (r.value?.data || [])) {
-          if (app.id && !seenIds.has(app.id)) { seenIds.add(app.id); spouseData.push(app); }
-        }
-      }
-    }
-
-    const requestedReviewResult = reviewResult.status === 'fulfilled' ? reviewResult.value : [];
-    const mergedApps = [...visaData, ...spouseData].sort((a, b) => {
+    mergedApps.sort((a, b) => {
       const tA = a.Created_Time ? new Date(a.Created_Time).getTime() : 0;
       const tB = b.Created_Time ? new Date(b.Created_Time).getTime() : 0;
       return tB - tA;
     });
+
+    const requestedReviewResult = reviewResult.status === 'fulfilled' ? reviewResult.value : [];
 
     const recordIds = mergedApps.map(app => app.id).filter(Boolean);
     let countMap = new Map();
@@ -1988,15 +1994,8 @@ exports.globalSearch = async (req, res) => {
       }
     });
   } catch (error) {
-    const zohoPayload = error.response?.data;
-    if (zohoPayload) {
-      console.error('Error in globalSearch (Zoho response):', JSON.stringify(zohoPayload));
-    } else {
-      console.error('Error in globalSearch:', error);
-    }
-    const devError = process.env.NODE_ENV === 'development'
-      ? (zohoPayload?.message || error.message)
-      : undefined;
+    console.error('Error in globalSearch:', error);
+    const devError = process.env.NODE_ENV === 'development' ? error.message : undefined;
     return res.status(500).json({
       success: false,
       message: 'Failed to perform global search.',
@@ -2161,7 +2160,7 @@ exports.addChecklist = async (req, res) => {
         moduleName = MODULE_VISA_APPLICATION;
       }
       // Update Recent Activity
-      await updateRecentActivity(zohoRequest, moduleName, user.lead_id);
+      await updateRecentActivityInMongo(moduleName, user.lead_id);
 
       if (isNewChecklist) {
         // First item ever — notify client that their checklist is ready
@@ -2950,11 +2949,9 @@ exports.addRequestedReviews = async (req, res) => {
 
       try {
         if (document?.record_id) {
-          // Update Recent Activity
-          await updateRecentActivity(zohoRequest, moduleName, document?.record_id)
+          await updateRecentActivityInMongo(moduleName, document?.record_id)
         }
       } catch (error) {
-        // throw new Error(`Error Occured while updating recent activity: ${ error } `);
         return res.status(500).json({
           status: 'error',
           message: `Error Occured while updating recent activity: ${error} `,
@@ -3443,7 +3440,7 @@ exports.addRequestedReviewMessage = async (req, res) => {
 
     if (document?.record_id) {
       // Update Recent Activity
-      await updateRecentActivity(zohoRequest, moduleName, document.record_id)
+      await updateRecentActivityInMongo(moduleName, document.record_id)
     }
 
     const _rmCompany = getCompanyLabel(document.document_category);
@@ -3451,7 +3448,7 @@ exports.addRequestedReviewMessage = async (req, res) => {
     addActivityLog({
       lead_id:           document.record_id,
       activity_type:     'review_message_added',
-      summary:           `${username} added a review message on "${_rmDocLabel}"`,
+      summary:           `${username} added a review message: "${message}" on "${_rmDocLabel}"`,
       actor_type:        'staff',
       actor_name:        username,
       actor_role:        req.user?.role ?? null,

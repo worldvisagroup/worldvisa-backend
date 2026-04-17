@@ -59,15 +59,10 @@ function parseDateOrNull(v) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-/**
- * Builds a MongoDB $set-compatible object from a signup/webhook body.
- * Only includes keys explicitly present in the body (partial-update safe).
- */
+
 function buildApplicationPayload(body) {
   const out = {};
 
-  // NOTE: lead_owner is required in the schema, so webhook updates must never
-  // accidentally $set it to null/empty when Zoho omits/clears a field.
   const strFields = [
     ['service_type',            'service_type'],
     ['application_stage',       'application_stage'],
@@ -85,8 +80,6 @@ function buildApplicationPayload(body) {
     ['main_applicant',          'main_applicant'],
   ];
 
-  // Prefer explicit lead_owner over application_handled_by, support both keys,
-  // and never include lead_owner if it normalizes to null/empty.
   const rawOwner =
     ('lead_owner' in body ? body.lead_owner : undefined) ??
     ('application_handled_by' in body ? body.application_handled_by : undefined) ??
@@ -195,7 +188,6 @@ exports.signup = async (req, res) => {
       inviteWarning = 'Client created but Clerk invitation could not be sent. Please invite manually.';
     }
 
-    // Remove password from output
     newClient.password = undefined;
 
     return res.status(201).json({
@@ -249,7 +241,6 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // 1) Check if email and password exist
     if (!email || !password) {
       return res.status(400).json({
         status: 'fail',

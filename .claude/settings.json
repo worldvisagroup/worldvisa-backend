@@ -3,7 +3,11 @@
     "allow": [
       "Bash(grep -r \"quality\\\\|checklist\" /Users/vishnu/Development/WorldvisaV1/worldvisa-backend/models/*.js)",
       "Skill(clerk-backend-api)",
-      "Skill(clerk-backend-api:*)"
+      "Skill(clerk-backend-api:*)",
+      "WebFetch(domain:docs.opensearch.org)",
+      "WebFetch(domain:opensearch.org)",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs"
     ]
   }
 }

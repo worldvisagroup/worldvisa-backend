@@ -256,6 +256,24 @@ dmsZohoClientSchema.index({ name: 'text', email: 'text', phone: 'text', lead_id:
 dmsZohoClientSchema.index({ name: 1, record_type: 1 });
 dmsZohoClientSchema.index({ 'fcmTokens.token': 1 }, { sparse: true });
 dmsZohoClientSchema.index({ role: 1 });
+dmsZohoClientSchema.index({
+  record_type: 1,
+  qualified_country: 1,
+  application_state: 1,
+  service_type: 1,
+  application_stage: 1,
+  lead_owner: 1,
+  recent_activity: -1,
+});
+dmsZohoClientSchema.index({
+  record_type: 1,
+  qualified_country: 1,
+  application_state: 1,
+  service_type: 1,
+  application_stage: 1,
+  lead_owner: 1,
+  zoho_created_time: -1,
+});
 
 const DmsZohoClient = mongoose.model('DmsZohoClient', dmsZohoClientSchema);
 

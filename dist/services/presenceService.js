@@ -123,10 +123,6 @@ async function getPresenceFromMongo(userId) {
         return { userId, status: exports.STATUS.OFFLINE, lastSeen: null };
     }
 }
-/**
- * Lazily correct Redis state when heartbeat TTL expired but status still shows online.
- * Called from getPresence/getBulkPresence — avoids polling.
- */
 async function markOfflineFromExpiry(userId) {
     if (!redisAvailable())
         return;

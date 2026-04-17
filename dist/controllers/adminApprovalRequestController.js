@@ -12,7 +12,7 @@ const adminApprovalRequest_model_1 = __importDefault(require("../models/adminApp
 const DmsZohoClient = require('../models/dmsZohoClient');
 const ZohoDmsUser = require('../models/zohoDmsUser');
 const { zohoRequest } = require('./zohoDms/zohoApi');
-const { updateRecentActivity } = require('./helper/service/functions');
+const { updateRecentActivityInMongo } = require('./helper/service/functions');
 const { addNotificationAndEmit } = require('./helper/service/notifications');
 const { addActivityLog } = require('./helper/service/activityLog');
 const { MODULE_VISA_APPLICATION, MODULE_SPOUSE_SKILL_ASSESSMENT, REQ_MODULE_SPOUSE_SKILL_ASSESSMENT, } = require('./helper/constants');
@@ -306,7 +306,7 @@ async function approveRequest(req, res) {
         });
         // Fire-and-forget: activity update + notification
         setImmediate(async () => {
-            await updateRecentActivity(zohoRequest, moduleName, request.leadId);
+            await updateRecentActivityInMongo(moduleName, request.leadId);
             const [requester, clientName] = await Promise.all([
                 ZohoDmsUser.findOne({ username: request.requestedBy }).select('_id').lean(),
                 getClientName(request.leadId),

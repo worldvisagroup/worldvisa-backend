@@ -4,7 +4,7 @@ import AdminApprovalRequest from '../models/adminApprovalRequest.model';
 const DmsZohoClient          = require('../models/dmsZohoClient');
 const ZohoDmsUser             = require('../models/zohoDmsUser');
 const { zohoRequest }         = require('./zohoDms/zohoApi');
-const { updateRecentActivity } = require('./helper/service/functions');
+const { updateRecentActivityInMongo } = require('./helper/service/functions');
 const { addNotificationAndEmit } = require('./helper/service/notifications');
 const { addActivityLog }      = require('./helper/service/activityLog');
 const {
@@ -342,7 +342,7 @@ export async function approveRequest(req: Request, res: Response): Promise<void>
 
     // Fire-and-forget: activity update + notification
     setImmediate(async () => {
-      await updateRecentActivity(zohoRequest, moduleName, request.leadId);
+      await updateRecentActivityInMongo(moduleName, request.leadId);
 
       const [requester, clientName] = await Promise.all([
         ZohoDmsUser.findOne({ username: request.requestedBy }).select('_id').lean(),

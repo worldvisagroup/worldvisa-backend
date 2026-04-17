@@ -130,10 +130,7 @@ async function getPresenceFromMongo(userId: string): Promise<PresenceUpdatePaylo
   }
 }
 
-/**
- * Lazily correct Redis state when heartbeat TTL expired but status still shows online.
- * Called from getPresence/getBulkPresence — avoids polling.
- */
+
 async function markOfflineFromExpiry(userId: string): Promise<void> {
   if (!redisAvailable()) return;
   try {
