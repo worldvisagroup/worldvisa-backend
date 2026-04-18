@@ -26,7 +26,7 @@ ${previewText ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:
     <td align="center" style="padding:32px 16px;">
 
       <!-- Outer card -->
-      <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;border:1px solid #e0e0e0;">
+      <table role="presentation" width="700" cellspacing="0" cellpadding="0" border="0" style="max-width:700px;width:100%;background-color:#ffffff;border:1px solid #e0e0e0;">
 
         <!-- Header -->
         <tr>

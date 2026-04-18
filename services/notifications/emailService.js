@@ -85,6 +85,7 @@ function renderTemplate(notification) {
       documentName: entityName,
       rejectReason: templateData?.rejectReason,
       reviewedBy: templateData?.reviewedBy,
+      companyName: templateData?.companyName,
       leadId: entityParentId !== 'system' ? entityParentId : null,
     });
   }

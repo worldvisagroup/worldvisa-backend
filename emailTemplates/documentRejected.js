@@ -6,7 +6,7 @@ const FRONTEND_URL = process.env.FRONTEND_URL || 'https://dms.worldvisagroup.com
 
 
 function render(data) {
-  const { recipientName, documentName, rejectReason, reviewedBy, leadId } = data;
+  const { recipientName, documentName, rejectReason, reviewedBy, leadId, companyName } = data;
   const portalUrl = leadId
     ? `${FRONTEND_URL}/applications/${leadId}`
     : `${FRONTEND_URL}/applications`;
@@ -34,6 +34,18 @@ function render(data) {
         </td>
       </tr>
     </table>
+
+    ${companyName ? `
+    <!-- Company block -->
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:24px;">
+      <tr>
+        <td style="padding:16px 20px;border:1px solid #e0e0e0;border-left:3px solid #000000;background-color:#f7f7f7;">
+          <p style="margin:0 0 6px 0;font-size:11px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#555555;">Company</p>
+          <p style="margin:0;font-size:15px;font-weight:700;color:#000000;">${escHtml(companyName)}</p>
+        </td>
+      </tr>
+    </table>
+    ` : ''}
 
     ${rejectReason ? `
     <!-- Rejection reason -->

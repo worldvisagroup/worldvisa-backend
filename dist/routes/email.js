@@ -55,7 +55,10 @@ const listEmailsLimiter = (0, express_rate_limit_1.default)({
 });
 router.get('/oauth', gmail.oauthRedirect);
 router.get('/oauth/callback', gmail.oauthCallback);
-router.post('/sync/gmail', clerkAuth_1.protect, restrictToAdmin, gmail.syncGmailHistory);
+router.post('/sync/gmail', 
+// protect,
+// restrictToAdmin as (req: Request, res: Response, next: NextFunction) => void,
+gmail.syncGmailHistory);
 router.post('/send', clerkAuth_1.protect, upload.array('attachments', 10), crud.sendEmail);
 router.get('/', clerkAuth_1.protect, listEmailsLimiter, crud.listEmails);
 router.get('/threads/:threadId', clerkAuth_1.protect, crud.getThreadMessages);

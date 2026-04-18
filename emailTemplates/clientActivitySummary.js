@@ -53,10 +53,10 @@ function render(notifications, { leadOwnerName, clientName, leadId } = {}) {
 
       tableRows += `
         <tr style="background-color:${bg};">
-          <td style="padding:10px 12px;font-size:13px;color:#111111;border-bottom:1px solid #e0e0e0;white-space:nowrap;">${escHtml(activityLabel)}</td>
-          <td style="padding:10px 12px;font-size:13px;color:#111111;border-bottom:1px solid #e0e0e0;">${escHtml(docName)}</td>
-          <td style="padding:10px 12px;font-size:13px;color:#555555;border-bottom:1px solid #e0e0e0;">${escHtml(companyName)}</td>
-          <td style="padding:10px 12px;font-size:13px;color:#555555;border-bottom:1px solid #e0e0e0;white-space:nowrap;">${timeStr}</td>
+          <td style="padding:7px 8px;font-size:11px;color:#111111;border-bottom:1px solid #e0e0e0;white-space:nowrap;">${escHtml(activityLabel)}</td>
+          <td style="padding:7px 8px;font-size:11px;color:#111111;border-bottom:1px solid #e0e0e0;"><div style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(docName)}</div></td>
+          <td style="padding:7px 8px;font-size:11px;color:#555555;border-bottom:1px solid #e0e0e0;"><div style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escHtml(companyName)}</div></td>
+          <td style="padding:7px 8px;font-size:11px;color:#555555;border-bottom:1px solid #e0e0e0;white-space:nowrap;">${timeStr}</td>
         </tr>`;
       rowIndex++;
     }
@@ -84,10 +84,10 @@ function render(notifications, { leadOwnerName, clientName, leadId } = {}) {
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border:1px solid #e0e0e0;border-collapse:collapse;margin-bottom:28px;">
       <thead>
         <tr style="background-color:#f0f0f0;">
-          <th style="padding:10px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;white-space:nowrap;">Activity</th>
-          <th style="padding:10px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;">Document Name</th>
-          <th style="padding:10px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;">Company</th>
-          <th style="padding:10px 12px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;white-space:nowrap;">Time</th>
+          <th style="padding:7px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;white-space:nowrap;">Activity</th>
+          <th style="padding:7px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;white-space:nowrap;">Document Name</th>
+          <th style="padding:7px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;white-space:nowrap;">Company</th>
+          <th style="padding:7px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#000000;text-align:left;border-bottom:2px solid #000000;white-space:nowrap;">Time</th>
         </tr>
       </thead>
       <tbody>

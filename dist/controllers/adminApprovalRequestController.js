@@ -25,7 +25,6 @@ function resolveModule(recordType) {
 function getUser(req) {
     return req.user;
 }
-/** Single batch lookup — avoids N+1 when enriching lists */
 async function getUserInfoMap(usernames) {
     const unique = [...new Set(usernames.filter(Boolean))];
     if (!unique.length)
@@ -35,14 +34,12 @@ async function getUserInfoMap(usernames) {
         .lean();
     return Object.fromEntries(users.map((u) => [u.username, u]));
 }
-/** Returns client display name from DmsZohoClient — falls back to leadId */
 async function getClientName(leadId) {
     const client = await DmsZohoClient.findOne({ lead_id: leadId })
         .select('name full_name')
         .lean();
     return client?.name ?? client?.full_name ?? leadId;
 }
-/** Single batch lookup — avoids N+1 when enriching lists */
 async function getClientInfoMap(leadIds) {
     const unique = [...new Set(leadIds.filter(Boolean))];
     if (!unique.length)
@@ -70,7 +67,6 @@ async function createRequest(req, res) {
             res.status(401).json({ success: false, message: 'Unauthorized' });
             return;
         }
-        // Validate requestedTo is a real active master_admin
         const targetUser = await ZohoDmsUser.findOne({ username: requestedTo, role: 'master_admin', account_status: 'active' }).lean();
         if (!targetUser) {
             res.status(400).json({ success: false, message: 'requestedTo must be a valid active master_admin username.' });
@@ -230,10 +226,6 @@ async function getRequests(req, res) {
         res.status(500).json({ success: false, message: 'Internal server error.' });
     }
 }
-/**
- * GET /admin-approval-requests/lead/:leadId
- * Any staff — returns all requests for a given lead with profile enrichment.
- */
 async function getRequestsByLead(req, res) {
     try {
         const { leadId } = req.params;
@@ -260,10 +252,6 @@ async function getRequestsByLead(req, res) {
         res.status(500).json({ success: false, message: 'Internal server error.' });
     }
 }
-/**
- * PATCH /admin-approval-requests/:requestId/approve
- * master_admin only — pushes the change to Zoho, then marks approved.
- */
 async function approveRequest(req, res) {
     try {
         const user = getUser(req);
@@ -347,10 +335,6 @@ async function approveRequest(req, res) {
         res.status(500).json({ success: false, message: 'Internal server error.' });
     }
 }
-/**
- * PATCH /admin-approval-requests/:requestId/reject
- * master_admin only — rejects the request with an optional reason.
- */
 async function rejectRequest(req, res) {
     try {
         const user = getUser(req);

@@ -25,7 +25,6 @@ function getUser(req: Request) {
   return req.user as any;
 }
 
-/** Single batch lookup — avoids N+1 when enriching lists */
 async function getUserInfoMap(
   usernames: string[]
 ): Promise<Record<string, { username: string; full_name: string | null; profile_image_url: string | null }>> {
@@ -37,7 +36,6 @@ async function getUserInfoMap(
   return Object.fromEntries((users as any[]).map((u) => [u.username, u]));
 }
 
-/** Returns client display name from DmsZohoClient — falls back to leadId */
 async function getClientName(leadId: string): Promise<string> {
   const client = await DmsZohoClient.findOne({ lead_id: leadId })
     .select('name full_name')
@@ -45,7 +43,6 @@ async function getClientName(leadId: string): Promise<string> {
   return (client as any)?.name ?? (client as any)?.full_name ?? leadId;
 }
 
-/** Single batch lookup — avoids N+1 when enriching lists */
 async function getClientInfoMap(
   leadIds: string[]
 ): Promise<Record<string, { name: string; profile_image_url: string | null }>> {
@@ -81,7 +78,6 @@ export async function createRequest(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Validate requestedTo is a real active master_admin
     const targetUser = await ZohoDmsUser.findOne({ username: requestedTo, role: 'master_admin', account_status: 'active' }).lean();
     if (!targetUser) {
       res.status(400).json({ success: false, message: 'requestedTo must be a valid active master_admin username.' });
@@ -255,10 +251,7 @@ export async function getRequests(req: Request, res: Response): Promise<void> {
   }
 }
 
-/**
- * GET /admin-approval-requests/lead/:leadId
- * Any staff — returns all requests for a given lead with profile enrichment.
- */
+
 export async function getRequestsByLead(req: Request, res: Response): Promise<void> {
   try {
     const { leadId } = req.params;
@@ -287,10 +280,7 @@ export async function getRequestsByLead(req: Request, res: Response): Promise<vo
   }
 }
 
-/**
- * PATCH /admin-approval-requests/:requestId/approve
- * master_admin only — pushes the change to Zoho, then marks approved.
- */
+
 export async function approveRequest(req: Request, res: Response): Promise<void> {
   try {
     const user    = getUser(req);
@@ -387,10 +377,6 @@ export async function approveRequest(req: Request, res: Response): Promise<void>
   }
 }
 
-/**
- * PATCH /admin-approval-requests/:requestId/reject
- * master_admin only — rejects the request with an optional reason.
- */
 export async function rejectRequest(req: Request, res: Response): Promise<void> {
   try {
     const user    = getUser(req);

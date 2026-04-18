@@ -6,20 +6,17 @@
  * Responsibilities:
  *  1. Fetch full Gmail message history (paginated, rate-limit safe)
  *  2. Recursively parse nested MIME trees → extract html/text body
- *  3. Collect attachment parts → fetch raw bytes → upload to R2
- *  4. Store the R2 *key* (not URL) in MongoDB for long-term stability
- *  5. Upsert Email documents with full deduplication
+ *  3. Upsert Email documents with full deduplication
  *
- * Attachment URL strategy:
- *  - storage_key is stored in MongoDB (env/bucket agnostic)
- *  - Call getSignedAttachmentUrl(key) at read time to generate short-lived URLs
- *  - See r2Client.js for getSignedAttachmentUrl()
+ * Attachments (R2) are currently disabled during sync — `attachments` stays [].
+ * For emails synced before that change, read-time signed URLs still apply:
+ *  - storage_key in MongoDB → getSignedAttachmentUrl(key) (see r2Client.js)
  */
 
 const { google }   = require('googleapis');
 const Email        = require('../../models/email');
 const logger       = require('../../utils/logger');
-const { uploadToR2, getEmailAttachmentKey, getSignedAttachmentUrl } = require('../r2Client');
+const { getSignedAttachmentUrl } = require('../r2Client');
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -242,6 +239,10 @@ function collectAttachmentParts(payload) {
  * of the email is not blocked.
  */
 async function fetchAndUploadAttachments(gmail, messageId, payload) {
+  // R2 / file-attachment sync disabled — processMessage sets attachments to [].
+  return [];
+
+  /*
   const attachmentParts = collectAttachmentParts(payload);
   if (attachmentParts.length === 0) return [];
 
@@ -317,14 +318,14 @@ async function fetchAndUploadAttachments(gmail, messageId, payload) {
   }
 
   return results;
+  */
 }
 
 // ─── Message → Email document ─────────────────────────────────────────────────
 
 /**
  * Map a raw Gmail API message to the shape expected by the Email model.
- * Attachments are intentionally left empty here — they are populated
- * separately in the fetch loop via fetchAndUploadAttachments().
+ * Attachments stay [] — R2/file sync is disabled in processMessage.
  */
 async function mapGmailMessageToEmail(msg, gmail) {
   const payload     = msg.payload ?? {};
@@ -506,8 +507,9 @@ async function processMessage(gmail, messageId) {
     // ── Map to Email shape ────────────────────────────────────────────────────
     const doc = await mapGmailMessageToEmail(msg, gmail);
 
-    // ── Fetch + upload attachments ────────────────────────────────────────────
-    doc.attachments = await fetchAndUploadAttachments(gmail, msg.id, payload);
+    // ── Attachments (R2) disabled — sync email body/metadata only ─────────────
+    doc.attachments = [];
+    // doc.attachments = await fetchAndUploadAttachments(gmail, msg.id, payload);
 
     // ── Upsert into MongoDB ───────────────────────────────────────────────────
     await Email.findOneAndUpdate(
@@ -531,16 +533,7 @@ async function processMessage(gmail, messageId) {
 
 // ─── Read-time: hydrate signed attachment URLs ────────────────────────────────
 
-/**
- * Given an email document from MongoDB, replace each attachment's storage_key
- * with a short-lived signed URL for the frontend.
- *
- * Call this in your GET /api/email/:id handler — never store the signed URL.
- *
- * @param {object} emailDoc  - Raw Mongoose/lean document
- * @param {number} [ttl=3600] - Signed URL TTL in seconds (default 1 hour)
- * @returns {object}  emailDoc with attachments[*].url populated
- */
+
 async function hydrateAttachmentUrls(emailDoc, ttl = 3600) {
   if (!emailDoc?.attachments?.length) return emailDoc;
 

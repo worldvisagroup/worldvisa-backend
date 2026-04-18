@@ -30,8 +30,8 @@ router.get('/oauth/callback', gmail.oauthCallback);
 
 router.post(
   '/sync/gmail',
-  protect,
-  restrictToAdmin as (req: Request, res: Response, next: NextFunction) => void,
+  // protect,
+  // restrictToAdmin as (req: Request, res: Response, next: NextFunction) => void,
   gmail.syncGmailHistory
 );
 

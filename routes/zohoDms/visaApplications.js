@@ -99,11 +99,8 @@ router.delete('/:record_id', protect, upload.array('files'), dmsZohoDocumentsCon
 
 // ---------------- Australia Stage 2 Documents ------------------------------
 router.get('/:record_id/aus-stage2-documents', dmsZohoDocumentsController.getAusStage2Documents);
-
 router.post('/:record_id/aus-stage2-documents', protect, upload.array('files'), dmsZohoDocumentsController.uploadAusStage2Document);
-
 router.patch('/:record_id/aus-stage2-documents/:id', protect, dmsZohoDocumentsController.updateAusStage2Document);
-
 router.delete('/:record_id/aus-stage2-documents/:id', protect, dmsZohoDocumentsController.deleteAusStage2Document);
 
 // List Documents
