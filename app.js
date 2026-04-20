@@ -69,8 +69,15 @@ const { startBatchAggregator } = require('./workers/emailBatchAggregator');
 const notificationsRouter = require('./routes/notifications');
 const { startFcmCleanupCron } = require('./utils/fcmCleanupCron');
 
+// MongoDB → OpenSearch Sync
+const { createWorker: createMongoSyncWorker } = require('./workers/mongoSyncWorker');
+const { startChangeStream, stopChangeStream } = require('./utils/mongoChangeStream');
+const { getMongoSyncQueue } = require('./queues/mongoSyncQueue');
+const { ensureIndex } = require('./services/opensearchService');
+
 let zipExportWorker = null;
 let emailWorker = null;
+let mongoSyncWorker = null;
 
 let aiJobOpportunitiesRouter = null;
 try {
@@ -112,6 +119,18 @@ if (redis && process.env.DISABLE_EMAIL_WORKER !== 'true') {
       logger.info('[Email] Worker initialized');
     } catch (error) {
       logger.error('Failed to start email worker', { error: error.message });
+    }
+  });
+}
+
+// Initialize MongoDB→OpenSearch sync worker when Redis is ready
+if (redis && process.env.DISABLE_MONGO_SYNC_WORKER !== 'true') {
+  redis.on('ready', () => {
+    try {
+      mongoSyncWorker = createMongoSyncWorker();
+      logger.info('[MongoSync] Worker initialized');
+    } catch (error) {
+      logger.error('Failed to start mongo sync worker', { error: error.message });
     }
   });
 }
@@ -269,6 +288,31 @@ mongoose
       } catch (error) {
         logger.error('Failed to start FCM cleanup cron', { error: error.message });
       }
+    }
+
+    // OpenSearch index bootstrap + real-time sync
+    if (process.env.DISABLE_MONGO_SYNC_WORKER !== 'true') {
+      (async () => {
+        try {
+          await ensureIndex();
+          logger.info('[OpenSearch] Index ready');
+
+          startChangeStream();
+
+          const redisClient = redis;
+          if (redisClient) {
+            const alreadySynced = await redisClient.get('mongo_full_sync_done');
+            if (!alreadySynced) {
+              const queue = getMongoSyncQueue();
+              await queue.add('full-sync', {}, { jobId: 'full-sync-initial' });
+              await redisClient.set('mongo_full_sync_done', '1', 'EX', 86400);
+              logger.info('[MongoSync] Initial full-sync job enqueued');
+            }
+          }
+        } catch (err) {
+          logger.error('[OpenSearch] Failed to initialise index or enqueue full-sync', { error: err.message });
+        }
+      })();
     }
   })
   .catch((err) => {
@@ -531,6 +575,19 @@ process.on('SIGTERM', async () => {
     }
   } catch (error) {
     logger.error('Error closing email worker', { error: error.message });
+  }
+  try {
+    await stopChangeStream();
+  } catch (error) {
+    logger.error('Error stopping mongo change stream', { error: error.message });
+  }
+  try {
+    if (mongoSyncWorker) {
+      await mongoSyncWorker.close();
+      logger.info('Mongo sync worker closed successfully');
+    }
+  } catch (error) {
+    logger.error('Error closing mongo sync worker', { error: error.message });
   }
   process.exit(0);
 });

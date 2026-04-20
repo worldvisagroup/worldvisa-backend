@@ -1,65 +1,52 @@
 "use strict";
 /**
- * OpenSearch client + application search/index helpers.
+ * OpenSearch Service
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Single source of truth for all OpenSearch operations:
+ *   - Index bootstrap (ensureIndex)
+ *   - Upsert / delete single records
+ *   - Bulk upsert from MongoDB full-sync
+ *   - Full-text + fuzzy search across all visa applications
  *
- * Env:
- *   OPENSEARCH_NODE          — cluster URL (e.g. https://search-...amazonaws.com)
- *   OPENSEARCH_USERNAME      — optional basic auth
- *   OPENSEARCH_PASSWORD
- *   OPENSEARCH_APPLICATIONS_INDEX — index name (default: dms_applications)
- *   OPENSEARCH_SSL_VERIFY    — set to "false" to skip TLS verify (dev only)
- *
- * If OPENSEARCH_NODE is unset, searchApplications returns [] and indexing no-ops.
+ * Index: visa_applications
+ *   - Single-shard, 0 replicas (single-node cluster)
+ *   - Documents sourced from DmsZohoClient MongoDB collection
+ *   - Document _id = MongoDB lead_id
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.isOpenSearchConfigured = isOpenSearchConfigured;
-exports.getOpenSearchClient = getOpenSearchClient;
+exports.getClient = getClient;
 exports.ensureIndex = ensureIndex;
-exports.indexApplication = indexApplication;
-exports.removeApplication = removeApplication;
+exports.upsertApplication = upsertApplication;
+exports.bulkUpsertApplications = bulkUpsertApplications;
+exports.deleteApplication = deleteApplication;
 exports.searchApplications = searchApplications;
+exports.ping = ping;
 const opensearch_1 = require("@opensearch-project/opensearch");
-let cachedClient;
-function applicationsIndex() {
-    return process.env.OPENSEARCH_APPLICATIONS_INDEX?.trim() || 'dms_applications';
-}
-function isOpenSearchConfigured() {
-    return Boolean(process.env.OPENSEARCH_NODE?.trim());
-}
-function getOpenSearchClient() {
-    if (cachedClient === undefined) {
-        const node = process.env.OPENSEARCH_NODE?.trim();
-        if (!node) {
-            cachedClient = null;
-            return null;
-        }
-        const username = process.env.OPENSEARCH_USERNAME;
-        const password = process.env.OPENSEARCH_PASSWORD;
-        cachedClient = new opensearch_1.Client({
-            node,
-            ssl: {
-                rejectUnauthorized: process.env.OPENSEARCH_SSL_VERIFY !== 'false',
-            },
-            ...(username && password
-                ? {
-                    auth: { username, password },
-                }
-                : {}),
-        });
-    }
-    return cachedClient;
-}
-function unwrapSearchBody(response) {
-    if (response && typeof response === 'object' && 'body' in response) {
-        return response.body;
-    }
-    return response;
-}
-const INDEX_SETTINGS = {
+const logger = require('../utils/logger');
+// ─── Constants ────────────────────────────────────────────────────────────────
+const INDEX = 'visa_applications';
+const INDEX_MAPPING = {
     settings: {
         index: {
             number_of_shards: 1,
             number_of_replicas: 0,
+            analysis: {
+                analyzer: {
+                    edge_ngram_analyzer: {
+                        type: 'custom',
+                        tokenizer: 'edge_ngram_tokenizer',
+                        filter: ['lowercase'],
+                    },
+                },
+                tokenizer: {
+                    edge_ngram_tokenizer: {
+                        type: 'edge_ngram',
+                        min_gram: 2,
+                        max_gram: 20,
+                        token_chars: ['letter', 'digit'],
+                    },
+                },
+            },
         },
     },
     mappings: {
@@ -67,145 +54,228 @@ const INDEX_SETTINGS = {
             lead_id: { type: 'keyword' },
             name: {
                 type: 'text',
+                analyzer: 'edge_ngram_analyzer',
+                search_analyzer: 'standard',
                 fields: { keyword: { type: 'keyword', ignore_above: 256 } },
             },
-            email: { type: 'keyword' },
+            full_name: {
+                type: 'text',
+                analyzer: 'edge_ngram_analyzer',
+                search_analyzer: 'standard',
+                fields: { keyword: { type: 'keyword', ignore_above: 256 } },
+            },
+            email: {
+                type: 'text',
+                analyzer: 'standard',
+                fields: { keyword: { type: 'keyword', ignore_above: 256 } },
+            },
             phone: { type: 'keyword' },
-            created_time: { type: 'date' },
+            country: { type: 'keyword' },
+            stage: { type: 'keyword' },
+            service_type: { type: 'keyword' },
+            application_state: { type: 'keyword' },
+            record_type: { type: 'keyword' },
             handled_by: { type: 'keyword' },
             dms_status: { type: 'keyword' },
-            package_finalize: { type: 'keyword' },
             checklist_requested: { type: 'boolean' },
-            deadline: { type: 'keyword' },
-            record_type: { type: 'keyword' },
-            stage: { type: 'keyword' },
             quality_check_from: { type: 'keyword' },
-            country: { type: 'keyword' },
+            package_finalize: { type: 'keyword' },
+            deadline: { type: 'date', ignore_malformed: true },
+            created_time: { type: 'date', ignore_malformed: true },
+            modified_time: { type: 'date', ignore_malformed: true },
             main_applicant: { type: 'keyword' },
-            module: { type: 'keyword' },
         },
     },
 };
+// ─── Client (lazy singleton) ──────────────────────────────────────────────────
+let _client = null;
+function getClient() {
+    if (_client)
+        return _client;
+    const node = process.env.OPENSEARCH_URL;
+    if (!node)
+        throw new Error('[OpenSearch] OPENSEARCH_URL environment variable is not set');
+    _client = new opensearch_1.Client({
+        node,
+        auth: {
+            username: process.env.OPENSEARCH_USERNAME,
+            password: process.env.OPENSEARCH_PASSWORD,
+        },
+        ssl: { rejectUnauthorized: false },
+        requestTimeout: 10000,
+        maxRetries: 3,
+    });
+    return _client;
+}
+// ─── Index Bootstrap ──────────────────────────────────────────────────────────
 /**
- * Create the applications index with mappings if it does not exist.
+ * Idempotent — safe to call on every startup.
+ * Auto-migrates from old mapping (zoho_id) to new (lead_id) by deleting + recreating.
  */
 async function ensureIndex() {
-    const client = getOpenSearchClient();
-    if (!client) {
-        return;
-    }
-    const index = applicationsIndex();
+    const client = getClient();
     try {
-        await client.indices.create({
-            index,
-            // OpenSearch typings expect literal union `type` fields; runtime shape is valid.
-            body: INDEX_SETTINGS,
-        });
+        const exists = await client.indices.exists({ index: INDEX });
+        if (exists.body) {
+            const mapping = await client.indices.getMapping({ index: INDEX });
+            const props = mapping.body?.[INDEX]?.mappings?.properties ?? {};
+            if (props['zoho_id']) {
+                logger.info(`[OpenSearch] Old mapping detected (zoho_id) — deleting and recreating index`);
+                await client.indices.delete({ index: INDEX });
+            }
+            else {
+                logger.info(`[OpenSearch] Index "${INDEX}" already exists — skipping creation`);
+                return;
+            }
+        }
+        await client.indices.create({ index: INDEX, body: INDEX_MAPPING });
+        logger.info(`[OpenSearch] Index "${INDEX}" created successfully`);
     }
     catch (err) {
-        const type = err?.body?.error?.type;
-        const status = err?.meta?.statusCode ??
-            err?.statusCode;
-        if (status === 400 && type === 'resource_already_exists_exception') {
+        if (err?.meta?.body?.error?.type === 'resource_already_exists_exception') {
+            logger.info(`[OpenSearch] Index "${INDEX}" already exists (race condition — harmless)`);
             return;
         }
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes('resource_already_exists_exception') || msg.includes('already exists')) {
-            return;
-        }
+        logger.error('[OpenSearch] Failed to ensure index', { error: err.message });
         throw err;
     }
 }
-/**
- * Index or replace one application document. Uses lead_id as _id when present.
- */
-async function indexApplication(doc, idOverride) {
-    const client = getOpenSearchClient();
-    if (!client)
-        return;
-    const index = applicationsIndex();
-    const id = idOverride ?? doc.lead_id ?? undefined;
-    if (!id) {
-        console.warn('[opensearchService] indexApplication: no id or lead_id, skip');
+// ─── Document Mapping ─────────────────────────────────────────────────────────
+function toDate(val) {
+    if (!val)
+        return null;
+    if (val instanceof Date)
+        return val.toISOString();
+    return String(val);
+}
+function toDocument(record) {
+    return {
+        lead_id: record.lead_id,
+        name: record.name ?? null,
+        full_name: record.full_name ?? null,
+        email: record.email ?? null,
+        phone: record.phone ?? null,
+        country: record.qualified_country ?? null,
+        stage: record.application_stage ?? null,
+        service_type: record.service_type ?? null,
+        application_state: record.application_state ?? null,
+        record_type: record.record_type ?? null,
+        handled_by: record.lead_owner ?? null,
+        dms_status: record.dms_application_status ?? null,
+        checklist_requested: record.checklist_requested ?? false,
+        quality_check_from: record.quality_check_from ?? null,
+        package_finalize: record.package_finalize ?? null,
+        deadline: record.deadline_for_lodgment ?? null,
+        created_time: toDate(record.created_at),
+        modified_time: toDate(record.zoho_modified_time),
+        main_applicant: record.main_applicant ?? null,
+    };
+}
+// ─── Upsert ───────────────────────────────────────────────────────────────────
+async function upsertApplication(record) {
+    if (!record.lead_id) {
+        logger.warn('[OpenSearch] upsertApplication called with record missing lead_id — skipping');
         return;
     }
-    const { lead_id: _omit, ...source } = doc;
+    const client = getClient();
     await client.index({
-        index,
-        id: String(id),
-        body: source,
+        index: INDEX,
+        id: record.lead_id,
+        body: toDocument(record),
         refresh: false,
     });
 }
-async function removeApplication(leadId) {
-    const client = getOpenSearchClient();
-    if (!client)
+async function bulkUpsertApplications(records) {
+    if (records.length === 0)
         return;
-    try {
-        await client.delete({
-            index: applicationsIndex(),
-            id: String(leadId),
-            refresh: false,
-        });
+    const client = getClient();
+    const body = [];
+    for (const record of records) {
+        if (!record.lead_id)
+            continue;
+        body.push({ index: { _index: INDEX, _id: record.lead_id } });
+        body.push(toDocument(record));
     }
-    catch (err) {
-        const status = err?.statusCode;
-        if (status === 404)
-            return;
-        throw err;
+    if (body.length === 0)
+        return;
+    const { body: result } = await client.bulk({ body, refresh: false });
+    if (result.errors) {
+        const failed = result.items
+            .filter(item => item.index?.error)
+            .map(item => ({ id: item.index?._id, error: item.index?.error?.reason }));
+        logger.error('[OpenSearch] Bulk upsert had errors', { count: failed.length, sample: failed.slice(0, 3) });
+    }
+    else {
+        logger.info(`[OpenSearch] Bulk upsert completed`, { count: records.length });
     }
 }
-/**
- * Full-text search across indexed applications (global admin search).
- */
+// ─── Delete ───────────────────────────────────────────────────────────────────
+async function deleteApplication(leadId) {
+    if (!leadId)
+        return;
+    const client = getClient();
+    try {
+        await client.delete({ index: INDEX, id: leadId, refresh: false });
+    }
+    catch (err) {
+        if (err?.meta?.statusCode !== 404) {
+            logger.error('[OpenSearch] Failed to delete document', { leadId, error: err.message });
+        }
+    }
+}
 async function searchApplications(query, options = {}) {
     const trimmed = query?.trim();
     if (!trimmed)
         return [];
-    const client = getOpenSearchClient();
-    if (!client) {
-        if (process.env.NODE_ENV === 'development') {
-            console.warn('[opensearchService] OPENSEARCH_NODE not set; searchApplications returns [].');
-        }
-        return [];
-    }
-    const index = applicationsIndex();
-    const size = Math.min(Math.max(options.size ?? 10, 1), 100);
-    const response = await client.search({
-        index,
-        body: {
+    const { size = 20 } = options;
+    const client = getClient();
+    const isLeadId = /^\d{4,}$/.test(trimmed);
+    const searchBody = isLeadId
+        ? { query: { term: { lead_id: trimmed } } }
+        : {
             query: {
                 bool: {
                     should: [
                         {
                             multi_match: {
                                 query: trimmed,
-                                fields: ['name^3', 'email^2', 'phone', 'lead_id', 'main_applicant'],
-                                type: 'best_fields',
+                                fields: ['name^3', 'full_name^2', 'email^2', 'phone'],
                                 fuzziness: 'AUTO',
+                                prefix_length: 1,
+                                operator: 'or',
                             },
                         },
-                        {
-                            simple_query_string: {
-                                query: trimmed,
-                                fields: ['name', 'email', 'phone', 'lead_id'],
-                                default_operator: 'and',
-                            },
-                        },
+                        { match: { name: { query: trimmed, analyzer: 'standard', boost: 1.5 } } },
+                        { match_phrase_prefix: { name: { query: trimmed, boost: 2 } } },
+                        { match_phrase_prefix: { full_name: { query: trimmed, boost: 1.5 } } },
                     ],
                     minimum_should_match: 1,
                 },
             },
+        };
+    const { body } = await client.search({
+        index: INDEX,
+        body: {
+            ...searchBody,
             size,
-            sort: [{ created_time: { order: 'desc', missing: '_last' } }],
+            sort: [{ _score: 'desc' }, { created_time: { order: 'desc', unmapped_type: 'date' } }],
+            _source: true,
         },
     });
-    const body = unwrapSearchBody(response);
-    const rawHits = body.hits?.hits ?? [];
-    return rawHits
-        .map((h) => ({
-        id: String(h._id ?? ''),
-        source: h._source ?? {},
-    }))
-        .filter((h) => h.id);
+    return (body.hits?.hits ?? []).map((hit) => ({
+        id: hit._id,
+        score: hit._score,
+        source: hit._source,
+    }));
+}
+// ─── Health ───────────────────────────────────────────────────────────────────
+async function ping() {
+    try {
+        const client = getClient();
+        await client.ping();
+        return true;
+    }
+    catch {
+        return false;
+    }
 }

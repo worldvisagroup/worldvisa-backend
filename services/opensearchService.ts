@@ -1,256 +1,354 @@
 /**
- * OpenSearch client + application search/index helpers.
+ * OpenSearch Service
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Single source of truth for all OpenSearch operations:
+ *   - Index bootstrap (ensureIndex)
+ *   - Upsert / delete single records
+ *   - Bulk upsert from MongoDB full-sync
+ *   - Full-text + fuzzy search across all visa applications
  *
- * Env:
- *   OPENSEARCH_NODE          — cluster URL (e.g. https://search-...amazonaws.com)
- *   OPENSEARCH_USERNAME      — optional basic auth
- *   OPENSEARCH_PASSWORD
- *   OPENSEARCH_APPLICATIONS_INDEX — index name (default: dms_applications)
- *   OPENSEARCH_SSL_VERIFY    — set to "false" to skip TLS verify (dev only)
- *
- * If OPENSEARCH_NODE is unset, searchApplications returns [] and indexing no-ops.
+ * Index: visa_applications
+ *   - Single-shard, 0 replicas (single-node cluster)
+ *   - Documents sourced from DmsZohoClient MongoDB collection
+ *   - Document _id = MongoDB lead_id
  */
 
 import { Client } from '@opensearch-project/opensearch';
+const logger = require('../utils/logger');
 
-// ── types (match globalSearch mapping in dmsZohoDocumentsController) ───────
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-export interface ApplicationSearchSource {
-  name?: string | null;
-  email?: string | null;
-  phone?: string | null;
-  created_time?: string | null;
-  handled_by?: string | null;
-  dms_status?: string | null;
-  package_finalize?: string | null;
-  checklist_requested?: boolean | null;
-  deadline?: string | null;
-  record_type?: string | null;
-  stage?: string | null;
-  quality_check_from?: string | null;
-  country?: string | null;
-  main_applicant?: string | null;
-  module?: string | null;
+export interface MongoRecord {
+  lead_id: string;
+  name?: string;
+  full_name?: string;
+  email?: string;
+  phone?: string;
+  qualified_country?: string;
+  application_stage?: string;
+  service_type?: string;
+  application_state?: string;
+  record_type?: string;
+  lead_owner?: string;
+  dms_application_status?: string;
+  checklist_requested?: boolean;
+  quality_check_from?: string;
+  package_finalize?: string;
+  deadline_for_lodgment?: string | null;
+  created_at?: Date | string | null;
+  zoho_modified_time?: Date | string | null;
+  main_applicant?: string;
+}
+
+export interface ApplicationDocument {
+  lead_id: string;
+  name: string | null;
+  full_name: string | null;
+  email: string | null;
+  phone: string | null;
+  country: string | null;
+  stage: string | null;
+  service_type: string | null;
+  application_state: string | null;
+  record_type: string | null;
+  handled_by: string | null;
+  dms_status: string | null;
+  checklist_requested: boolean;
+  quality_check_from: string | null;
+  package_finalize: string | null;
+  deadline: string | null;
+  created_time: string | null;
+  modified_time: string | null;
+  main_applicant: string | null;
 }
 
 export interface SearchHit {
   id: string;
-  source: ApplicationSearchSource;
+  score: number;
+  source: ApplicationDocument;
 }
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const INDEX = 'visa_applications';
+
+const INDEX_MAPPING = {
+  settings: {
+    index: {
+      number_of_shards: 1,
+      number_of_replicas: 0,
+      analysis: {
+        analyzer: {
+          edge_ngram_analyzer: {
+            type: 'custom',
+            tokenizer: 'edge_ngram_tokenizer',
+            filter: ['lowercase'],
+          },
+        },
+        tokenizer: {
+          edge_ngram_tokenizer: {
+            type: 'edge_ngram',
+            min_gram: 2,
+            max_gram: 20,
+            token_chars: ['letter', 'digit'],
+          },
+        },
+      },
+    },
+  },
+  mappings: {
+    properties: {
+      lead_id:           { type: 'keyword' },
+      name: {
+        type: 'text',
+        analyzer: 'edge_ngram_analyzer',
+        search_analyzer: 'standard',
+        fields: { keyword: { type: 'keyword', ignore_above: 256 } },
+      },
+      full_name: {
+        type: 'text',
+        analyzer: 'edge_ngram_analyzer',
+        search_analyzer: 'standard',
+        fields: { keyword: { type: 'keyword', ignore_above: 256 } },
+      },
+      email: {
+        type: 'text',
+        analyzer: 'standard',
+        fields: { keyword: { type: 'keyword', ignore_above: 256 } },
+      },
+      phone:             { type: 'keyword' },
+      country:           { type: 'keyword' },
+      stage:             { type: 'keyword' },
+      service_type:      { type: 'keyword' },
+      application_state: { type: 'keyword' },
+      record_type:       { type: 'keyword' },
+      handled_by:        { type: 'keyword' },
+      dms_status:        { type: 'keyword' },
+      checklist_requested: { type: 'boolean' },
+      quality_check_from:  { type: 'keyword' },
+      package_finalize:    { type: 'keyword' },
+      deadline:     { type: 'date', ignore_malformed: true },
+      created_time: { type: 'date', ignore_malformed: true },
+      modified_time: { type: 'date', ignore_malformed: true },
+      main_applicant: { type: 'keyword' },
+    },
+  },
+};
+
+// ─── Client (lazy singleton) ──────────────────────────────────────────────────
+
+let _client: Client | null = null;
+
+export function getClient(): Client {
+  if (_client) return _client;
+
+  const node = process.env.OPENSEARCH_URL;
+  if (!node) throw new Error('[OpenSearch] OPENSEARCH_URL environment variable is not set');
+
+  _client = new Client({
+    node,
+    auth: {
+      username: process.env.OPENSEARCH_USERNAME!,
+      password: process.env.OPENSEARCH_PASSWORD!,
+    },
+    ssl: { rejectUnauthorized: false },
+    requestTimeout: 10_000,
+    maxRetries: 3,
+  });
+
+  return _client;
+}
+
+// ─── Index Bootstrap ──────────────────────────────────────────────────────────
+
+/**
+ * Idempotent — safe to call on every startup.
+ * Auto-migrates from old mapping (zoho_id) to new (lead_id) by deleting + recreating.
+ */
+export async function ensureIndex(): Promise<void> {
+  const client = getClient();
+  try {
+    const exists = await client.indices.exists({ index: INDEX });
+    if (exists.body) {
+      const mapping = await client.indices.getMapping({ index: INDEX });
+      const props = (mapping.body as any)?.[INDEX]?.mappings?.properties ?? {};
+      if (props['zoho_id']) {
+        logger.info(`[OpenSearch] Old mapping detected (zoho_id) — deleting and recreating index`);
+        await client.indices.delete({ index: INDEX });
+      } else {
+        logger.info(`[OpenSearch] Index "${INDEX}" already exists — skipping creation`);
+        return;
+      }
+    }
+
+    await client.indices.create({ index: INDEX, body: INDEX_MAPPING as any });
+    logger.info(`[OpenSearch] Index "${INDEX}" created successfully`);
+  } catch (err: any) {
+    if (err?.meta?.body?.error?.type === 'resource_already_exists_exception') {
+      logger.info(`[OpenSearch] Index "${INDEX}" already exists (race condition — harmless)`);
+      return;
+    }
+    logger.error('[OpenSearch] Failed to ensure index', { error: err.message });
+    throw err;
+  }
+}
+
+// ─── Document Mapping ─────────────────────────────────────────────────────────
+
+function toDate(val: Date | string | null | undefined): string | null {
+  if (!val) return null;
+  if (val instanceof Date) return val.toISOString();
+  return String(val);
+}
+
+function toDocument(record: MongoRecord): ApplicationDocument {
+  return {
+    lead_id:           record.lead_id,
+    name:              record.name              ?? null,
+    full_name:         record.full_name          ?? null,
+    email:             record.email             ?? null,
+    phone:             record.phone             ?? null,
+    country:           record.qualified_country  ?? null,
+    stage:             record.application_stage  ?? null,
+    service_type:      record.service_type       ?? null,
+    application_state: record.application_state  ?? null,
+    record_type:       record.record_type        ?? null,
+    handled_by:        record.lead_owner         ?? null,
+    dms_status:        record.dms_application_status ?? null,
+    checklist_requested: record.checklist_requested ?? false,
+    quality_check_from:  record.quality_check_from  ?? null,
+    package_finalize:    record.package_finalize     ?? null,
+    deadline:     record.deadline_for_lodgment ?? null,
+    created_time: toDate(record.created_at),
+    modified_time: toDate(record.zoho_modified_time),
+    main_applicant: record.main_applicant ?? null,
+  };
+}
+
+// ─── Upsert ───────────────────────────────────────────────────────────────────
+
+export async function upsertApplication(record: MongoRecord): Promise<void> {
+  if (!record.lead_id) {
+    logger.warn('[OpenSearch] upsertApplication called with record missing lead_id — skipping');
+    return;
+  }
+
+  const client = getClient();
+  await client.index({
+    index: INDEX,
+    id: record.lead_id,
+    body: toDocument(record),
+    refresh: false,
+  });
+}
+
+export async function bulkUpsertApplications(records: MongoRecord[]): Promise<void> {
+  if (records.length === 0) return;
+
+  const client = getClient();
+  const body: object[] = [];
+
+  for (const record of records) {
+    if (!record.lead_id) continue;
+    body.push({ index: { _index: INDEX, _id: record.lead_id } });
+    body.push(toDocument(record));
+  }
+
+  if (body.length === 0) return;
+
+  const { body: result } = await client.bulk({ body, refresh: false });
+
+  if (result.errors) {
+    const failed = (result.items as any[])
+      .filter(item => item.index?.error)
+      .map(item => ({ id: item.index?._id, error: item.index?.error?.reason }));
+    logger.error('[OpenSearch] Bulk upsert had errors', { count: failed.length, sample: failed.slice(0, 3) });
+  } else {
+    logger.info(`[OpenSearch] Bulk upsert completed`, { count: records.length });
+  }
+}
+
+// ─── Delete ───────────────────────────────────────────────────────────────────
+
+export async function deleteApplication(leadId: string): Promise<void> {
+  if (!leadId) return;
+  const client = getClient();
+  try {
+    await client.delete({ index: INDEX, id: leadId, refresh: false });
+  } catch (err: any) {
+    if (err?.meta?.statusCode !== 404) {
+      logger.error('[OpenSearch] Failed to delete document', { leadId, error: err.message });
+    }
+  }
+}
+
+// ─── Search ───────────────────────────────────────────────────────────────────
 
 export interface SearchOptions {
   size?: number;
 }
 
-export type ApplicationIndexDocument = ApplicationSearchSource & {
-  /** Zoho / Mongo lead id — stored for retrieval; document _id can match */
-  lead_id?: string | null;
-};
-
-let cachedClient: Client | null | undefined;
-
-function applicationsIndex(): string {
-  return process.env.OPENSEARCH_APPLICATIONS_INDEX?.trim() || 'dms_applications';
-}
-
-export function isOpenSearchConfigured(): boolean {
-  return Boolean(process.env.OPENSEARCH_NODE?.trim());
-}
-
-export function getOpenSearchClient(): Client | null {
-  if (cachedClient === undefined) {
-    const node = process.env.OPENSEARCH_NODE?.trim();
-    if (!node) {
-      cachedClient = null;
-      return null;
-    }
-    const username = process.env.OPENSEARCH_USERNAME;
-    const password = process.env.OPENSEARCH_PASSWORD;
-    cachedClient = new Client({
-      node,
-      ssl: {
-        rejectUnauthorized: process.env.OPENSEARCH_SSL_VERIFY !== 'false',
-      },
-      ...(username && password
-        ? {
-            auth: { username, password },
-          }
-        : {}),
-    });
-  }
-  return cachedClient;
-}
-
-function unwrapSearchBody(response: unknown): { hits?: { hits?: unknown[] } } {
-  if (response && typeof response === 'object' && 'body' in response) {
-    return (response as { body: { hits?: { hits?: unknown[] } } }).body;
-  }
-  return response as { hits?: { hits?: unknown[] } };
-}
-
-const INDEX_SETTINGS = {
-  settings: {
-    index: {
-      number_of_shards: 1,
-      number_of_replicas: 0,
-    },
-  },
-  mappings: {
-    properties: {
-      lead_id: { type: 'keyword' },
-      name: {
-        type: 'text',
-        fields: { keyword: { type: 'keyword', ignore_above: 256 } },
-      },
-      email: { type: 'keyword' },
-      phone: { type: 'keyword' },
-      created_time: { type: 'date' },
-      handled_by: { type: 'keyword' },
-      dms_status: { type: 'keyword' },
-      package_finalize: { type: 'keyword' },
-      checklist_requested: { type: 'boolean' },
-      deadline: { type: 'keyword' },
-      record_type: { type: 'keyword' },
-      stage: { type: 'keyword' },
-      quality_check_from: { type: 'keyword' },
-      country: { type: 'keyword' },
-      main_applicant: { type: 'keyword' },
-      module: { type: 'keyword' },
-    },
-  },
-};
-
-/**
- * Create the applications index with mappings if it does not exist.
- */
-export async function ensureIndex(): Promise<void> {
-  const client = getOpenSearchClient();
-  if (!client) {
-    return;
-  }
-  const index = applicationsIndex();
-  try {
-    await client.indices.create({
-      index,
-      // OpenSearch typings expect literal union `type` fields; runtime shape is valid.
-      body: INDEX_SETTINGS as Record<string, unknown>,
-    });
-  } catch (err: unknown) {
-    const type = (err as { body?: { error?: { type?: string } } })?.body?.error?.type;
-    const status =
-      (err as { meta?: { statusCode?: number } })?.meta?.statusCode ??
-      (err as { statusCode?: number })?.statusCode;
-    if (status === 400 && type === 'resource_already_exists_exception') {
-      return;
-    }
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('resource_already_exists_exception') || msg.includes('already exists')) {
-      return;
-    }
-    throw err;
-  }
-}
-
-/**
- * Index or replace one application document. Uses lead_id as _id when present.
- */
-export async function indexApplication(
-  doc: ApplicationIndexDocument,
-  idOverride?: string
-): Promise<void> {
-  const client = getOpenSearchClient();
-  if (!client) return;
-
-  const index = applicationsIndex();
-  const id = idOverride ?? doc.lead_id ?? undefined;
-  if (!id) {
-    console.warn('[opensearchService] indexApplication: no id or lead_id, skip');
-    return;
-  }
-
-  const { lead_id: _omit, ...source } = doc;
-  await client.index({
-    index,
-    id: String(id),
-    body: source,
-    refresh: false,
-  });
-}
-
-export async function removeApplication(leadId: string): Promise<void> {
-  const client = getOpenSearchClient();
-  if (!client) return;
-  try {
-    await client.delete({
-      index: applicationsIndex(),
-      id: String(leadId),
-      refresh: false,
-    });
-  } catch (err: unknown) {
-    const status = (err as { statusCode?: number })?.statusCode;
-    if (status === 404) return;
-    throw err;
-  }
-}
-
-/**
- * Full-text search across indexed applications (global admin search).
- */
 export async function searchApplications(
   query: string,
-  options: SearchOptions = {}
+  options: SearchOptions = {},
 ): Promise<SearchHit[]> {
   const trimmed = query?.trim();
   if (!trimmed) return [];
 
-  const client = getOpenSearchClient();
-  if (!client) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('[opensearchService] OPENSEARCH_NODE not set; searchApplications returns [].');
-    }
-    return [];
-  }
+  const { size = 20 } = options;
+  const client = getClient();
 
-  const index = applicationsIndex();
-  const size = Math.min(Math.max(options.size ?? 10, 1), 100);
+  const isLeadId = /^\d{4,}$/.test(trimmed);
 
-  const response = await client.search({
-    index,
-    body: {
-      query: {
-        bool: {
-          should: [
-            {
-              multi_match: {
-                query: trimmed,
-                fields: ['name^3', 'email^2', 'phone', 'lead_id', 'main_applicant'],
-                type: 'best_fields',
-                fuzziness: 'AUTO',
+  const searchBody = isLeadId
+    ? { query: { term: { lead_id: trimmed } } }
+    : {
+        query: {
+          bool: {
+            should: [
+              {
+                multi_match: {
+                  query: trimmed,
+                  fields: ['name^3', 'full_name^2', 'email^2', 'phone'],
+                  fuzziness: 'AUTO',
+                  prefix_length: 1,
+                  operator: 'or',
+                },
               },
-            },
-            {
-              simple_query_string: {
-                query: trimmed,
-                fields: ['name', 'email', 'phone', 'lead_id'],
-                default_operator: 'and',
-              },
-            },
-          ],
-          minimum_should_match: 1,
+              { match: { name: { query: trimmed, analyzer: 'standard', boost: 1.5 } } },
+              { match_phrase_prefix: { name: { query: trimmed, boost: 2 } } },
+              { match_phrase_prefix: { full_name: { query: trimmed, boost: 1.5 } } },
+            ],
+            minimum_should_match: 1,
+          },
         },
-      },
+      };
+
+  const { body } = await (client.search as any)({
+    index: INDEX,
+    body: {
+      ...searchBody,
       size,
-      sort: [{ created_time: { order: 'desc', missing: '_last' } }],
+      sort: [{ _score: 'desc' }, { created_time: { order: 'desc', unmapped_type: 'date' } }],
+      _source: true,
     },
   });
 
-  const body = unwrapSearchBody(response);
-  const rawHits = body.hits?.hits ?? [];
+  return (body.hits?.hits ?? []).map((hit: any) => ({
+    id: hit._id as string,
+    score: hit._score as number,
+    source: hit._source as ApplicationDocument,
+  }));
+}
 
-  return (rawHits as Array<{ _id?: string; _source?: ApplicationSearchSource }>)
-    .map((h) => ({
-      id: String(h._id ?? ''),
-      source: h._source ?? {},
-    }))
-    .filter((h) => h.id);
+// ─── Health ───────────────────────────────────────────────────────────────────
+
+export async function ping(): Promise<boolean> {
+  try {
+    const client = getClient();
+    await client.ping();
+    return true;
+  } catch {
+    return false;
+  }
 }

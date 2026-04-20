@@ -1,56 +1,76 @@
 /**
- * OpenSearch client + application search/index helpers.
+ * OpenSearch Service
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Single source of truth for all OpenSearch operations:
+ *   - Index bootstrap (ensureIndex)
+ *   - Upsert / delete single records
+ *   - Bulk upsert from MongoDB full-sync
+ *   - Full-text + fuzzy search across all visa applications
  *
- * Env:
- *   OPENSEARCH_NODE          — cluster URL (e.g. https://search-...amazonaws.com)
- *   OPENSEARCH_USERNAME      — optional basic auth
- *   OPENSEARCH_PASSWORD
- *   OPENSEARCH_APPLICATIONS_INDEX — index name (default: dms_applications)
- *   OPENSEARCH_SSL_VERIFY    — set to "false" to skip TLS verify (dev only)
- *
- * If OPENSEARCH_NODE is unset, searchApplications returns [] and indexing no-ops.
+ * Index: visa_applications
+ *   - Single-shard, 0 replicas (single-node cluster)
+ *   - Documents sourced from DmsZohoClient MongoDB collection
+ *   - Document _id = MongoDB lead_id
  */
 import { Client } from '@opensearch-project/opensearch';
-export interface ApplicationSearchSource {
-    name?: string | null;
-    email?: string | null;
-    phone?: string | null;
-    created_time?: string | null;
-    handled_by?: string | null;
-    dms_status?: string | null;
-    package_finalize?: string | null;
-    checklist_requested?: boolean | null;
-    deadline?: string | null;
-    record_type?: string | null;
-    stage?: string | null;
-    quality_check_from?: string | null;
-    country?: string | null;
-    main_applicant?: string | null;
-    module?: string | null;
+export interface MongoRecord {
+    lead_id: string;
+    name?: string;
+    full_name?: string;
+    email?: string;
+    phone?: string;
+    qualified_country?: string;
+    application_stage?: string;
+    service_type?: string;
+    application_state?: string;
+    record_type?: string;
+    lead_owner?: string;
+    dms_application_status?: string;
+    checklist_requested?: boolean;
+    quality_check_from?: string;
+    package_finalize?: string;
+    deadline_for_lodgment?: string | null;
+    created_at?: Date | string | null;
+    zoho_modified_time?: Date | string | null;
+    main_applicant?: string;
+}
+export interface ApplicationDocument {
+    lead_id: string;
+    name: string | null;
+    full_name: string | null;
+    email: string | null;
+    phone: string | null;
+    country: string | null;
+    stage: string | null;
+    service_type: string | null;
+    application_state: string | null;
+    record_type: string | null;
+    handled_by: string | null;
+    dms_status: string | null;
+    checklist_requested: boolean;
+    quality_check_from: string | null;
+    package_finalize: string | null;
+    deadline: string | null;
+    created_time: string | null;
+    modified_time: string | null;
+    main_applicant: string | null;
 }
 export interface SearchHit {
     id: string;
-    source: ApplicationSearchSource;
+    score: number;
+    source: ApplicationDocument;
 }
+export declare function getClient(): Client;
+/**
+ * Idempotent — safe to call on every startup.
+ * Auto-migrates from old mapping (zoho_id) to new (lead_id) by deleting + recreating.
+ */
+export declare function ensureIndex(): Promise<void>;
+export declare function upsertApplication(record: MongoRecord): Promise<void>;
+export declare function bulkUpsertApplications(records: MongoRecord[]): Promise<void>;
+export declare function deleteApplication(leadId: string): Promise<void>;
 export interface SearchOptions {
     size?: number;
 }
-export type ApplicationIndexDocument = ApplicationSearchSource & {
-    /** Zoho / Mongo lead id — stored for retrieval; document _id can match */
-    lead_id?: string | null;
-};
-export declare function isOpenSearchConfigured(): boolean;
-export declare function getOpenSearchClient(): Client | null;
-/**
- * Create the applications index with mappings if it does not exist.
- */
-export declare function ensureIndex(): Promise<void>;
-/**
- * Index or replace one application document. Uses lead_id as _id when present.
- */
-export declare function indexApplication(doc: ApplicationIndexDocument, idOverride?: string): Promise<void>;
-export declare function removeApplication(leadId: string): Promise<void>;
-/**
- * Full-text search across indexed applications (global admin search).
- */
 export declare function searchApplications(query: string, options?: SearchOptions): Promise<SearchHit[]>;
+export declare function ping(): Promise<boolean>;

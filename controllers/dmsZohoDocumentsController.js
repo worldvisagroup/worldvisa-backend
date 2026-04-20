@@ -19,6 +19,7 @@ const {
   SEARCH_TERM_MAX_LENGTH,
   SERVICE_FINALIZED_PERMANENT_RESIDENCY,
 } = require('./helper/constants');
+const { searchApplications } = require('../services/opensearchService');
 const DEFAULT_GLOBAL_SEARCH_LIMIT = 10;
 const { updateRecentActivityInMongo, addToTimeline, addMovedFiles } = require('./helper/service/functions');
 const { addActivityLog, getCompanyLabel } = require('./helper/service/activityLog');
@@ -1783,42 +1784,6 @@ exports.searchZohoApplications = async (req, res) => {
 
 const ALLOWED_GLOBAL_SEARCH_ROLES = ['master_admin', 'supervisor', 'team_leader', 'admin'];
 
-/** Union of stage lists so global search is not tied to one destination country */
-const GLOBAL_SEARCH_APPLICATION_STAGES = [
-  ...new Set([
-    ...APPLICATION_STAGES,
-    ...APPLICATION_STAGES_CANADA,
-    ...APPLICATION_STAGES_GERMANY,
-  ]),
-];
-
-const GLOBAL_SEARCH_CLIENT_FIELDS =
-  'lead_id name full_name email phone zoho_created_time created_at lead_owner dms_application_status package_finalize checklist_requested deadline_for_lodgment record_type application_stage quality_check_from qualified_country main_applicant application_state service_type';
-
-function mongoClientToGlobalSearchRow(doc) {
-  const created = doc.zoho_created_time || doc.created_at;
-  let createdTime = null;
-  if (created) {
-    createdTime = created instanceof Date ? created.toISOString() : String(created);
-  }
-  return {
-    id: doc.lead_id,
-    Name: doc.name,
-    Email: doc.email,
-    Phone: doc.phone,
-    Created_Time: createdTime,
-    Application_Handled_By: doc.lead_owner,
-    DMS_Application_Status: doc.dms_application_status,
-    Package_Finalize: doc.package_finalize,
-    Checklist_Requested: doc.checklist_requested,
-    Deadline_For_Lodgment: doc.deadline_for_lodgment,
-    Record_Type: doc.record_type,
-    Application_Stage: doc.application_stage,
-    Quality_Check_From: doc.quality_check_from,
-    Qualified_Country: doc.qualified_country,
-    Main_Applicant: doc.main_applicant,
-  };
-}
 
 exports.globalSearch = async (req, res) => {
   try {
@@ -1851,28 +1816,6 @@ exports.globalSearch = async (req, res) => {
 
     const mongoRegexEscaped = escapeRegexForMongo(trimmedSearch);
     const mongoRegex = { $regex: mongoRegexEscaped, $options: 'i' };
-    const textOr = [
-      { name: mongoRegex },
-      { full_name: mongoRegex },
-      { email: mongoRegex },
-      { phone: mongoRegex },
-      { lead_id: mongoRegex },
-    ];
-
-    const fetchLimit = Math.min(50, limit * 3);
-
-    const visaMatch = {
-      record_type: REQ_MODULE_VISA_APPLICATION,
-      $or: textOr,
-      application_state: APPLICATION_STATE_ACTIVE,
-      service_type: SERVICE_FINALIZED_PERMANENT_RESIDENCY,
-      application_stage: { $in: GLOBAL_SEARCH_APPLICATION_STAGES },
-    };
-
-    const spouseMatch = {
-      record_type: REQ_MODULE_SPOUSE_SKILL_ASSESSMENT,
-      $or: textOr,
-    };
 
     const requestedReviewPipeline = [
       { $match: { 'requested_reviews.0': { $exists: true } } },
@@ -1930,32 +1873,40 @@ exports.globalSearch = async (req, res) => {
       { $limit: limit }
     );
 
-    const sortSpec = { zoho_created_time: -1, created_at: -1 };
-    const [visaR, spouseR, reviewResult] = await Promise.allSettled([
-      DmsZohoClient.find(visaMatch).sort(sortSpec).limit(fetchLimit).select(GLOBAL_SEARCH_CLIENT_FIELDS).lean(),
-      DmsZohoClient.find(spouseMatch).sort(sortSpec).limit(fetchLimit).select(GLOBAL_SEARCH_CLIENT_FIELDS).lean(),
+    const [searchR, reviewResult] = await Promise.allSettled([
+      searchApplications(trimmedSearch, { size: Math.min(50, limit * 3) }),
       dmsZohoDocument.aggregate(requestedReviewPipeline),
     ]);
 
-    if (visaR.status === 'rejected') console.error('globalSearch visa mongo query failed:', visaR.reason);
-    if (spouseR.status === 'rejected') console.error('globalSearch spouse mongo query failed:', spouseR.reason);
+    if (searchR.status === 'rejected') console.error('globalSearch OpenSearch query failed:', searchR.reason);
     if (reviewResult.status === 'rejected') console.error('globalSearch review pipeline failed:', reviewResult.reason);
 
-    const visaDocs = visaR.status === 'fulfilled' ? visaR.value : [];
-    const spouseDocs = spouseR.status === 'fulfilled' ? spouseR.value : [];
+    const searchHits = searchR.status === 'fulfilled' ? searchR.value : [];
 
     const seenIds = new Set();
     const mergedApps = [];
-    for (const doc of [...visaDocs, ...spouseDocs]) {
-      if (!doc.lead_id || seenIds.has(doc.lead_id)) continue;
-      seenIds.add(doc.lead_id);
-      mergedApps.push(mongoClientToGlobalSearchRow(doc));
+    for (const hit of searchHits) {
+      const s = hit.source;
+      if (!s.lead_id || seenIds.has(s.lead_id)) continue;
+      seenIds.add(s.lead_id);
+      mergedApps.push({
+        id: s.lead_id,
+        Name: s.name,
+        Email: s.email,
+        Phone: s.phone,
+        Created_Time: s.created_time,
+        Application_Handled_By: s.handled_by,
+        DMS_Application_Status: s.dms_status,
+        Package_Finalize: s.package_finalize,
+        Checklist_Requested: s.checklist_requested,
+        Deadline_For_Lodgment: s.deadline,
+        Record_Type: s.record_type,
+        Application_Stage: s.stage,
+        Quality_Check_From: s.quality_check_from,
+        Qualified_Country: s.country,
+        Main_Applicant: s.main_applicant,
+      });
     }
-    mergedApps.sort((a, b) => {
-      const tA = a.Created_Time ? new Date(a.Created_Time).getTime() : 0;
-      const tB = b.Created_Time ? new Date(b.Created_Time).getTime() : 0;
-      return tB - tA;
-    });
 
     const requestedReviewResult = reviewResult.status === 'fulfilled' ? reviewResult.value : [];
 
