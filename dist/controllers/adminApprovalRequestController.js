@@ -11,11 +11,9 @@ exports.rejectRequest = rejectRequest;
 const adminApprovalRequest_model_1 = __importDefault(require("../models/adminApprovalRequest.model"));
 const DmsZohoClient = require('../models/dmsZohoClient');
 const ZohoDmsUser = require('../models/zohoDmsUser');
-const { zohoRequest } = require('./zohoDms/zohoApi');
 const { updateRecentActivityInMongo } = require('./helper/service/functions');
 const { addNotificationAndEmit } = require('./helper/service/notifications');
 const { addActivityLog } = require('./helper/service/activityLog');
-const { MODULE_VISA_APPLICATION, MODULE_SPOUSE_SKILL_ASSESSMENT, REQ_MODULE_SPOUSE_SKILL_ASSESSMENT, } = require('./helper/constants');
 // ─── Zoho → MongoDB field name map ────────────────────────────────────────────
 const ZOHO_TO_MONGO_FIELD = {
     Deadline_For_Lodgment: 'deadline_for_lodgment',
@@ -35,11 +33,6 @@ const ZOHO_TO_MONGO_FIELD = {
     Main_Applicant: 'main_applicant',
 };
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function resolveModule(recordType) {
-    return recordType === REQ_MODULE_SPOUSE_SKILL_ASSESSMENT
-        ? MODULE_SPOUSE_SKILL_ASSESSMENT
-        : MODULE_VISA_APPLICATION;
-}
 function getUser(req) {
     return req.user;
 }
@@ -282,15 +275,6 @@ async function approveRequest(req, res) {
             res.status(409).json({ success: false, message: `Request is already ${request.status}.` });
             return;
         }
-        // Push to Zoho first — only mark approved on success
-        const moduleName = resolveModule(request.recordType);
-        const zohoRes = await zohoRequest(moduleName, 'PUT', {
-            data: [{ id: request.leadId, [request.fieldName]: request.requestedValue }],
-        });
-        if (!zohoRes?.data) {
-            res.status(502).json({ success: false, message: 'Failed to update field in Zoho. Request not approved.' });
-            return;
-        }
         request.status = 'approved';
         request.reviewedBy = user.username;
         request.reviewedAt = new Date();
@@ -317,7 +301,7 @@ async function approveRequest(req, res) {
         }
         // Fire-and-forget: activity update + notification
         setImmediate(async () => {
-            await updateRecentActivityInMongo(moduleName, request.leadId);
+            await updateRecentActivityInMongo(request.recordType, request.leadId);
             const [requester, clientName] = await Promise.all([
                 ZohoDmsUser.findOne({ username: request.requestedBy }).select('_id').lean(),
                 getClientName(request.leadId),
@@ -354,7 +338,7 @@ async function approveRequest(req, res) {
         res.status(200).json({ success: true, data: request });
     }
     catch (err) {
-        console.error('[AdminApprovalRequest] approveRequest error:', err);
+        console.error('[AdminApprovalRequest] approveRequest error:', err?.response?.data ?? err?.message ?? err);
         res.status(500).json({ success: false, message: 'Internal server error.' });
     }
 }
