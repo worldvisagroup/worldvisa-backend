@@ -82,6 +82,13 @@ async function openStream(attempt = 0) {
     });
 
     changeStream.on('error', async (err) => {
+      // Standalone MongoDB does not support change streams — stop silently
+      if (err.message?.includes('replica set') || err.message?.includes('oplog')) {
+        logger.warn('[MongoChangeStream] MongoDB is not a replica set — change stream disabled. Using incremental cron instead.');
+        stopped = true;
+        await closeStream();
+        return;
+      }
       logger.error('[MongoChangeStream] Stream error — will reconnect', { error: err.message });
       await closeStream();
       scheduleReconnect(attempt + 1);
@@ -97,6 +104,11 @@ async function openStream(attempt = 0) {
     logger.info('[MongoChangeStream] Started', { resumed: Boolean(resumeToken) });
     attempt = 0; // reset backoff on success
   } catch (err) {
+    if (err.message?.includes('replica set') || err.message?.includes('oplog')) {
+      logger.warn('[MongoChangeStream] MongoDB is not a replica set — change stream disabled. Using incremental cron instead.');
+      stopped = true;
+      return;
+    }
     logger.error('[MongoChangeStream] Failed to open stream', { error: err.message });
     scheduleReconnect(attempt + 1);
   }

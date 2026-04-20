@@ -72,6 +72,7 @@ const { startFcmCleanupCron } = require('./utils/fcmCleanupCron');
 // MongoDB → OpenSearch Sync
 const { createWorker: createMongoSyncWorker } = require('./workers/mongoSyncWorker');
 const { startChangeStream, stopChangeStream } = require('./utils/mongoChangeStream');
+const { startMongoSyncCron, stopMongoSyncCron } = require('./utils/mongoSyncCron');
 const { getMongoSyncQueue } = require('./queues/mongoSyncQueue');
 const { ensureIndex } = require('./services/opensearchService');
 
@@ -297,7 +298,8 @@ mongoose
           await ensureIndex();
           logger.info('[OpenSearch] Index ready');
 
-          startChangeStream();
+          startChangeStream(); // no-ops gracefully if not a replica set
+          startMongoSyncCron(); // incremental fallback every 15 min
 
           const redisClient = redis;
           if (redisClient) {
@@ -578,8 +580,9 @@ process.on('SIGTERM', async () => {
   }
   try {
     await stopChangeStream();
+    stopMongoSyncCron();
   } catch (error) {
-    logger.error('Error stopping mongo change stream', { error: error.message });
+    logger.error('Error stopping mongo change stream / cron', { error: error.message });
   }
   try {
     if (mongoSyncWorker) {

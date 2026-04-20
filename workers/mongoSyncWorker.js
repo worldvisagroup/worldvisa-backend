@@ -72,6 +72,25 @@ async function handleFullSync(job) {
   return { total: processed };
 }
 
+async function handleIncrementalSync() {
+  const WINDOW_MINS = 20;
+  const since = new Date(Date.now() - WINDOW_MINS * 60 * 1000);
+
+  const records = await DmsZohoClient
+    .find({ $or: [{ zoho_modified_time: { $gte: since } }, { updated_at: { $gte: since } }] })
+    .select(SYNC_FIELDS)
+    .lean();
+
+  if (records.length > 0) {
+    for (const batch of chunk(records, PAGE_SIZE)) {
+      await bulkUpsertApplications(batch);
+    }
+  }
+
+  logger.info(`[MongoSync] Incremental sync completed`, { total: records.length, windowMins: WINDOW_MINS });
+  return { total: records.length };
+}
+
 async function handleUpsertRecord(job) {
   const { leadId } = job.data;
   if (!leadId) throw new Error(`[MongoSync] upsert-record job missing leadId`);
@@ -105,8 +124,9 @@ function createWorker() {
     QUEUE_NAME,
     async (job) => {
       switch (job.name) {
-        case 'full-sync':      return handleFullSync(job);
-        case 'upsert-record':  return handleUpsertRecord(job);
+        case 'full-sync':        return handleFullSync(job);
+        case 'incremental-sync': return handleIncrementalSync();
+        case 'upsert-record':    return handleUpsertRecord(job);
         default:
           logger.warn('[MongoSync Worker] Unknown job name', { jobName: job.name });
       }
