@@ -13,6 +13,26 @@ const {
   REQ_MODULE_SPOUSE_SKILL_ASSESSMENT,
 } = require('./helper/constants');
 
+// ─── Zoho → MongoDB field name map ────────────────────────────────────────────
+
+const ZOHO_TO_MONGO_FIELD: Record<string, string> = {
+  Deadline_For_Lodgment:   'deadline_for_lodgment',
+  Application_Stage:       'application_stage',
+  Application_State:       'application_state',
+  DMS_Application_Status:  'dms_application_status',
+  Quality_Check_From:      'quality_check_from',
+  Package_Finalize:        'package_finalize',
+  Checklist_Requested:     'checklist_requested',
+  Send_Check_List:         'send_check_list',
+  Qualified_Country:       'qualified_country',
+  Service_Finalized:       'service_type',
+  Suggested_Anzsco:        'suggested_anzsco',
+  Assessing_Authority:     'assessing_authority',
+  Spouse_Skill_Assessment: 'spouse_skill_assessment',
+  Spouse_Name:             'spouse_name',
+  Main_Applicant:          'main_applicant',
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function resolveModule(recordType: string): string {
@@ -329,6 +349,15 @@ export async function approveRequest(req: Request, res: Response): Promise<void>
         },
       }
     );
+
+    // Update the live field on DmsZohoClient if a mapping exists
+    const mongoField = ZOHO_TO_MONGO_FIELD[request.fieldName as string];
+    if (mongoField) {
+      await DmsZohoClient.findOneAndUpdate(
+        { lead_id: request.leadId },
+        { $set: { [mongoField]: request.requestedValue } }
+      );
+    }
 
     // Fire-and-forget: activity update + notification
     setImmediate(async () => {
