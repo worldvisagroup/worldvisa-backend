@@ -2549,6 +2549,22 @@ exports.getAllRequestedReview = async (req, res) => {
       // Unwind to sort entries chronologically per document
       { $unwind: '$requested_reviews' },
       { $sort: { _id: 1, 'requested_reviews.requested_at': 1 } },
+      {
+        $lookup: {
+          from: 'zohodmsusers',
+          let: { requested_to_username: '$requested_reviews.requested_to' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$username', '$$requested_to_username'] } } },
+            { $project: { _id: 0, role: 1 } }
+          ],
+          as: 'requested_to_user_info'
+        }
+      },
+      {
+        $addFields: {
+          'requested_reviews.requested_to_role': { $arrayElemAt: ['$requested_to_user_info.role', 0] }
+        }
+      },
       // Group back: build full chain (chronological) + track latest for outer sort
       {
         $group: {
@@ -2577,7 +2593,26 @@ exports.getAllRequestedReview = async (req, res) => {
         },
       },
       // Compute last activity from timeline (covers comments, status changes, new requests)
-      { $addFields: { last_activity_at: { $arrayElemAt: ['$timeline.timestamp', -1] } } },
+      {
+        $addFields: {
+          last_activity_at: { $arrayElemAt: ['$timeline.timestamp', -1] },
+          last_uploaded_at: {
+            $max: {
+              $map: {
+                input: {
+                  $filter: {
+                    input: '$timeline',
+                    as: 't',
+                    cond: { $in: ['$$t.event', ['Document Uploaded', 'Document Re Uploaded']] }
+                  }
+                },
+                as: 't',
+                in: '$$t.timestamp'
+              }
+            }
+          }
+        }
+      },
       { $sort: { [sortField]: sortDir } },
       {
         $lookup: {
@@ -2595,6 +2630,7 @@ exports.getAllRequestedReview = async (req, res) => {
                 _id: 1,
                 record_id: 1,
                 client_name: { $arrayElemAt: ['$client_info.name', 0] },
+                suggested_anzsco: { $arrayElemAt: ['$client_info.suggested_anzsco', 0] },
                 storage_type: 1,
                 r2_key: 1,
                 workdrive_file_id: 1,
@@ -2604,7 +2640,7 @@ exports.getAllRequestedReview = async (req, res) => {
                 document_type: 1,
                 document_category: 1,
                 uploaded_by: 1,
-                uploaded_at: 1,
+                uploaded_at: { $ifNull: ['$last_uploaded_at', '$uploaded_at'] },
                 status: 1,
                 comments: 1,
                 download_url: 1,
