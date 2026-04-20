@@ -6,6 +6,7 @@ const dmsZohoSampleDocument = require("../models/dmsZohoSampleDocument");
 const mongoose = require('mongoose');
 const { STAFF_ROLES } = require('../constants/roles');
 const { getdmsZohoLeadFolderId, uploadFileToWorkDrive, deleteFileFromWorkDrive, getFileLinks, createFileLinks, downloadAllFilesInZip, moveFileToSpecificFolder } = require('../utils/dmsZohoWorkDrive');
+const { buildDocumentKey, uploadDocument, moveToDeleted } = require('../services/r2DocumentStorage');
 const multer = require('multer');
 const { zohoRequest } = require('./zohoDms/zohoApi');
 const { addNotificationAndEmit } = require('./helper/service/notifications');
@@ -140,25 +141,24 @@ exports.uploadDocument = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Document name and category are required.' });
     }
 
-    const workdriveFolderId = await getdmsZohoLeadFolderId(record_id);
+    const clientData = await DmsZohoClient.findOne({ lead_id: record_id }).select('name record_type').lean();
+    const clientName = clientData?.name || record_id;
 
     const uploadPromises = req.files.map(async (file) => {
       const { originalname, buffer, mimetype } = file;
-      const workdriveFile = await uploadFileToWorkDrive(workdriveFolderId, originalname, buffer, mimetype);
-      const externalLinkData = await createFileLinks(workdriveFile);
+      const r2Key = buildDocumentKey(clientName, record_id, document_category, document_name, originalname);
+      await uploadDocument(r2Key, buffer, mimetype);
 
       const doc = await dmsZohoDocument.create({
         record_id,
-        workdrive_file_id: workdriveFile,
-        workdrive_parent_id: workdriveFolderId,
+        storage_type: 'r2',
+        r2_key: r2Key,
         file_name: file_name || originalname,
         document_name,
         document_category,
         uploaded_by: uploaded_by || 'Unknown',
         status: 'pending',
         history: [{ status: 'pending', changed_by: uploaded_by || 'Unknown' }],
-        document_link: externalLinkData.data.attributes.link,
-        download_url: externalLinkData.data.attributes.download_url,
         description: description,
         document_type: document_type,
       });
@@ -188,22 +188,10 @@ exports.uploadDocument = async (req, res) => {
         document_category: doc.document_category,
       });
 
-      const clientData = await DmsZohoClient.findOne({ lead_id: record_id });
-
-      if (!clientData && !clientData?.record_type) {
-        throw new Error("clientData not found");
-      }
-
-      let moduleName = MODULE_VISA_APPLICATION;
-      if (clientData.record_type === REQ_MODULE_VISA_APPLICATION) {
-        moduleName = MODULE_VISA_APPLICATION;
-      } else if (clientData.record_type === REQ_MODULE_SPOUSE_SKILL_ASSESSMENT) {
-        moduleName = MODULE_SPOUSE_SKILL_ASSESSMENT
-      } else {
-        moduleName = MODULE_VISA_APPLICATION;
-      }
-      // Update Recent Activity
-      // await updateRecentActivityInMongo(moduleName, clientData.lead_id)
+      const moduleName = clientData?.record_type === REQ_MODULE_SPOUSE_SKILL_ASSESSMENT
+        ? MODULE_SPOUSE_SKILL_ASSESSMENT
+        : MODULE_VISA_APPLICATION;
+      // await updateRecentActivityInMongo(moduleName, record_id)
       // Add Notification only if user.role is client
       if (user?.lead_owner) {
         let leadOwnerUser = null;
@@ -269,35 +257,44 @@ exports.updateDocument = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Document not found.' });
     }
 
-    // Delete existing document from WorkDrive
-    await moveFileToSpecificFolder(document.workdrive_file_id);
+    const reuploadClientData = await DmsZohoClient.findOne({ lead_id: document.record_id }).select('name record_type').lean();
+    const reuploadClientName = reuploadClientData?.name || document.record_id;
 
-    // Add the document to dmsMovedDocuments collection
+    // Archive the existing file
+    if (document.storage_type === 'r2' && document.r2_key) {
+      await moveToDeleted(document.r2_key, reuploadClientName, document.record_id, document.document_category, document.document_name, document.file_name);
+    } else if (document.workdrive_file_id) {
+      await moveFileToSpecificFolder(document.workdrive_file_id);
+    }
+
+    // Track archive in moved documents
     await DmsMovedDocuments.create({
       document_id: document._id,
       record_id: document.record_id,
       file_name: document.file_name,
-      file_id: document.workdrive_file_id,
+      file_id: document.storage_type === 'r2' ? document.r2_key : document.workdrive_file_id,
       moved_by: user && user?.name ? user.name : user.username || 'Unknown',
       move_kind: 'reupload_archive',
     });
-    const workdriveFolderId = document.workdrive_parent_id;
 
     const uploadPromises = req.files.map(async (file) => {
       const { originalname, buffer, mimetype } = file;
-      const workdriveFile = await uploadFileToWorkDrive(workdriveFolderId, originalname, buffer, mimetype);
-      const externalLinkData = await createFileLinks(workdriveFile);
+      const r2Key = buildDocumentKey(reuploadClientName, document.record_id, document_category, document_name, originalname);
+      await uploadDocument(r2Key, buffer, mimetype);
 
       // Update document details
-      document.workdrive_file_id = workdriveFile;
+      document.storage_type = 'r2';
+      document.r2_key = r2Key;
+      document.workdrive_file_id = undefined;
+      document.workdrive_parent_id = undefined;
+      document.document_link = undefined;
+      document.download_url = undefined;
       document.file_name = file_name || originalname;
       document.document_name = document_name;
       document.document_category = document_category;
       document.uploaded_by = uploaded_by || 'Unknown';
       document.status = 'pending';
       document.history.push({ status: 'pending', changed_by: uploaded_by || 'Unknown' });
-      document.document_link = externalLinkData.data.attributes.link;
-      document.download_url = externalLinkData.data.attributes.download_url;
       document.description = description;
       document.document_type = document_type;
 
@@ -327,21 +324,12 @@ exports.updateDocument = async (req, res) => {
         document_category: document.document_category,
       });
 
-      const clientData = await DmsZohoClient.findOne({ lead_id: document.record_id });
-
       let moduleName = MODULE_VISA_APPLICATION;
-
-      if (document?.record_id) {
-        if (clientData.record_type === REQ_MODULE_VISA_APPLICATION) {
-          moduleName = MODULE_VISA_APPLICATION;
-        } else if (clientData.record_type === REQ_MODULE_SPOUSE_SKILL_ASSESSMENT) {
-          moduleName = MODULE_SPOUSE_SKILL_ASSESSMENT
-        } else {
-          moduleName = MODULE_VISA_APPLICATION;
-        }
+      if (reuploadClientData?.record_type === REQ_MODULE_SPOUSE_SKILL_ASSESSMENT) {
+        moduleName = MODULE_SPOUSE_SKILL_ASSESSMENT;
       }
 
-      await updateRecentActivityInMongo(moduleName, clientData.lead_id);
+      await updateRecentActivityInMongo(moduleName, document.record_id);
 
       // Add Notification only if user.role is client
       if (user?.lead_owner) {
@@ -770,8 +758,13 @@ exports.deleteDocument = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Document not found.' });
     }
 
-    // Delete from Zoho WorkDrive
-    await deleteFileFromWorkDrive(document.workdrive_file_id);
+    if (document.storage_type === 'r2' && document.r2_key) {
+      const deleteClientData = await DmsZohoClient.findOne({ lead_id: document.record_id }).select('name').lean();
+      const deleteClientName = deleteClientData?.name || document.record_id;
+      await moveToDeleted(document.r2_key, deleteClientName, document.record_id, document.document_category, document.document_name, document.file_name);
+    } else if (document.workdrive_file_id) {
+      await deleteFileFromWorkDrive(document.workdrive_file_id);
+    }
 
     // Delete from MongoDB
     await dmsZohoDocument.findByIdAndDelete(docId);
@@ -950,13 +943,18 @@ exports.deleteFolderByRecordId = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Folder not found for this record ID.' });
     }
 
-    // 2. Delete all associated files from Zoho WorkDrive
+    // 2. Delete all associated files from their respective storage
     const documentsToDelete = await dmsZohoDocument.find({ record_id });
+    const { deleteFromR2 } = require('../services/r2Client');
     for (const doc of documentsToDelete) {
-      await deleteFileFromWorkDrive(doc.workdrive_file_id);
+      if (doc.storage_type === 'r2' && doc.r2_key) {
+        await deleteFromR2(doc.r2_key);
+      } else if (doc.workdrive_file_id) {
+        await deleteFileFromWorkDrive(doc.workdrive_file_id);
+      }
     }
 
-    // 3. Delete the corresponding entry from dmsZohoLeadFolder collection
+    // 3. Delete the corresponding entry from dmsZohoLeadFolder collection (WorkDrive only)
     await dmsZohoLeadFolder.findByIdAndDelete(leadFolder._id);
 
     // 4. Delete all documents associated with that record_id from dmsZohoDocument collection
@@ -2424,6 +2422,8 @@ exports.getAllRequestedToReview = async (req, res) => {
                 _id: 1,
                 record_id: 1,
                 client_name: { $arrayElemAt: ['$client_info.name', 0] },
+                storage_type: 1,
+                r2_key: 1,
                 workdrive_file_id: 1,
                 workdrive_parent_id: 1,
                 file_name: 1,
@@ -2517,6 +2517,8 @@ exports.getAllRequestedFromReview = async (req, res) => {
                 _id: 1,
                 record_id: 1,
                 client_name: { $arrayElemAt: ['$client_info.name', 0] },
+                storage_type: 1,
+                r2_key: 1,
                 workdrive_file_id: 1,
                 workdrive_parent_id: 1,
                 file_name: 1,
@@ -2601,6 +2603,8 @@ exports.getAllRequestedReview = async (req, res) => {
         $group: {
           _id: '$_id',
           record_id: { $first: '$record_id' },
+          storage_type: { $first: '$storage_type' },
+          r2_key: { $first: '$r2_key' },
           workdrive_file_id: { $first: '$workdrive_file_id' },
           workdrive_parent_id: { $first: '$workdrive_parent_id' },
           file_name: { $first: '$file_name' },
@@ -2640,6 +2644,8 @@ exports.getAllRequestedReview = async (req, res) => {
                 _id: 1,
                 record_id: 1,
                 client_name: { $arrayElemAt: ['$client_info.name', 0] },
+                storage_type: 1,
+                r2_key: 1,
                 workdrive_file_id: 1,
                 workdrive_parent_id: 1,
                 file_name: 1,
@@ -3957,7 +3963,7 @@ exports.getAusStage2Documents = async (req, res) => {
 exports.uploadAusStage2Document = async (req, res) => {
   try {
     const { record_id } = req.params;
-    const { file_name, document_name, document_type, uploaded_by, type, outcome_date, subclass, state, point, deadline, date, outcome, skill_assessing_body } = req.body;
+    const { file_name, document_name, document_type, uploaded_by, type, outcome_date, subclass, state, point, deadline, date, outcome, skill_assessing_body, language_assessing_body, expiry_at, invitation_type } = req.body;
 
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ success: false, message: 'No files uploaded.' });
@@ -3967,24 +3973,23 @@ exports.uploadAusStage2Document = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Document name and type are required.' });
     }
 
-    const workdriveFolderId = await getdmsZohoLeadFolderId(record_id);
+    const stage2ClientData = await DmsZohoClient.findOne({ lead_id: record_id }).select('name').lean();
+    const stage2ClientName = stage2ClientData?.name || record_id;
 
     const uploadPromises = req.files.map(async (file) => {
       const { originalname, buffer, mimetype } = file;
 
-      const workdriveFile = await uploadFileToWorkDrive(workdriveFolderId, originalname, buffer, mimetype);
-      const externalLinkData = await createFileLinks(workdriveFile);
+      const r2Key = buildDocumentKey(stage2ClientName, record_id, type, document_name, originalname);
+      await uploadDocument(r2Key, buffer, mimetype);
 
       const doc = await dmsZohoAusStage2Documents.create({
         record_id,
-        workdrive_file_id: workdriveFile,
-        workdrive_parent_id: workdriveFolderId,
+        storage_type: 'r2',
+        r2_key: r2Key,
         file_name: file_name || originalname,
         document_name,
         document_type,
         uploaded_by: uploaded_by || 'Unknown',
-        download_url: externalLinkData.data.attributes.download_url,
-        document_link: externalLinkData.data.attributes.link,
         type: type,
         ...(outcome && { outcome }),
         ...(outcome_date && { outcome_date }),
@@ -3993,7 +3998,10 @@ exports.uploadAusStage2Document = async (req, res) => {
         ...(point && { point }),
         ...(deadline && { deadline }),
         ...(date && { date }),
-        ...(skill_assessing_body && { skill_assessing_body })
+        ...(skill_assessing_body && { skill_assessing_body }),
+        ...(language_assessing_body && { language_assessing_body }),
+        ...(expiry_at && { expiry_at }),
+        ...(invitation_type && { invitation_type })
       });
 
       return doc;
@@ -4011,7 +4019,7 @@ exports.uploadAusStage2Document = async (req, res) => {
 exports.updateAusStage2Document = async (req, res) => {
   try {
     const { id } = req.params;
-    const { file_name, document_name, document_type, uploaded_by, outcome_date, subclass, state, point, deadline, date, outcome, skill_assessing_body } = req.body;
+    const { file_name, document_name, document_type, uploaded_by, outcome_date, subclass, state, point, deadline, date, outcome, skill_assessing_body, language_assessing_body, expiry_at, invitation_type } = req.body;
 
     const document = await dmsZohoAusStage2Documents.findById(id);
 
@@ -4032,6 +4040,9 @@ exports.updateAusStage2Document = async (req, res) => {
     document.deadline = deadline || document.deadline;
     document.date = date || document.date;
     document.skill_assessing_body = skill_assessing_body !== undefined ? skill_assessing_body : document.skill_assessing_body;
+    document.language_assessing_body = language_assessing_body !== undefined ? language_assessing_body : document.language_assessing_body;
+    document.expiry_at = expiry_at !== undefined ? expiry_at : document.expiry_at;
+    document.invitation_type = invitation_type !== undefined ? invitation_type : document.invitation_type;
 
     await document.save();
 
@@ -4053,8 +4064,12 @@ exports.deleteAusStage2Document = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Document not found.' });
     }
 
-    // Delete from Zoho WorkDrive
-    await deleteFileFromWorkDrive(document.workdrive_file_id);
+    if (document.storage_type === 'r2' && document.r2_key) {
+      const { deleteFromR2 } = require('../services/r2Client');
+      await deleteFromR2(document.r2_key);
+    } else if (document.workdrive_file_id) {
+      await deleteFileFromWorkDrive(document.workdrive_file_id);
+    }
 
     // Delete the document from MongoDB
     await dmsZohoAusStage2Documents.findByIdAndDelete(id);

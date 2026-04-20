@@ -73,11 +73,6 @@ function isRateLimitError(err) {
   );
 }
 
-/**
- * Retry wrapper with exponential backoff.
- * - Bails immediately on daily-limit (non-recoverable within the day).
- * - Retries on transient rate-limit errors up to MAX_RETRIES times.
- */
 async function withRetry(fn, context = '') {
   let lastErr;
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {

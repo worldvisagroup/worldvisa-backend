@@ -145,11 +145,8 @@ router.delete('/documents/:docId/comment', clerkProtect, dmsZohoDocumentsControl
 
 // Requested Reviews
 router.get('/documents/requested_reviews/all_to', protect, dmsZohoDocumentsController.getAllRequestedToReview);
-
 router.get('/documents/requested_reviews/all_me', protect, dmsZohoDocumentsController.getAllRequestedFromReview);
-
 router.get('/documents/requested_reviews/all', protect, dmsZohoDocumentsController.getAllRequestedReview);
-
 router.get('/documents/requested_reviews/search', protect, dmsZohoDocumentsController.searchRequestedReviewDocuments);
 
 // Requested Reviews
@@ -160,13 +157,9 @@ router.put('/documents/:docId/requested_reviews', protect, dmsZohoDocumentsContr
 router.delete('/documents/:docId/requested_reviews', protect, dmsZohoDocumentsController.deleteRequestedReview);
 
 // Requested Review Messages
-
 router.get('/documents/:docId/requested_reviews/:reviewId/messages', protect, dmsZohoDocumentsController.allRequestedReviewMessages);
-
 router.post('/documents/:docId/requested_reviews/:reviewId/messages', protect, dmsZohoDocumentsController.addRequestedReviewMessage);
-
 router.put('/documents/:docId/requested_reviews/:reviewId/messages', protect, dmsZohoDocumentsController.updateRequestedReviewMessage);
-
 router.delete('/documents/:docId/requested_reviews/:reviewId/messages', protect, dmsZohoDocumentsController.deleteRequestedReviewMessage);
 
 // Timeline

@@ -5,6 +5,7 @@ const {
   PutObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
+  CopyObjectCommand,
 } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const crypto = require('crypto');
@@ -128,6 +129,20 @@ async function getSignedAttachmentUrl(key, { filename, contentType, expiresIn = 
   return getSignedUrl(r2Client, new GetObjectCommand(params), { expiresIn });
 }
 
+// ─── Copy ─────────────────────────────────────────────────────────────────────
+
+async function copyInR2(sourceKey, destKey) {
+  if (!process.env.R2_BUCKET_NAME) throw new Error('R2_BUCKET_NAME env var is not set');
+
+  await r2Client.send(
+    new CopyObjectCommand({
+      Bucket:     process.env.R2_BUCKET_NAME,
+      CopySource: `${process.env.R2_BUCKET_NAME}/${sourceKey}`,
+      Key:        destKey,
+    })
+  );
+}
+
 // ─── Delete ───────────────────────────────────────────────────────────────────
 
 async function deleteFromR2(key) {
@@ -145,6 +160,7 @@ async function deleteFromR2(key) {
 module.exports = {
   r2Client,
   uploadToR2,
+  copyInR2,
   deleteFromR2,
   getSignedAttachmentUrl,
   getSignedUploadUrl,

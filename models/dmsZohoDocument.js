@@ -5,13 +5,19 @@ const dmsZohoDocumentSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  storage_type: {
+    type: String,
+    enum: ['workdrive', 'r2'],
+    default: 'workdrive',
+  },
+  r2_key: {
+    type: String,
+  },
   workdrive_file_id: {
     type: String,
-    required: true,
   },
   workdrive_parent_id: {
     type: String,
-    required: true,
   },
   file_name: String,
   document_name: String, // Added document name

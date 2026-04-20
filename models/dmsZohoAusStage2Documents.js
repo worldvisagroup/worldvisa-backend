@@ -7,13 +7,19 @@ const dmsZohoAusStage2DocumentSchema = new Schema(
       type: String,
       required: true,
     },
+    storage_type: {
+      type: String,
+      enum: ['workdrive', 'r2'],
+      default: 'workdrive',
+    },
+    r2_key: {
+      type: String,
+    },
     workdrive_file_id: {
       type: String,
-      required: true,
     },
     workdrive_parent_id: {
       type: String,
-      required: true,
     },
     file_name: {
       type: String,
@@ -46,6 +52,11 @@ const dmsZohoAusStage2DocumentSchema = new Schema(
       enum: ['outcome', 'eoi', 'invitation'],
       required: true,
     },
+    invitation_type: {
+      type: String,
+      enum: ['state nomination', 'Final invite'],
+      required: false,
+    },
     outcome: {
       type: String,
       default: ""
@@ -74,6 +85,15 @@ const dmsZohoAusStage2DocumentSchema = new Schema(
     date: {
       type: Date,
       default: ""
+    },
+    expiry_at: {
+      type: Date,
+      required: false,
+    },
+    language_assessing_body: {
+      type: String,
+      required: false,
+      default: "",
     },
     skill_assessing_body: {
       type: String,
