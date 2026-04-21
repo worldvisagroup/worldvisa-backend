@@ -8,38 +8,48 @@ const logger        = require('../../utils/logger');
 
 // ── Resolvers ─────────────────────────────────────────────────────────────────
 
-async function resolveAgentId(empPhone: string): Promise<string | null> {
+interface ResolvedAgent {
+  agent_id:        string | null;
+  agent_image_url: string | null;
+}
+
+async function resolveAgent(empPhone: string): Promise<ResolvedAgent> {
   try {
     const user = await ZohoDmsUser
       .findOne({ agent_number: empPhone })
-      .select('_id')
+      .select('_id profile_image_url')
       .lean();
-    return user?._id ?? null;
+    return {
+      agent_id:        user?._id              ?? null,
+      agent_image_url: user?.profile_image_url ?? null,
+    };
   } catch {
-    return null;
+    return { agent_id: null, agent_image_url: null };
   }
 }
 
 interface ResolvedClient {
-  client_id:      string | null;
-  client_lead_id: string | null;
-  client_name:    string | null;
+  client_id:        string | null;
+  client_lead_id:   string | null;
+  client_name:      string | null;
+  client_image_url: string | null;
 }
 
 async function resolveClient(customerPhone: string): Promise<ResolvedClient> {
   try {
     const client = await DmsZohoClient
       .findOne({ phone: customerPhone })
-      .select('_id lead_id name')
+      .select('_id lead_id name profile_image_url')
       .lean();
-    if (!client) return { client_id: null, client_lead_id: null, client_name: null };
+    if (!client) return { client_id: null, client_lead_id: null, client_name: null, client_image_url: null };
     return {
-      client_id:      client._id,
-      client_lead_id: client.lead_id ?? null,
-      client_name:    client.name    ?? null,
+      client_id:        client._id,
+      client_lead_id:   client.lead_id           ?? null,
+      client_name:      client.name              ?? null,
+      client_image_url: client.profile_image_url ?? null,
     };
   } catch {
-    return { client_id: null, client_lead_id: null, client_name: null };
+    return { client_id: null, client_lead_id: null, client_name: null, client_image_url: null };
   }
 }
 
@@ -78,8 +88,8 @@ function toHangupStatus(dialstatus: McubeDialStatus): string {
 async function processOnCall(payload: McubeInboundPayload, req: Request): Promise<void> {
   const startTime = parseDate(payload.starttime) ?? new Date();
   const now       = new Date();
-  const [agentId, { client_id, client_lead_id, client_name }] = await Promise.all([
-    resolveAgentId(payload.emp_phone),
+  const [{ agent_id, agent_image_url }, { client_id, client_lead_id, client_name, client_image_url }] = await Promise.all([
+    resolveAgent(payload.emp_phone),
     resolveClient(payload.callto),
   ]);
 
@@ -87,34 +97,34 @@ async function processOnCall(payload: McubeInboundPayload, req: Request): Promis
     { call_id: payload.callid },
     {
       $setOnInsert: {
-        call_id:         payload.callid,
-        direction:       payload.direction?.toLowerCase() ?? 'inbound',
-        status:          toOnCallStatus(payload.dialstatus),
-        dial_status:     payload.dialstatus,
-        agent_phone:     payload.emp_phone,
-        agent_name:      payload.agentname,
-        agent_id:        agentId,
-        customer_phone:  payload.callto,
+        call_id:          payload.callid,
+        direction:        payload.direction?.toLowerCase() ?? 'inbound',
+        status:           toOnCallStatus(payload.dialstatus),
+        dial_status:      payload.dialstatus,
+        agent_phone:      payload.emp_phone,
+        agent_name:       payload.agentname,
+        agent_id,
+        agent_image_url,
+        customer_phone:   payload.callto,
         client_id,
         client_lead_id,
         client_name,
-        mcube_did:       payload.clicktocalldid,
-        group_name:      payload.groupname,
-        start_time:      startTime,
-        created_at:      now,
-        updated_at:      now,
+        client_image_url,
+        mcube_did:        payload.clicktocalldid,
+        group_name:       payload.groupname,
+        start_time:       startTime,
+        created_at:       now,
+        updated_at:       now,
       },
     },
     { upsert: true, new: true }
   );
 
-  // Broadcast to all connected staff so their call-log lists update in real time
   const io = (req.app as any).get('io');
   if (io && doc) {
     io.emit('call-log:new', doc);
-    // Targeted: open phone panel only for the specific agent
-    if (agentId) {
-      io.to(`user:${agentId}`).emit('call:inbound', doc);
+    if (agent_id) {
+      io.to(`user:${agent_id}`).emit('call:inbound', doc);
     }
   }
 
@@ -129,8 +139,8 @@ async function processOnCall(payload: McubeInboundPayload, req: Request): Promis
 async function processHangup(payload: McubeInboundPayload, req: Request): Promise<void> {
   const endTime = parseDate(payload.endtime);
   const now     = new Date();
-  const [agentId, { client_id, client_lead_id, client_name }] = await Promise.all([
-    resolveAgentId(payload.emp_phone),
+  const [{ agent_id, agent_image_url }, { client_id, client_lead_id, client_name, client_image_url }] = await Promise.all([
+    resolveAgent(payload.emp_phone),
     resolveClient(payload.callto),
   ]);
 
@@ -146,33 +156,32 @@ async function processHangup(payload: McubeInboundPayload, req: Request): Promis
         recording_url:     payload.filename       ?? null,
         updated_at:        now,
       },
-      // Create document if on-call event was missed
       $setOnInsert: {
-        call_id:        payload.callid,
-        direction:      payload.direction?.toLowerCase() ?? 'inbound',
-        agent_phone:    payload.emp_phone,
-        agent_name:     payload.agentname,
-        agent_id:       agentId,
-        customer_phone: payload.callto,
+        call_id:          payload.callid,
+        direction:        payload.direction?.toLowerCase() ?? 'inbound',
+        agent_phone:      payload.emp_phone,
+        agent_name:       payload.agentname,
+        agent_id,
+        agent_image_url,
+        customer_phone:   payload.callto,
         client_id,
         client_lead_id,
         client_name,
-        mcube_did:      payload.clicktocalldid,
-        group_name:     payload.groupname,
-        start_time:     parseDate(payload.starttime) ?? now,
-        created_at:     now,
+        client_image_url,
+        mcube_did:        payload.clicktocalldid,
+        group_name:       payload.groupname,
+        start_time:       parseDate(payload.starttime) ?? now,
+        created_at:       now,
       },
     },
     { upsert: true, new: true }
   );
 
-  // Broadcast to all connected staff so their call-log records update in real time
   const io = (req.app as any).get('io');
   if (io && doc) {
     io.emit('call-log:updated', doc);
-    // Targeted: show disposition modal only for the specific agent
-    if (agentId) {
-      io.to(`user:${agentId}`).emit('call:hangup', doc);
+    if (agent_id) {
+      io.to(`user:${agent_id}`).emit('call:hangup', doc);
     }
   }
 
