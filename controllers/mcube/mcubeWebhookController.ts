@@ -47,7 +47,7 @@ async function resolveClient(customerPhone: string): Promise<ResolvedClient> {
 
 function parseDate(value: string | undefined): Date | null {
   if (!value) return null;
-  const d = new Date(value.replace(' ', 'T'));
+  const d = new Date(value.replace(' ', 'T') + '+05:30');
   return isNaN(d.getTime()) ? null : d;
 }
 

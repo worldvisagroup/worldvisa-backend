@@ -40,7 +40,7 @@ async function resolveClient(customerPhone) {
 function parseDate(value) {
     if (!value)
         return null;
-    const d = new Date(value.replace(' ', 'T'));
+    const d = new Date(value.replace(' ', 'T') + '+05:30');
     return isNaN(d.getTime()) ? null : d;
 }
 function toOnCallStatus(dialstatus) {
