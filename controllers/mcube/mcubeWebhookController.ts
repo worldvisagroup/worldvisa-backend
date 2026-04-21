@@ -30,13 +30,13 @@ async function resolveClient(customerPhone: string): Promise<ResolvedClient> {
   try {
     const client = await DmsZohoClient
       .findOne({ phone: customerPhone })
-      .select('_id lead_id Name')
+      .select('_id lead_id name')
       .lean();
     if (!client) return { client_id: null, client_lead_id: null, client_name: null };
     return {
       client_id:      client._id,
       client_lead_id: client.lead_id ?? null,
-      client_name:    client.Name    ?? null,
+      client_name:    client.name    ?? null,
     };
   } catch {
     return { client_id: null, client_lead_id: null, client_name: null };
