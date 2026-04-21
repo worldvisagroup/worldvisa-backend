@@ -1,4 +1,4 @@
-export type McubeDialStatus = 'ANSWER' | 'CANCEL' | 'Executive Busy' | 'Busy' | 'NoAnswer';
+export type McubeDialStatus = 'ANSWER' | 'CANCEL' | 'EXECUTIVE BUSY' | 'Executive Busy' | 'Busy' | 'NoAnswer';
 export type McubeDirection = 'inbound' | 'outbound';
 export type McubeDisconnectedBy = 'Customer' | 'Agent';
 /**

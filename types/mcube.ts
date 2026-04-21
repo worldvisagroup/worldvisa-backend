@@ -1,6 +1,7 @@
 export type McubeDialStatus =
   | 'ANSWER'
   | 'CANCEL'
+  | 'EXECUTIVE BUSY'
   | 'Executive Busy'
   | 'Busy'
   | 'NoAnswer';

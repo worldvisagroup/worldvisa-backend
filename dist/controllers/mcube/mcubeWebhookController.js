@@ -44,22 +44,22 @@ function parseDate(value) {
     return isNaN(d.getTime()) ? null : d;
 }
 function toOnCallStatus(dialstatus) {
-    switch (dialstatus) {
+    switch (dialstatus.toUpperCase()) {
         case 'ANSWER': return 'answered';
         case 'CANCEL': return 'cancelled';
-        case 'NoAnswer': return 'missed';
-        case 'Busy':
-        case 'Executive Busy': return 'busy';
+        case 'NOANSWER': return 'missed';
+        case 'BUSY':
+        case 'EXECUTIVE BUSY': return 'busy';
         default: return 'initiated';
     }
 }
 function toHangupStatus(dialstatus) {
-    switch (dialstatus) {
+    switch (dialstatus.toUpperCase()) {
         case 'ANSWER': return 'completed';
         case 'CANCEL': return 'cancelled';
-        case 'NoAnswer': return 'missed';
-        case 'Busy':
-        case 'Executive Busy': return 'busy';
+        case 'NOANSWER': return 'missed';
+        case 'BUSY':
+        case 'EXECUTIVE BUSY': return 'busy';
         default: return 'completed';
     }
 }

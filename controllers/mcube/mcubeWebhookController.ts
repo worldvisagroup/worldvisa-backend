@@ -52,23 +52,23 @@ function parseDate(value: string | undefined): Date | null {
 }
 
 function toOnCallStatus(dialstatus: McubeDialStatus): string {
-  switch (dialstatus) {
+  switch (dialstatus.toUpperCase()) {
     case 'ANSWER':         return 'answered';
     case 'CANCEL':         return 'cancelled';
-    case 'NoAnswer':       return 'missed';
-    case 'Busy':
-    case 'Executive Busy': return 'busy';
+    case 'NOANSWER':       return 'missed';
+    case 'BUSY':
+    case 'EXECUTIVE BUSY': return 'busy';
     default:               return 'initiated';
   }
 }
 
 function toHangupStatus(dialstatus: McubeDialStatus): string {
-  switch (dialstatus) {
+  switch (dialstatus.toUpperCase()) {
     case 'ANSWER':         return 'completed';
     case 'CANCEL':         return 'cancelled';
-    case 'NoAnswer':       return 'missed';
-    case 'Busy':
-    case 'Executive Busy': return 'busy';
+    case 'NOANSWER':       return 'missed';
+    case 'BUSY':
+    case 'EXECUTIVE BUSY': return 'busy';
     default:               return 'completed';
   }
 }
