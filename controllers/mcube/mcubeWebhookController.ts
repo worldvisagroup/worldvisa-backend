@@ -197,6 +197,13 @@ async function processHangup(payload: McubeInboundPayload, req: Request): Promis
     { upsert: true, new: true }
   );
 
+  if (client_id) {
+    DmsZohoClient.findByIdAndUpdate(
+      client_id,
+      { last_communication_activity: endTime ?? now, last_communication_provider: 'call' }
+    ).catch(() => {});
+  }
+
   const io = (req.app as any).get('io');
   if (io && doc) {
     io.emit('call-log:updated', doc);

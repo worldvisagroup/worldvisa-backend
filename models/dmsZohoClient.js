@@ -105,7 +105,7 @@ const dmsZohoClientSchema = new mongoose.Schema({
   },
   last_communication_provider: {
     type: String,
-    enum: ['chat', 'email'],
+    enum: ['chat', 'email', 'call'],
     default: null,
   },
   fcmTokens: [
