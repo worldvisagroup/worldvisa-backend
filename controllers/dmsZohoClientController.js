@@ -341,6 +341,13 @@ exports.updateRecordType = async (req, res) => {
       });
     }
 
+    try {
+      const { upsertApplication } = require('../services/opensearchService');
+      await upsertApplication(client);
+    } catch (osErr) {
+      console.warn('[updateRecordType] Failed to sync OpenSearch', osErr.message);
+    }
+
     res.status(200).json({
       status: 'success',
       message: 'Record type updated successfully',
@@ -942,6 +949,13 @@ exports.updateClientAccountByRecordId = async (req, res) => {
       });
     }
 
+    try {
+      const { upsertApplication } = require('../services/opensearchService');
+      await upsertApplication(updatedClient);
+    } catch (osErr) {
+      console.warn('[updateClientAccountByRecordId] Failed to sync OpenSearch', osErr.message);
+    }
+
     res.status(200).json({
       status: 'success',
       message: 'Client account updated successfully',
@@ -1199,7 +1213,7 @@ exports.checkAndSyncLeadOwner = async (req, res) => {
 };
 
 exports.updateLeadOwnerFromZoho = async (req, res) => {
-  const { lead_id, name, email, phone, record_type, full_name } = req.body;
+  const { lead_id, name, email, phone, full_name } = req.body;
 
   if (!lead_id) {
     return res.status(400).json({ status: 'fail', message: 'lead_id is required' });
@@ -1207,147 +1221,56 @@ exports.updateLeadOwnerFromZoho = async (req, res) => {
 
   try {
     const setFields = buildApplicationPayload(req.body);
-    if (name)       setFields.name      = String(name).trim();
+    if (name)                    setFields.name      = String(name).trim();
     if (full_name !== undefined) setFields.full_name = strOrNull(full_name);
-    if (email)      setFields.email     = String(email).toLowerCase().trim();
-    if (phone)      setFields.phone     = String(phone).replace(/\s/g, '');
+    if (email)                   setFields.email     = String(email).toLowerCase().trim();
+    if (phone)                   setFields.phone     = String(phone).replace(/\s/g, '');
 
-    const ownerKeyPresent =
-      ('lead_owner' in req.body) ||
-      ('application_handled_by' in req.body) ||
-      ('Application_Handled_By' in req.body);
+    const ownerKeyPresent = ['lead_owner', 'application_handled_by', 'Application_Handled_By'].some(k => k in req.body);
     if (ownerKeyPresent && !('lead_owner' in setFields)) {
-      return res.status(400).json({
-        status: 'fail',
-        message: 'lead_owner must be a non-empty string',
-      });
+      return res.status(400).json({ status: 'fail', message: 'lead_owner must be a non-empty string' });
     }
 
-    // ── UPDATE PATH ──────────────────────────────────────────────────────────
-    const existing = await DmsZohoClient.findOne({ lead_id }).select('_id name record_type').lean();
+    const updated = await DmsZohoClient.findOneAndUpdate(
+      { lead_id },
+      { $set: setFields },
+      { new: true, runValidators: true }
+    );
 
-    if (existing) {
-      const updated = await DmsZohoClient.findOneAndUpdate(
-        { lead_id },
-        { $set: setFields },
-        { new: true, runValidators: true }
-      );
-
-      addActivityLog({
-        lead_id,
-        activity_type: 'application_synced',
-        summary:       `Application updated from Zoho for ${updated.name}`,
-        actor_type:    'system',
-        actor_name:    'Zoho Webhook',
-        actor_role:    null,
-        metadata:      { record_type: updated.record_type, lead_owner: updated.lead_owner },
-      });
-
-      return res.status(200).json({
-        status: 'success',
-        action: 'updated',
-        data: {
-          lead_id:     updated.lead_id,
-          lead_owner:  updated.lead_owner,
-          record_type: updated.record_type,
-          name:        updated.name,
-        },
-      });
+    if (!updated) {
+      return res.status(404).json({ status: 'fail', message: `No application found with lead_id: ${lead_id}` });
     }
-
-    // ── CREATE PATH ──────────────────────────────────────────────────────────
-    if (!name || !email || !phone || !record_type) {
-      return res.status(404).json({
-        status:  'fail',
-        message: `No application found with lead_id: ${lead_id}. Provide name, email, phone, and record_type to create one.`,
-      });
-    }
-
-    const newClient = await DmsZohoClient.create({
-      name:        String(name).trim(),
-      email:       String(email).toLowerCase().trim(),
-      phone:       String(phone).replace(/\s/g, ''),
-      lead_id,
-      record_type,
-      ...(full_name ? { full_name } : {}),
-      ...setFields,
-    });
 
     try {
       const { upsertApplication } = require('../services/opensearchService');
-      await upsertApplication(newClient);
+      await upsertApplication(updated);
     } catch (osErr) {
-      console.warn('[updateLeadOwnerFromZoho] Failed to index in OpenSearch', osErr.message);
+      console.warn('[updateLeadOwnerFromZoho] Failed to sync OpenSearch', osErr.message);
     }
 
     addActivityLog({
       lead_id,
-      activity_type: 'application_created',
-      summary:       `Application created from Zoho sync for ${newClient.name}`,
+      activity_type: 'application_synced',
+      summary:       `Application updated from Zoho for ${updated.name}`,
       actor_type:    'system',
       actor_name:    'Zoho Webhook',
       actor_role:    null,
-      metadata:      { record_type, lead_owner: newClient.lead_owner },
+      metadata:      { record_type: updated.record_type, lead_owner: updated.lead_owner },
     });
 
-    return res.status(201).json({
+    return res.status(200).json({
       status: 'success',
-      action: 'created',
-      data: {
-        lead_id:     newClient.lead_id,
-        lead_owner:  newClient.lead_owner,
-        record_type: newClient.record_type,
-        name:        newClient.name,
-      },
+      data: { lead_id: updated.lead_id, lead_owner: updated.lead_owner, record_type: updated.record_type, name: updated.name },
     });
 
   } catch (error) {
     if (error.code === 11000) {
-      const keyPattern = error.keyPattern || {};
-      const keyValue = error.keyValue || {};
-
-      const conflictField =
-        keyPattern.lead_id || keyValue.lead_id ? 'lead_id'
-          : keyPattern.email || keyValue.email ? 'email'
-            : 'unknown';
-
-      if (conflictField === 'lead_id') {
-        return res.status(409).json({
-          status: 'fail',
-          code: 'LEAD_ID_ALREADY_EXISTS',
-          field: 'lead_id',
-          lead_id,
-          message: `A record with lead_id ${lead_id} already exists.`,
-        });
-      }
-
-      if (conflictField === 'email') {
-        const conflictEmail =
-          keyValue.email != null
-            ? String(keyValue.email)
-            : email
-              ? String(email).toLowerCase().trim()
-              : null;
-
-        return res.status(409).json({
-          status: 'fail',
-          code: 'EMAIL_ALREADY_EXISTS',
-          field: 'email',
-          lead_id,
-          ...(conflictEmail ? { email: conflictEmail } : {}),
-          message: conflictEmail
-            ? `A record with email ${conflictEmail} already exists.`
-            : 'A record with this email already exists.',
-        });
-      }
-
+      const conflictEmail = error.keyValue?.email ? String(error.keyValue.email) : null;
       return res.status(409).json({
         status: 'fail',
-        code: 'DUPLICATE_KEY',
-        field: 'unknown',
-        lead_id,
-        ...(email ? { email: String(email).toLowerCase().trim() } : {}),
-        message: 'A record with this lead_id or email already exists.',
+        code: 'EMAIL_ALREADY_EXISTS',
+        message: conflictEmail ? `A record with email ${conflictEmail} already exists.` : 'A record with this email already exists.',
+        ...(conflictEmail && { email: conflictEmail }),
       });
     }
     console.error('[updateLeadOwnerFromZoho] Error:', error);
