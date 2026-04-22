@@ -54,6 +54,7 @@ export async function getLeadOwnerByPhone(req: Request, res: Response): Promise<
       data: {
         name:       client.name,
         lead_owner: client.lead_owner,
+        phone:      client.phone,
       },
     });
   } catch (err: any) {

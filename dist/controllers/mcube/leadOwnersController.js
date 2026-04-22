@@ -49,6 +49,7 @@ async function getLeadOwnerByPhone(req, res) {
             data: {
                 name: client.name,
                 lead_owner: client.lead_owner,
+                phone: client.phone,
             },
         });
     }
