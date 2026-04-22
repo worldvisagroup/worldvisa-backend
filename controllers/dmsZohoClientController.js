@@ -1277,3 +1277,33 @@ exports.updateLeadOwnerFromZoho = async (req, res) => {
     res.status(500).json({ status: 'error', message: error.message || 'Something went wrong' });
   }
 };
+
+exports.addNoteFromCRM = async (req, res) => {
+  const { lead_id, note, addedBy } = req.body;
+
+  if (!lead_id || !note || !addedBy) {
+    return res.status(400).json({ status: 'fail', message: 'lead_id, note, and addedBy are required' });
+  }
+
+  if (note.length > 2000) {
+    return res.status(400).json({ status: 'fail', message: 'Note cannot exceed 2000 characters' });
+  }
+
+  try {
+    const updated = await DmsZohoClient.findOneAndUpdate(
+      { lead_id },
+      { $push: { notes: { note: String(note).trim(), addedBy: String(addedBy).trim(), addedAt: new Date() } } },
+      { new: true }
+    ).select('lead_id notes');
+
+    if (!updated) {
+      return res.status(404).json({ status: 'fail', message: `No application found with lead_id: ${lead_id}` });
+    }
+
+    const newNote = updated.notes[updated.notes.length - 1];
+    return res.status(201).json({ status: 'success', data: { lead_id: updated.lead_id, note: newNote } });
+  } catch (error) {
+    console.error('[addNoteFromCRM] Error:', error);
+    res.status(500).json({ status: 'error', message: error.message || 'Something went wrong' });
+  }
+};

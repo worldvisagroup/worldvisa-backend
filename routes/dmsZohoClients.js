@@ -50,6 +50,7 @@ router.patch('/admin/update/:record_id', protect, dmsZohoClientController.update
 router.get('/sync/lead-owner', protect, dmsZohoClientController.checkAndSyncLeadOwner);
 
 router.post('/webhook/update-lead-owner', apiKeyMiddleware, dmsZohoClientController.updateLeadOwnerFromZoho);
+router.post('/webhook/add-note', apiKeyMiddleware, dmsZohoClientController.addNoteFromCRM);
 
 router.get('/profile/:lead_id',   protect, getClientProfile);
 router.patch('/profile/:lead_id', protect, updateClientProfile);
