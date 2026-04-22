@@ -13,12 +13,28 @@ interface ResolvedAgent {
   agent_image_url: string | null;
 }
 
-async function resolveAgent(empPhone: string): Promise<ResolvedAgent> {
+async function resolveAgent(empPhone: string, agentName?: string): Promise<ResolvedAgent> {
   try {
+    const digits = empPhone.replace(/\D/g, '');
+    const suffix = digits.length >= 6 ? digits.slice(-9) : null;
+
     const user = await ZohoDmsUser
-      .findOne({ agent_number: empPhone })
+      .findOne(
+        suffix
+          ? { agent_number: { $regex: `${suffix}$` } }
+          : agentName
+            ? { $or: [{ mcube_username: agentName }, { full_name: agentName }] }
+            : { agent_number: empPhone },
+      )
       .select('_id profile_image_url')
-      .lean();
+      .lean()
+      ?? (agentName
+        ? await ZohoDmsUser
+            .findOne({ $or: [{ mcube_username: agentName }, { full_name: agentName }] })
+            .select('_id profile_image_url')
+            .lean()
+        : null);
+
     return {
       agent_id:        user?._id              ?? null,
       agent_image_url: user?.profile_image_url ?? null,
@@ -37,8 +53,12 @@ interface ResolvedClient {
 
 async function resolveClient(customerPhone: string): Promise<ResolvedClient> {
   try {
+    const digits = customerPhone.replace(/\D/g, '');
+    if (digits.length < 6) return { client_id: null, client_lead_id: null, client_name: null, client_image_url: null };
+    const suffix = digits.slice(-9);
+
     const client = await DmsZohoClient
-      .findOne({ phone: customerPhone })
+      .findOne({ phone: { $regex: `${suffix}$` } })
       .select('_id lead_id name profile_image_url')
       .lean();
     if (!client) return { client_id: null, client_lead_id: null, client_name: null, client_image_url: null };
@@ -89,7 +109,7 @@ async function processOnCall(payload: McubeInboundPayload, req: Request): Promis
   const startTime = parseDate(payload.starttime) ?? new Date();
   const now       = new Date();
   const [{ agent_id, agent_image_url }, { client_id, client_lead_id, client_name, client_image_url }] = await Promise.all([
-    resolveAgent(payload.emp_phone),
+    resolveAgent(payload.emp_phone, payload.agentname),
     resolveClient(payload.callto),
   ]);
 
@@ -123,9 +143,9 @@ async function processOnCall(payload: McubeInboundPayload, req: Request): Promis
   const io = (req.app as any).get('io');
   if (io && doc) {
     io.emit('call-log:new', doc);
-    if (agent_id) {
-      io.to(`user:${agent_id}`).emit('call:inbound', doc);
-    }
+    const targetId = '69cbe51d23b7058c5d79426d'; // TODO: revert to agent_id after testing
+    logger.info('[MCube Webhook] Emitting call:inbound', { targetId, call_id: payload.callid });
+    io.to(`user:${targetId}`).emit('call:inbound', doc);
   }
 
   logger.info('[MCube Webhook] On Call stored', {
@@ -140,7 +160,7 @@ async function processHangup(payload: McubeInboundPayload, req: Request): Promis
   const endTime = parseDate(payload.endtime);
   const now     = new Date();
   const [{ agent_id, agent_image_url }, { client_id, client_lead_id, client_name, client_image_url }] = await Promise.all([
-    resolveAgent(payload.emp_phone),
+    resolveAgent(payload.emp_phone, payload.agentname),
     resolveClient(payload.callto),
   ]);
 
@@ -180,9 +200,9 @@ async function processHangup(payload: McubeInboundPayload, req: Request): Promis
   const io = (req.app as any).get('io');
   if (io && doc) {
     io.emit('call-log:updated', doc);
-    if (agent_id) {
-      io.to(`user:${agent_id}`).emit('call:hangup', doc);
-    }
+    const targetId = '69cbe51d23b7058c5d79426d'; // TODO: revert to agent_id after testing
+    logger.info('[MCube Webhook] Emitting call:hangup', { targetId, call_id: payload.callid });
+    io.to(`user:${targetId}`).emit('call:hangup', doc);
   }
 
   logger.info('[MCube Webhook] On Hangup processed', {

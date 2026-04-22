@@ -77,7 +77,7 @@ async function handleIncrementalSync() {
   const since = new Date(Date.now() - WINDOW_MINS * 60 * 1000);
 
   const records = await DmsZohoClient
-    .find({ $or: [{ zoho_modified_time: { $gte: since } }, { updated_at: { $gte: since } }] })
+    .find({ $or: [{ zoho_modified_time: { $gte: since } }, { created_at: { $gte: since } }] })
     .select(SYNC_FIELDS)
     .lean();
 

@@ -170,6 +170,13 @@ exports.signup = async (req, res) => {
       ...optionalFields,
     });
 
+    try {
+      const { upsertApplication } = require('../services/opensearchService');
+      await upsertApplication(newClient);
+    } catch (osErr) {
+      console.warn('[signup] Failed to index in OpenSearch', osErr.message);
+    }
+
     addActivityLog({
       lead_id:       newClient.lead_id,
       activity_type: 'application_created',
@@ -1265,6 +1272,13 @@ exports.updateLeadOwnerFromZoho = async (req, res) => {
       ...(full_name ? { full_name } : {}),
       ...setFields,
     });
+
+    try {
+      const { upsertApplication } = require('../services/opensearchService');
+      await upsertApplication(newClient);
+    } catch (osErr) {
+      console.warn('[updateLeadOwnerFromZoho] Failed to index in OpenSearch', osErr.message);
+    }
 
     addActivityLog({
       lead_id,

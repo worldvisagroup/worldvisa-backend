@@ -66,6 +66,16 @@ const callLogSchema = new mongoose.Schema(
       default: null,
     },
 
+    client_image_url: {
+      type: String,
+      default: null,
+    },
+
+    agent_image_url: {
+      type: String,
+      default: null,
+    },
+
     mcube_did: {
       type: String,
       default: '',
