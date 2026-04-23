@@ -233,7 +233,7 @@ exports.uploadDocument = async (req, res) => {
     res.status(201).json({ success: true, data: uploadedDocuments });
   } catch (error) {
     console.error('Error uploading documents:', error);
-    res.status(500).json({ success: false, message: error.message || 'Failed to upload documents.' });
+    res.status(500).json({ success: false, message: 'Unable to upload the document. Please try again.' });
   }
 };
 
@@ -265,7 +265,11 @@ exports.updateDocument = async (req, res) => {
     if (document.storage_type === 'r2' && document.r2_key) {
       await moveToDeleted(document.r2_key, reuploadClientName, document.record_id, document.document_category, document.document_name, document.file_name);
     } else if (document.workdrive_file_id) {
-      await moveFileToSpecificFolder(document.workdrive_file_id);
+      try {
+        await moveFileToSpecificFolder(document.workdrive_file_id);
+      } catch (wdErr) {
+        console.warn('WorkDrive archive failed (non-fatal):', wdErr.message);
+      }
     }
 
     // Track archive in moved documents
@@ -372,7 +376,7 @@ exports.updateDocument = async (req, res) => {
     res.status(200).json({ success: true, data: document });
   } catch (error) {
     console.error('Error updating document:', error);
-    res.status(500).json({ success: false, message: error.message || 'Failed to update document.' });
+    res.status(500).json({ success: false, message: 'Unable to upload the document. Please try again.' });
   }
 };
 
@@ -764,7 +768,11 @@ exports.deleteDocument = async (req, res) => {
       const deleteClientName = deleteClientData?.name || document.record_id;
       await moveToDeleted(document.r2_key, deleteClientName, document.record_id, document.document_category, document.document_name, document.file_name);
     } else if (document.workdrive_file_id) {
-      await deleteFileFromWorkDrive(document.workdrive_file_id);
+      try {
+        await deleteFileFromWorkDrive(document.workdrive_file_id);
+      } catch (wdErr) {
+        console.warn('WorkDrive delete failed (non-fatal):', wdErr.message);
+      }
     }
 
     // Delete from MongoDB
@@ -951,7 +959,11 @@ exports.deleteFolderByRecordId = async (req, res) => {
       if (doc.storage_type === 'r2' && doc.r2_key) {
         await deleteFromR2(doc.r2_key);
       } else if (doc.workdrive_file_id) {
-        await deleteFileFromWorkDrive(doc.workdrive_file_id);
+        try {
+          await deleteFileFromWorkDrive(doc.workdrive_file_id);
+        } catch (wdErr) {
+          console.warn('WorkDrive delete failed (non-fatal):', wdErr.message);
+        }
       }
     }
 
@@ -4055,7 +4067,11 @@ exports.deleteAusStage2Document = async (req, res) => {
       const { deleteFromR2 } = require('../services/r2Client');
       await deleteFromR2(document.r2_key);
     } else if (document.workdrive_file_id) {
-      await deleteFileFromWorkDrive(document.workdrive_file_id);
+      try {
+        await deleteFileFromWorkDrive(document.workdrive_file_id);
+      } catch (wdErr) {
+        console.warn('WorkDrive delete failed (non-fatal):', wdErr.message);
+      }
     }
 
     // Delete the document from MongoDB
@@ -4064,7 +4080,7 @@ exports.deleteAusStage2Document = async (req, res) => {
     res.status(200).json({ success: true, message: 'Document deleted successfully.' });
   } catch (error) {
     console.error('Error deleting document:', error);
-    res.status(500).json({ success: false, message: error.message || 'Failed to delete document.' });
+    res.status(500).json({ success: false, message: 'Unable to delete the document. Please try again.' });
   }
 }
 
@@ -4190,8 +4206,12 @@ exports.deleteSampleDocuments = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Document not found.' });
     }
 
-    // Delete from WorkDrive
-    await deleteFileFromWorkDrive(document.zoho_workdrive_id);
+    // Delete from WorkDrive (best-effort, non-fatal)
+    try {
+      await deleteFileFromWorkDrive(document.zoho_workdrive_id);
+    } catch (wdErr) {
+      console.warn('WorkDrive delete failed (non-fatal):', wdErr.message);
+    }
 
     // Also delete the document record from the database
     await dmsZohoSampleDocument.findByIdAndDelete(document_id);
@@ -4199,7 +4219,7 @@ exports.deleteSampleDocuments = async (req, res) => {
     res.status(200).json({ success: true, message: 'Document deleted successfully.' });
   } catch (error) {
     console.error('Error deleting sample document:', error);
-    res.status(500).json({ success: false, message: error.message || 'Failed to delete sample document.' });
+    res.status(500).json({ success: false, message: 'Unable to delete the document. Please try again.' });
   }
 };
 
