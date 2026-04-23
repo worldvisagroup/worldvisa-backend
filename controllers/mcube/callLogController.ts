@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import type { CallAgentStatus, CallLogListQuery, DateRangePreset } from '../../types/callLog.types';
+import type { CallLogListQuery, DateRangePreset } from '../../types/callLog.types';
 
 const CallLog = require('../../models/callLog');
 const logger  = require('../../utils/logger');
@@ -217,11 +217,6 @@ export async function getCallLogDetail(req: Request, res: Response): Promise<voi
 
 // ── Update call notes (agent disposition after hangup) ─────────────────────
 
-const VALID_AGENT_STATUSES = new Set<CallAgentStatus>([
-  'unanswered', 'client_busy', 'client_asked_call_later',
-  'not_connected', 'answered', 'none',
-]);
-
 export async function updateCallNotes(req: Request, res: Response): Promise<void> {
   try {
     const { callId } = req.params;
@@ -235,15 +230,6 @@ export async function updateCallNotes(req: Request, res: Response): Promise<void
       call_note?:         string | null;
       call_agent_status?: string | null;
     };
-
-    if (
-      call_agent_status !== undefined &&
-      call_agent_status !== null &&
-      !VALID_AGENT_STATUSES.has(call_agent_status as CallAgentStatus)
-    ) {
-      res.status(400).json({ status: 'fail', message: 'Invalid call_agent_status value' });
-      return;
-    }
 
     const updateFields: Record<string, unknown> = { updated_at: new Date() };
     if (call_note         !== undefined) updateFields.call_note         = call_note;

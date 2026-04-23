@@ -181,10 +181,6 @@ async function getCallLogDetail(req, res) {
     }
 }
 // ── Update call notes (agent disposition after hangup) ─────────────────────
-const VALID_AGENT_STATUSES = new Set([
-    'unanswered', 'client_busy', 'client_asked_call_later',
-    'not_connected', 'answered', 'none',
-]);
 async function updateCallNotes(req, res) {
     try {
         const { callId } = req.params;
@@ -193,12 +189,6 @@ async function updateCallNotes(req, res) {
             return;
         }
         const { call_note, call_agent_status } = req.body;
-        if (call_agent_status !== undefined &&
-            call_agent_status !== null &&
-            !VALID_AGENT_STATUSES.has(call_agent_status)) {
-            res.status(400).json({ status: 'fail', message: 'Invalid call_agent_status value' });
-            return;
-        }
         const updateFields = { updated_at: new Date() };
         if (call_note !== undefined)
             updateFields.call_note = call_note;

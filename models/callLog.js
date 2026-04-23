@@ -119,7 +119,6 @@ const callLogSchema = new mongoose.Schema(
 
     call_agent_status: {
       type: String,
-      enum: ['unanswered', 'client_busy', 'client_asked_call_later', 'not_connected', 'answered', 'none', null],
       default: null,
     },
 

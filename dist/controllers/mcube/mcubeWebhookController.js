@@ -82,6 +82,14 @@ function toHangupStatus(dialstatus) {
         default: return 'completed';
     }
 }
+function shouldEmitHangup(dialstatus, direction) {
+    const status = dialstatus.toUpperCase();
+    if (status === 'ANSWER')
+        return true;
+    if (status === 'NOANSWER')
+        return direction.toLowerCase() === 'outbound';
+    return false;
+}
 // ── Event processors ──────────────────────────────────────────────────────────
 async function processOnCall(payload, req) {
     const startTime = parseDate(payload.starttime) ?? new Date();
@@ -167,7 +175,7 @@ async function processHangup(payload, req) {
     const io = req.app.get('io');
     if (io && doc) {
         io.emit('call-log:updated', doc);
-        if (agent_id) {
+        if (agent_id && shouldEmitHangup(payload.dialstatus, payload.direction)) {
             io.to(`user:${agent_id}`).emit('call:hangup', doc);
         }
     }

@@ -103,6 +103,13 @@ function toHangupStatus(dialstatus: McubeDialStatus): string {
   }
 }
 
+function shouldEmitHangup(dialstatus: McubeDialStatus, direction: string): boolean {
+  const status = dialstatus.toUpperCase();
+  if (status === 'ANSWER') return true;
+  if (status === 'NOANSWER') return direction.toLowerCase() === 'outbound';
+  return false;
+}
+
 // ── Event processors ──────────────────────────────────────────────────────────
 
 async function processOnCall(payload: McubeInboundPayload, req: Request): Promise<void> {
@@ -207,7 +214,7 @@ async function processHangup(payload: McubeInboundPayload, req: Request): Promis
   const io = (req.app as any).get('io');
   if (io && doc) {
     io.emit('call-log:updated', doc);
-    if (agent_id) {
+    if (agent_id && shouldEmitHangup(payload.dialstatus, payload.direction)) {
       io.to(`user:${agent_id}`).emit('call:hangup', doc);
     }
   }
