@@ -778,6 +778,25 @@ exports.deleteDocument = async (req, res) => {
     // Delete from MongoDB
     await dmsZohoDocument.findByIdAndDelete(docId);
 
+    const user = req.user;
+    const isClient = !!user?.lead_id;
+    const actorName = isClient ? (user?.name ?? 'Unknown') : (user?.username ?? 'Unknown');
+    const docLabel = document.document_name || document.file_name || docId;
+    const companyLabel = getCompanyLabel(document.document_category);
+    const summarySuffix = companyLabel ? ` (${companyLabel})` : '';
+
+    addActivityLog({
+      lead_id:           document.record_id,
+      activity_type:     'document_deleted',
+      summary:           `${actorName} deleted "${docLabel}"${summarySuffix}`,
+      actor_type:        isClient ? 'client' : 'staff',
+      actor_name:        actorName,
+      actor_role:        isClient ? null : (user?.role ?? null),
+      document_id:       document._id,
+      document_name:     document.document_name,
+      document_category: document.document_category,
+    });
+
     res.status(200).json({ success: true, message: 'Document deleted successfully.' });
   } catch (error) {
     console.error('Error deleting document:', error);

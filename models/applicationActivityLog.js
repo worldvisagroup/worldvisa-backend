@@ -19,6 +19,7 @@ const ACTIVITY_TYPES = [
   'checklist_created',
   'checklist_updated',
   'checklist_deleted',
+  'document_deleted',
   'note_added',
   'note_updated',
   'note_deleted',
