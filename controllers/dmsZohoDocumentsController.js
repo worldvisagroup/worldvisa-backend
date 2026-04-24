@@ -778,7 +778,7 @@ exports.deleteDocument = async (req, res) => {
     // Delete from MongoDB
     await dmsZohoDocument.findByIdAndDelete(docId);
 
-    res.status(204).json({ success: true, message: 'Document deleted successfully.' });
+    res.status(200).json({ success: true, message: 'Document deleted successfully.' });
   } catch (error) {
     console.error('Error deleting document:', error);
     res.status(500).json({ success: false, message: 'Failed to delete document.' });
