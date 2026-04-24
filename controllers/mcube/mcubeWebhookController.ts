@@ -213,8 +213,10 @@ async function processHangup(payload: McubeInboundPayload, req: Request): Promis
   const io = (req.app as any).get('io');
   if (io && doc) {
     io.emit('call-log:updated', doc);
-    const hangupTarget = '69cbe51d23b7058c5d79426d'; // TODO: revert to agent_id after testing
-    io.to(`user:${hangupTarget}`).emit('call:hangup', doc);
+    if (shouldEmitHangup(payload.dialstatus, payload.direction)) {
+      const hangupTarget = '69cbe51d23b7058c5d79426d'; // TODO: revert to agent_id after testing
+      io.to(`user:${hangupTarget}`).emit('call:hangup', doc);
+    }
   }
 
   logger.info('[MCube Webhook] On Hangup processed', {
