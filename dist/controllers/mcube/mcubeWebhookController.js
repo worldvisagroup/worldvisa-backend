@@ -123,8 +123,9 @@ async function processOnCall(payload, req) {
     const io = req.app.get('io');
     if (io && doc) {
         io.emit('call-log:new', doc);
-        const inboundTarget = '69cbe51d23b7058c5d79426d'; // TODO: revert to agent_id after testing
-        io.to(`user:${inboundTarget}`).emit('call:inbound', doc);
+        if (agent_id) {
+            io.to(`user:${agent_id}`).emit('call:inbound', doc);
+        }
     }
     logger.info('[MCube Webhook] On Call stored', {
         call_id: payload.callid,
@@ -174,9 +175,8 @@ async function processHangup(payload, req) {
     const io = req.app.get('io');
     if (io && doc) {
         io.emit('call-log:updated', doc);
-        if (shouldEmitHangup(payload.dialstatus, payload.direction)) {
-            const hangupTarget = '69cbe51d23b7058c5d79426d'; // TODO: revert to agent_id after testing
-            io.to(`user:${hangupTarget}`).emit('call:hangup', doc);
+        if (agent_id && shouldEmitHangup(payload.dialstatus, payload.direction)) {
+            io.to(`user:${agent_id}`).emit('call:hangup', doc);
         }
     }
     logger.info('[MCube Webhook] On Hangup processed', {
