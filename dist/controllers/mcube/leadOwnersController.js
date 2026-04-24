@@ -38,18 +38,22 @@ async function getLeadOwnerByPhone(req, res) {
         const suffix = digits.slice(-9);
         const client = await DmsZohoClient
             .findOne({ phone: { $regex: `${suffix}$` } })
-            .select('lead_owner name phone')
+            .select('lead_owner name')
             .lean();
         if (!client) {
             res.status(404).json({ status: 'fail', message: 'No client found with that phone number' });
             return;
         }
+        const agent = await ZohoDmsUser
+            .findOne({ username: client.lead_owner })
+            .select('agent_number')
+            .lean();
         res.status(200).json({
             status: 'success',
             data: {
                 name: client.name,
                 lead_owner: client.lead_owner,
-                phone: client.phone,
+                phone: agent?.agent_number ?? null,
             },
         });
     }

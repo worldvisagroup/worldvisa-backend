@@ -41,7 +41,7 @@ export async function getLeadOwnerByPhone(req: Request, res: Response): Promise<
 
     const client = await DmsZohoClient
       .findOne({ phone: { $regex: `${suffix}$` } })
-      .select('lead_owner name phone')
+      .select('lead_owner name')
       .lean();
 
     if (!client) {
@@ -49,12 +49,17 @@ export async function getLeadOwnerByPhone(req: Request, res: Response): Promise<
       return;
     }
 
+    const agent = await ZohoDmsUser
+      .findOne({ username: client.lead_owner })
+      .select('agent_number')
+      .lean();
+
     res.status(200).json({
       status: 'success',
       data: {
         name:       client.name,
         lead_owner: client.lead_owner,
-        phone:      client.phone,
+        phone:      agent?.agent_number ?? null,
       },
     });
   } catch (err: any) {
