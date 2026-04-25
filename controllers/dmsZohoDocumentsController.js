@@ -873,13 +873,34 @@ exports.moveFile = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Document not found.' });
     }
 
-    await moveFileToSpecificFolder(document.workdrive_file_id, destinationOverride);
+    let movedFileId;
+
+    if (document.storage_type === 'r2' && document.r2_key) {
+      const clientData = await DmsZohoClient.findOne({ lead_id: document.record_id }).select('name').lean();
+      const clientName = clientData?.name || document.record_id;
+      movedFileId = await moveToDeleted(
+        document.r2_key,
+        clientName,
+        document.record_id,
+        document.document_category,
+        document.document_name,
+        document.file_name
+      );
+    } else if (document.workdrive_file_id) {
+      await moveFileToSpecificFolder(document.workdrive_file_id, destinationOverride);
+      movedFileId = document.workdrive_file_id;
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Document has no file reference (no r2_key or workdrive_file_id).',
+      });
+    }
 
     const movedPayload = {
       document_id: document._id,
       record_id: document.record_id,
       file_name: document.file_name,
-      file_id: document.workdrive_file_id,
+      file_id: movedFileId,
       moved_by: movedBy,
       move_kind: 'full_move',
     };
