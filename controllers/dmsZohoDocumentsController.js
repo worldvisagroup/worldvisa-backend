@@ -263,7 +263,15 @@ exports.updateDocument = async (req, res) => {
 
     // Archive the existing file
     if (document.storage_type === 'r2' && document.r2_key) {
-      await moveToDeleted(document.r2_key, reuploadClientName, document.record_id, document.document_category, document.document_name, document.file_name);
+      try {
+        await moveToDeleted(document.r2_key, reuploadClientName, document.record_id, document.document_category, document.document_name, document.file_name);
+      } catch (archiveErr) {
+        if (archiveErr.Code === 'NoSuchKey' || archiveErr.name === 'NoSuchKey') {
+          console.warn(`R2 archive skipped — source key not found (already deleted?): ${document.r2_key}`);
+        } else {
+          throw archiveErr;
+        }
+      }
     } else if (document.workdrive_file_id) {
       try {
         await moveFileToSpecificFolder(document.workdrive_file_id);
