@@ -6,7 +6,7 @@ const dmsZohoSampleDocument = require("../models/dmsZohoSampleDocument");
 const mongoose = require('mongoose');
 const { STAFF_ROLES } = require('../constants/roles');
 const { getdmsZohoLeadFolderId, uploadFileToWorkDrive, deleteFileFromWorkDrive, getFileLinks, createFileLinks, downloadAllFilesInZip, moveFileToSpecificFolder } = require('../utils/dmsZohoWorkDrive');
-const { buildDocumentKey, uploadDocument, moveToDeleted } = require('../services/r2DocumentStorage');
+const { buildDocumentKey, buildVersionedDocumentKey, uploadDocument, moveToDeleted } = require('../services/r2DocumentStorage');
 const multer = require('multer');
 const { zohoRequest } = require('./zohoDms/zohoApi');
 const { addNotificationAndEmit } = require('./helper/service/notifications');
@@ -292,7 +292,13 @@ exports.updateDocument = async (req, res) => {
 
     const uploadPromises = req.files.map(async (file) => {
       const { originalname, buffer, mimetype } = file;
-      const r2Key = buildDocumentKey(reuploadClientName, document.record_id, document_category, document_name, originalname);
+      const r2Key = buildVersionedDocumentKey(
+        reuploadClientName,
+        document.record_id,
+        document_category,
+        document_name,
+        originalname
+      );
       await uploadDocument(r2Key, buffer, mimetype);
 
       // Update document details

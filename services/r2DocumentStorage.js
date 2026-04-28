@@ -2,6 +2,7 @@
 
 const path = require('path');
 const { uploadToR2, copyInR2, deleteFromR2 } = require('./r2Client');
+const crypto = require('crypto');
 
 // ─── Key builders ─────────────────────────────────────────────────────────────
 
@@ -20,6 +21,13 @@ function buildFileName(documentName, originalFileName) {
   return `${sanitizeSegment(documentName || 'document')}${ext}`;
 }
 
+function buildVersionedFileName(documentName, originalFileName) {
+  const ext = path.extname(originalFileName || '').toLowerCase();
+  const base = sanitizeSegment(documentName || 'document');
+  const suffix = crypto.randomBytes(6).toString('hex');
+  return `${base}-${suffix}${ext}`;
+}
+
 /**
  * "visa-applications/{safe-clientname}-{leadId}"
  */
@@ -36,6 +44,17 @@ function buildDocumentKey(clientName, leadId, category, documentName, originalFi
   const folder = buildClientFolder(clientName, leadId);
   const safeCategory = sanitizeSegment(category || 'uncategorised');
   const fileName = buildFileName(documentName, originalFileName);
+  return `${folder}/${safeCategory}/${fileName}`;
+}
+
+/**
+ * Like buildDocumentKey, but produces a unique filename per upload.
+ * Useful for re-uploads so public URLs never serve cached older bytes.
+ */
+function buildVersionedDocumentKey(clientName, leadId, category, documentName, originalFileName) {
+  const folder = buildClientFolder(clientName, leadId);
+  const safeCategory = sanitizeSegment(category || 'uncategorised');
+  const fileName = buildVersionedFileName(documentName, originalFileName);
   return `${folder}/${safeCategory}/${fileName}`;
 }
 
@@ -74,6 +93,7 @@ module.exports = {
   sanitizeSegment,
   buildClientFolder,
   buildDocumentKey,
+  buildVersionedDocumentKey,
   buildDeletedDocumentKey,
   uploadDocument,
   moveToDeleted,

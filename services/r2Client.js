@@ -85,6 +85,7 @@ async function uploadToR2(key, body, contentType = 'application/octet-stream') {
       Key:         key,
       Body:        body,
       ContentType: contentType,
+      CacheControl: 'public, max-age=31536000, immutable',
     })
   );
 
