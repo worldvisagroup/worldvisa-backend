@@ -59,13 +59,25 @@ function buildVersionedDocumentKey(clientName, leadId, category, documentName, o
 }
 
 /**
- * "visa-applications/{safe-clientname}-{leadId}/deleted-documents/{safe-category}/{document-name}.ext"
+ * "visa-applications/{safe-clientname}-{leadId}/deleted-documents/{safe-category}/{document-name}-{timestamp}.ext"
+ * Timestamp suffix ensures repeated rejections of the same document type never overwrite each other.
  */
 function buildDeletedDocumentKey(clientName, leadId, category, documentName, originalFileName) {
   const folder = buildClientFolder(clientName, leadId);
   const safeCategory = sanitizeSegment(category || 'uncategorised');
-  const fileName = buildFileName(documentName, originalFileName);
-  return `${folder}/deleted-documents/${safeCategory}/${fileName}`;
+  const ext = path.extname(originalFileName || '').toLowerCase();
+  const base = sanitizeSegment(documentName || 'document');
+  const ts = Date.now();
+  return `${folder}/deleted-documents/${safeCategory}/${base}-${ts}${ext}`;
+}
+
+/**
+ * Build the public-facing URL for an R2 key.
+ * Falls back to returning the raw key when R2_PUBLIC_URL is not configured.
+ */
+function buildDeletedFileUrl(key) {
+  if (!process.env.R2_PUBLIC_URL) return key;
+  return `${process.env.R2_PUBLIC_URL.replace(/\/$/, '')}/${key}`;
 }
 
 // ─── Operations ───────────────────────────────────────────────────────────────
@@ -95,6 +107,7 @@ module.exports = {
   buildDocumentKey,
   buildVersionedDocumentKey,
   buildDeletedDocumentKey,
+  buildDeletedFileUrl,
   uploadDocument,
   moveToDeleted,
 };
