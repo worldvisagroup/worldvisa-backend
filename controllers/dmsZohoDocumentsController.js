@@ -261,11 +261,18 @@ exports.updateDocument = async (req, res) => {
     const reuploadClientData = await DmsZohoClient.findOne({ lead_id: document.record_id }).select('name record_type').lean();
     const reuploadClientName = reuploadClientData?.name || document.record_id;
 
-    // Archive the existing file — skip if already moved to deleted-documents during rejection
-    const alreadyArchived = document.r2_key && document.r2_key.includes('deleted-documents');
-    if (!alreadyArchived && document.storage_type === 'r2' && document.r2_key) {
+    // Archive the existing file
+    const oldR2Key = document.r2_key;
+    if (document.storage_type === 'r2' && document.r2_key) {
       try {
-        await moveToDeleted(document.r2_key, reuploadClientName, document.record_id, document.document_category, document.document_name, document.file_name);
+        const deletedKey = await moveToDeleted(document.r2_key, reuploadClientName, document.record_id, document.document_category, document.document_name, document.file_name);
+        // Patch any rejection comments that still link to the old key so they remain accessible
+        const deletedUrl = buildDeletedFileUrl(deletedKey);
+        document.comments.forEach(comment => {
+          if (comment.document_link && comment.document_link.includes(oldR2Key)) {
+            comment.document_link = deletedUrl;
+          }
+        });
       } catch (archiveErr) {
         if (archiveErr.Code === 'NoSuchKey' || archiveErr.name === 'NoSuchKey') {
           console.warn(`R2 archive skipped — source key not found (already deleted?): ${document.r2_key}`);
@@ -416,40 +423,6 @@ exports.updateStatus = async (req, res) => {
     document.history.push({ status, changed_by: changed_by || 'Unknown' });
     await document.save();
 
-    // Archive the R2 file immediately on rejection so the snapshot URL stays valid
-    // even after the client re-uploads (which would otherwise move the file again).
-    let rejection_snapshot_url = null;
-    if (
-      status === 'rejected' &&
-      document.storage_type === 'r2' &&
-      document.r2_key &&
-      !document.r2_key.includes('deleted-documents')
-    ) {
-      try {
-        const _rejectClientData = await DmsZohoClient.findOne({ lead_id: document.record_id }).select('name').lean();
-        const _rejectClientName = _rejectClientData?.name || document.record_id;
-        const deletedKey = await moveToDeleted(
-          document.r2_key,
-          _rejectClientName,
-          document.record_id,
-          document.document_category,
-          document.document_name,
-          document.file_name
-        );
-        document.r2_key = deletedKey;
-        document.document_link = buildDeletedFileUrl(deletedKey);
-        await document.save();
-        rejection_snapshot_url = document.document_link;
-      } catch (archiveErr) {
-        if (archiveErr.Code !== 'NoSuchKey' && archiveErr.name !== 'NoSuchKey') {
-          require('../utils/logger').error('[updateStatus] R2 archive on rejection failed', {
-            error: archiveErr.message,
-            docId,
-          });
-        }
-      }
-    }
-
     const timelineMessage = reject_message
       ? `Document status updated to: ${capitalizeFn(status)} by ${capitalizeFn(changed_by)
       } with this reject message: ${reject_message} `
@@ -542,7 +515,7 @@ exports.updateStatus = async (req, res) => {
       }
     }
 
-    res.status(200).json({ success: true, data: document, rejection_snapshot_url });
+    res.status(200).json({ success: true, data: document });
   } catch (error) {
 
     res.status(500).json({ success: false, message: 'Failed to update document status.' });
