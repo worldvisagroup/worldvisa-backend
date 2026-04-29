@@ -101,15 +101,15 @@ export function Section8_WorldVisaTimeline() {
         </h4>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10pt' }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '14pt', fontWeight: 700, color: '#059669' }}>95%</div>
+            <div style={{ fontSize: '14pt', fontWeight: 700, color: '#059669' }}>98%</div>
             <div style={{ fontSize: '10pt', fontWeight: 600, color: '#064E3B', textTransform: 'uppercase' }}>Success Rate</div>
           </div>
           <div style={{ textAlign: 'center', borderLeft: '0.5pt solid #A7F3D0', borderRight: '0.5pt solid #A7F3D0' }}>
-            <div style={{ fontSize: '14pt', fontWeight: 700, color: '#059669' }}>5,000+</div>
+            <div style={{ fontSize: '14pt', fontWeight: 700, color: '#059669' }}>150k+</div>
             <div style={{ fontSize: '10pt', fontWeight: 600, color: '#064E3B', textTransform: 'uppercase' }}>Clients Served</div>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '14pt', fontWeight: 700, color: '#059669' }}>15+</div>
+            <div style={{ fontSize: '14pt', fontWeight: 700, color: '#059669' }}>21+</div>
             <div style={{ fontSize: '10pt', fontWeight: 600, color: '#064E3B', textTransform: 'uppercase' }}>Years Experience</div>
           </div>
         </div>

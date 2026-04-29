@@ -10,7 +10,7 @@ const STATIC_REGULATORY_ADVISOR_DATA = {
     sectionTitle: "Why Use a Regulated Advisor (MARA)",
     maraNumber: "MARA 1800119",
     agentCredentials: [
-        "Graduate Diploma in Australian Migration Law",
+        "Prepares comprehensive visa application documents. Replace it with Reviews comprehensive visa application documents.",
         "Member of Migration Institute of Australia (MIA)",
         "21+ years experience in skilled migration"
     ],

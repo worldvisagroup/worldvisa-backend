@@ -16,8 +16,8 @@ export function TableOfContents({ sections, countries }: TableOfContentsProps) {
   const defaultSections: TOCSection[] = [
     { section: '1', title: 'Executive Summary', page: '3' },
     { section: '2', title: 'Professional Profile Assessment', page: '5' },
-    { section: '3', title: 'Visa Pathways Without Job Offer', page: '7' },
-    { section: '4', title: 'Global Skill Demand Mapping', page: '11' },
+    { section: '3', title: 'Visa Pathways Analysis', page: '7' },
+    { section: '4', title: 'Global Skill Demand Mapping - Where Your Skills Are in Demand', page: '11' },
     { section: '5', title: 'Top 20 Target Employers', page: '13' },
     { section: '6', title: 'City-wise Salary Variation', page: '15' },
     { section: '7', title: 'End-to-End Timeline', page: '17' },

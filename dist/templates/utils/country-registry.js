@@ -65,13 +65,13 @@ exports.COUNTRY_REGISTRY = {
             },
             {
                 id: "3",
-                title: "Visa Pathways Without Job Offer",
+                title: "Visa Pathways",
                 component: Section3_VisaPathways_1.Section3_VisaPathways,
                 dataKey: "visaPathways",
             },
             {
                 id: "4",
-                title: "Global Skill Demand Mapping",
+                title: "Global Skill Demand Mapping - Where Your Skills Are in Demand'",
                 component: Section4_SkillDemand_1.Section4_SkillDemand,
                 dataKey: "skillDemand",
             },
@@ -235,7 +235,7 @@ exports.COUNTRY_REGISTRY = {
             },
             {
                 id: "7",
-                title: "About WorldVisa",
+                title: "About Germany PR & Work Visa with WorldVisa",
                 component: Section7_AboutWorldVisa_1.Section7_AboutWorldVisa,
                 dataKey: "aboutWorldVisa",
             },

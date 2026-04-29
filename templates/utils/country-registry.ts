@@ -83,13 +83,13 @@ export const COUNTRY_REGISTRY: Record<string, CountryConfig> = {
          },
          {
             id: "3",
-            title: "Visa Pathways Without Job Offer",
+            title: "Visa Pathways",
             component: AUS_Section3,
             dataKey: "visaPathways",
          },
          {
             id: "4",
-            title: "Global Skill Demand Mapping",
+            title: "Global Skill Demand Mapping - Where Your Skills Are in Demand'",
             component: AUS_Section4,
             dataKey: "skillDemand",
          },
@@ -257,7 +257,7 @@ export const COUNTRY_REGISTRY: Record<string, CountryConfig> = {
          },
          {
             id: "7",
-            title: "About WorldVisa",
+            title: "About Germany PR & Work Visa with WorldVisa",
             component: GER_Section7,
             dataKey: "aboutWorldVisa",
          },
