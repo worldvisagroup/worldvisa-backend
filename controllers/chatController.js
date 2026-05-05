@@ -7,6 +7,7 @@ const chatAuthService = require('../services/chatAuthService');
 const presenceService = require('../services/presenceService');
 const { uploadToR2 } = require('../services/r2Client');
 const { addNotificationAndEmit } = require('./helper/service/notifications');
+const { getChatReminderQueue } = require('../queues/chatReminderQueue');
 const logger = require('../utils/logger');
 const mongoose = require('mongoose');
 
@@ -385,6 +386,15 @@ exports.sendMessage = async (req, res) => {
     conv.lastMessageAt = msg.createdAt;
     await conv.save();
 
+    // Increment support_ratio when staff replies in a conversation that has clients (fire-and-forget)
+    if (actor.type === 'staff' && conv.participants.some(p => p.type === 'client')) {
+      const increment = parseInt(process.env.CHAT_REPLY_RATIO_INCREMENT || '2', 10);
+      ZohoDmsUser.updateOne(
+        { _id: actor.id },
+        [{ $set: { support_ratio: { $min: [100, { $add: [{ $ifNull: ['$support_ratio', 100] }, increment] }] } } }]
+      ).catch(() => {});
+    }
+
     // Update last_communication_activity for client participants (fire-and-forget)
     const clientParticipants = conv.participants.filter(p => p.type === 'client');
     if (clientParticipants.length) {
@@ -441,6 +451,24 @@ exports.sendMessage = async (req, res) => {
       logger.warn('Chat notifications error', {
         conversationId: conv._id,
         error: notifErr?.message,
+      });
+    }
+
+    // Schedule unanswered-message reminder chain when a client sends a message (fire-and-forget)
+    if (actor.type === 'client' && conv.participants.some(p => p.type === 'staff')) {
+      setImmediate(async () => {
+        try {
+          const queue = getChatReminderQueue();
+          const delay = parseInt(process.env.CHAT_REMINDER_DELAY_1_MS || '900000', 10);
+          const jobId = `chat-reminder:${conv._id}:r1:${msg._id}`;
+          await queue.add(
+            'send-reminder',
+            { conversationId: conv._id.toString(), triggerMessageId: msg._id.toString(), reminderCount: 1 },
+            { delay, jobId }
+          );
+        } catch (err) {
+          logger.warn('[Chat] Failed to enqueue reminder', { conversationId: conv._id, error: err?.message });
+        }
       });
     }
 

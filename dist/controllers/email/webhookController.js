@@ -16,7 +16,7 @@ async function invalidateUnreadCache() {
     }
     catch { /* non-fatal */ }
 }
-async function processInboundEmail(emailId, eventData) {
+async function processInboundEmail(emailId, eventData, app) {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey)
         throw new Error('RESEND_API_KEY not set');
@@ -131,7 +131,7 @@ async function processInboundEmail(emailId, eventData) {
             setImmediate(async () => {
                 try {
                     const DmsZohoClient = require('../../models/dmsZohoClient');
-                    const client = await DmsZohoClient.findOne({ email: fromEmail }).select('lead_id name').lean();
+                    const client = await DmsZohoClient.findOne({ email: fromEmail }).select('lead_id name lead_owner').lean();
                     if (client?.lead_id) {
                         addActivityLog({
                             lead_id: client.lead_id,
@@ -141,6 +141,31 @@ async function processInboundEmail(emailId, eventData) {
                             actor_name: client.name ?? fromEmail,
                             metadata: { subject: eventData.subject ?? null, from: fromEmail, email_id: emailId },
                         });
+                        // Notify the lead owner (staff) that their client sent an email (fire-and-forget)
+                        if (client.lead_owner && app) {
+                            setImmediate(async () => {
+                                try {
+                                    const ZohoDmsUser = require('../../models/zohoDmsUser');
+                                    const { addNotificationAndEmit } = require('../helper/service/notifications');
+                                    const staffUser = await ZohoDmsUser.findOne({ username: client.lead_owner }).select('_id').lean();
+                                    if (staffUser) {
+                                        await addNotificationAndEmit({
+                                            req: { app },
+                                            userId: staffUser._id,
+                                            title: 'New email from client',
+                                            message: `${client.name ?? fromEmail} sent an email: "${eventData.subject ?? '(no subject)'}"`,
+                                            type: 'info',
+                                            category: 'general',
+                                            source: 'general',
+                                            link: '/v2/inbox',
+                                        });
+                                    }
+                                }
+                                catch (notifErr) {
+                                    logger.warn('[Email Webhook] Lead owner notification failed', { error: notifErr.message });
+                                }
+                            });
+                        }
                     }
                 }
                 catch { /* non-fatal */ }
@@ -200,7 +225,7 @@ async function handleResendWebhook(req, res) {
     logger.info('[Email Webhook] Event received', { type, email_id: emailId });
     if (type === 'email.received' && emailId) {
         res.status(200).json({ received: true });
-        processInboundEmail(emailId, data).catch((err) => logger.error('[Email Webhook] processInboundEmail failed', {
+        processInboundEmail(emailId, data, req.app).catch((err) => logger.error('[Email Webhook] processInboundEmail failed', {
             email_id: emailId,
             error: err.message,
         }));

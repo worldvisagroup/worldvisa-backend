@@ -63,6 +63,7 @@ const { startCleanupCron } = require('./utils/zipCleanupCron');
 
 // Email Notification Worker and Batch Aggregator
 const { createWorker: createEmailWorker } = require('./workers/emailWorker');
+const { createWorker: createChatReminderWorker } = require('./workers/chatReminderWorker');
 const { startBatchAggregator } = require('./workers/emailBatchAggregator');
 
 // FCM Notifications
@@ -79,6 +80,7 @@ const { ensureIndex } = require('./services/opensearchService');
 let zipExportWorker = null;
 let emailWorker = null;
 let mongoSyncWorker = null;
+let chatReminderWorker = null;
 
 let aiJobOpportunitiesRouter = null;
 try {
@@ -132,6 +134,18 @@ if (redis && process.env.DISABLE_MONGO_SYNC_WORKER !== 'true') {
       logger.info('[MongoSync] Worker initialized');
     } catch (error) {
       logger.error('Failed to start mongo sync worker', { error: error.message });
+    }
+  });
+}
+
+// Initialize Chat Reminder worker when Redis is ready
+if (redis && process.env.DISABLE_CHAT_REMINDER_WORKER !== 'true') {
+  redis.on('ready', () => {
+    try {
+      chatReminderWorker = createChatReminderWorker(app);
+      logger.info('[Chat Reminder] Worker initialized');
+    } catch (error) {
+      logger.error('Failed to start chat reminder worker', { error: error.message });
     }
   });
 }
@@ -592,6 +606,14 @@ process.on('SIGTERM', async () => {
     }
   } catch (error) {
     logger.error('Error closing mongo sync worker', { error: error.message });
+  }
+  try {
+    if (chatReminderWorker) {
+      await chatReminderWorker.close();
+      logger.info('Chat reminder worker closed successfully');
+    }
+  } catch (error) {
+    logger.error('Error closing chat reminder worker', { error: error.message });
   }
   process.exit(0);
 });
