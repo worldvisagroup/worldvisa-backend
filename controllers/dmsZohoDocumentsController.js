@@ -19,7 +19,7 @@ const {
   SEARCH_TERM_MAX_LENGTH,
   SERVICE_FINALIZED_PERMANENT_RESIDENCY,
 } = require('./helper/constants');
-const { searchApplications } = require('../services/opensearchService');
+const { searchApplications } = require('../services/mongoSearchService');
 const DEFAULT_GLOBAL_SEARCH_LIMIT = 10;
 const { updateRecentActivityInMongo, addToTimeline, addMovedFiles } = require('./helper/service/functions');
 const { addActivityLog, getCompanyLabel } = require('./helper/service/activityLog');

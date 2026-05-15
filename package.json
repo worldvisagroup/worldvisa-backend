@@ -23,7 +23,6 @@
         "@langchain/core": "^1.1.40",
         "@langchain/langgraph": "^1.2.8",
         "@langchain/mcp-adapters": "^1.1.3",
-        "@opensearch-project/opensearch": "^3.5.1",
         "@sentry/node": "^10.38.0",
         "@supabase/supabase-js": "^2.39.7",
         "archiver": "^7.0.1",
