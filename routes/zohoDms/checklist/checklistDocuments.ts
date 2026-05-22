@@ -40,7 +40,7 @@ const upload = multer({
   },
 });
 
-const router = Router();
+const router: Router = Router();
 
 const validate = (req: Request, res: Response, next: NextFunction): void => {
   const errors = validationResult(req);

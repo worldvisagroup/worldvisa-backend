@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { clerkProtect } from '../middleware/clerk/clerkAuth';
 import { getBulkPresence } from '../services/presenceService';
 
-const router = Router();
+const router: Router = Router();
 
 /**
  * POST /api/zoho_dms/presence/bulk

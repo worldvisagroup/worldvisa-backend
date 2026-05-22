@@ -7,7 +7,7 @@ import { validateMcubeWebhook } from '../middleware/mcube/validateMcubeWebhook';
 
 const { protect } = require('../middleware/clerk/clerkAuth');
 
-const router = Router();
+const router: Router = Router();
 
 // ── Webhook (no auth — validated via shared secret header) ─────────────────
 router.post('/webhook/inbound', validateMcubeWebhook, handleInboundWebhook);

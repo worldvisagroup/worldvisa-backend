@@ -8,7 +8,7 @@ import * as crud                from '../controllers/email/emailCrudController';
 
 const { restrictToAdmin } = require('../controllers/zohoDmsAuthController');
 
-const router = Router();
+const router: Router = Router();
 
 const upload = multer({
   storage: multer.memoryStorage(),

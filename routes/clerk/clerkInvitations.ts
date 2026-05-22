@@ -3,7 +3,7 @@ import { bootstrapInviteUser, inviteUser, revokeInvitation } from '../../control
 
 import { protect } from '../../middleware/clerk/clerkAuth';
 
-const router = Router();
+const router: Router = Router();
 
 router.post('/bootstrap-invite', bootstrapInviteUser);
 
