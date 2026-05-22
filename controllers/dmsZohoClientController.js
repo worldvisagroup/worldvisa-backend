@@ -34,6 +34,12 @@ const SIGNUP_CONFLICT_EMAIL = {
   message: 'An account with this email already exists.',
 };
 
+const SIGNUP_CONFLICT_PHONE = {
+  field: 'phone',
+  code: 'PHONE_ALREADY_EXISTS',
+  message: 'An account with this phone number already exists.',
+};
+
 /** Maps Mongo duplicate key (11000) to the same conflict shape as the pre-insert check. */
 function signupConflictFromDuplicateKey(error) {
   const keyPattern = error.keyPattern || {};
@@ -135,14 +141,15 @@ exports.signup = async (req, res) => {
     }
 
     const conflicts = await DmsZohoClient.find({
-      $or: [{ email: normalizedEmail }, { lead_id }],
+      $or: [{ email: normalizedEmail }, { lead_id }, { phone: normalizedPhone }],
     })
-      .select('email lead_id')
+      .select('email lead_id phone')
       .lean();
 
     if (conflicts.length > 0) {
-      const leadTaken = conflicts.some((c) => c.lead_id === lead_id);
+      const leadTaken  = conflicts.some((c) => c.lead_id === lead_id);
       const emailTaken = conflicts.some((c) => c.email === normalizedEmail);
+      const phoneTaken = conflicts.some((c) => c.phone === normalizedPhone);
       if (leadTaken) {
         return res.status(409).json({
           status: 'fail',
@@ -153,6 +160,12 @@ exports.signup = async (req, res) => {
         return res.status(409).json({
           status: 'fail',
           ...SIGNUP_CONFLICT_EMAIL,
+        });
+      }
+      if (phoneTaken) {
+        return res.status(409).json({
+          status: 'fail',
+          ...SIGNUP_CONFLICT_PHONE,
         });
       }
     }
@@ -180,22 +193,15 @@ exports.signup = async (req, res) => {
       metadata:      { record_type, lead_owner, email: normalizedEmail },
     });
 
-    let inviteWarning = null;
-    try {
-      await inviteClientAfterSignup(newClient._id, newClient.email);
-    } catch (inviteErr) {
-      console.error('[signup] Clerk invitation failed:', inviteErr.message);
-      inviteWarning = 'Client created but Clerk invitation could not be sent. Please invite manually.';
-    }
+    inviteClientAfterSignup(newClient._id, newClient.email).catch((inviteErr) => {
+      console.error('[signup] Clerk invitation failed (background):', inviteErr.message);
+    });
 
     newClient.password = undefined;
 
     return res.status(201).json({
       status: 'success',
-      data: {
-        client: newClient,
-        ...(inviteWarning && { warning: inviteWarning }),
-      },
+      data: { client: newClient },
     });
   } catch (error) {
     if (error.name === 'ValidationError') {
