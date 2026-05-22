@@ -4,13 +4,9 @@ const helperFunction = require("../utils/helperFunction");
 const { capitalize } = require("lodash");
 const leadsControllerNew = require("./leadControllerNew");
 const helperFunctions = require("../utils/helperFunction");
-const fs = require('fs');
-const path = require('path');
 require("dotenv").config();
 
 const fetchToken = helperFunctions.fetchToken;
-const supabase = require("../controllers/Supabase");
-const whatsapp = require("../controllers/Whatsapp");
 
 const getConsoleParsedData = (sendWatiTemplate) => {
   const consoleData = {
@@ -146,40 +142,6 @@ const sendAssessmentReport = async (req, res) => {
 
 };
 
-const sendWatiMessageWithPdf = async (apiData) => {
-  try {
-    const pdfPath = path.join(__dirname, '../Images/subclass-462-eligible.pdf');
-    const pdfBuffer = fs.readFileSync(pdfPath);
-
-    const uploadedFileData = await supabase.uploadFile(
-      apiData.data[0]["Email"],
-      `Subclass_462_Assessment_Report_${Math.random()}`,
-      pdfBuffer
-    );
-
-    const fileLink = await supabase.getPublicUrl(
-      uploadedFileData.path
-    );
-
-    const filePublicUrl = fileLink.publicUrl;
-
-    await whatsapp.SendWhatsappTemplate(
-      filePublicUrl,
-      apiData.data[0]["Last_Name"],
-      `${apiData.data[0]["countryCode"]}${apiData.data[0]["Phone"]}`,
-      apiData.data[0]["country_addressed"],
-      "visa_page_assessment_report"
-    );
-
-    setTimeout(() => {
-      console.log("deleted file after 9 seconds");
-      supabase.deleteFile(uploadedFileData.path);
-    }, 9000);
-  } catch (err) {
-    console.log("Unable to store the pdf", err);
-  }
-}
-
 const sendAssessmentReportWithPdf = async (req, res) => {
   const { eligibilityData, assessmentReport } = req.body;
 
@@ -198,9 +160,6 @@ const sendAssessmentReportWithPdf = async (req, res) => {
     const apiData = helperFunction.leadApiDataParser(eligibilityData, true);
     const updateApiData = helperFunction.leadsUpdateeLeadsApiDataParser(eligibilityData);
     let existingLeadId = undefined;
-
-    // Send wati message first
-    await sendWatiMessageWithPdf(apiData);
 
     existingLeadId = await leadsControllerNew.searchLeads("Leads", `phone=${apiData.data[0]["Phone"]}`, apiToken);
 

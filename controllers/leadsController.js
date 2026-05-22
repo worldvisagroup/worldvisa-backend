@@ -6,8 +6,6 @@ const australiaPositiveAssessment = require("../controllers/PositiveAssessment_A
 const australiaNegativeAssessment = require("../controllers/NegativeAssessment_Australia");
 const axios = require("axios");
 require("dotenv").config();
-const supabase = require("../controllers/Supabase");
-const whatsapp = require("../controllers/Whatsapp");
 const helperFunctions = require("../utils/helperFunction");
 
 const fetchToken = helperFunctions.fetchToken;
@@ -227,45 +225,16 @@ const createLeads = async (req, res) => {
             formData.append("file", pdfBuffer, "Assessment.pdf");
 
             if (leadId) {
-              const updateLead = await axios.post(
+              await axios.post(
                 `https://www.zohoapis.in/crm/v5/Leads/${leadId}/Attachments`,
                 formData,
                 {
                   headers: {
-                    ...formData.getHeaders(), // This will set the "Content-Type" header
+                    ...formData.getHeaders(),
                     Authorization: `Zoho-oauthtoken ${token}`,
                   },
                 }
               );
-              const attachmentId = updateLead.data.data[0].details.id;
-
-              try {
-                const uploadedFileData = await supabase.uploadFile(
-                  apiData.data[0]["Email"],
-                  attachmentId,
-                  pdfBuffer
-                );
-
-                const fileLink = await supabase.getPublicUrl(
-                  uploadedFileData.path
-                );
-
-                const filePublicUrl = fileLink.publicUrl;
-
-                await whatsapp.SendWhatsappTemplate(
-                  filePublicUrl,
-                  apiData.data[0]["Last_Name"],
-                  apiData.data[0]["Phone"],
-                  apiData.data[0]["Country_Finalised"]
-                );
-
-                setTimeout(() => {
-                  console.log("deleted file after 9 seconds");
-                  supabase.deleteFile(uploadedFileData.path);
-                }, 9000);
-              } catch (err) {
-                console.log("Unable to store the pdf", err);
-              }
             }
           }
         } catch (error) {
