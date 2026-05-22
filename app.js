@@ -11,10 +11,6 @@ const logger = require('./utils/logger');
 
 const server = http.createServer(app);
 
-server.on('connection', (socket) => {
-  console.log(`[TCP] connection from ${socket.remoteAddress}:${socket.remotePort}`);
-  socket.on('error', (err) => console.error(`[TCP] socket error from ${socket.remoteAddress}:`, err.message));
-});
 
 const { Server } = require("socket.io");
 const jwt = require('jsonwebtoken');
