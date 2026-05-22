@@ -1,0 +1,8 @@
+allowBuilds:
+  '@clerk/shared': true
+  '@firebase/util': true
+  esbuild: true
+  msgpackr-extract: true
+  protobufjs: true
+  sharp: true
+  tesseract.js: true

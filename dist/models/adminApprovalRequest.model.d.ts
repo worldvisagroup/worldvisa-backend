@@ -10,29 +10,29 @@ declare const adminApprovalRequestSchema: mongoose.Schema<any, mongoose.Model<an
     requestType: "field_change";
     leadId: string;
     fieldName: string;
-    currentValue: string;
     requestedValue: string;
     reason: string;
     requestedBy: string;
     requestedTo: string;
-    reviewedBy: string;
-    reviewedAt: NativeDate;
-    rejectionReason: string;
+    currentValue?: string | null | undefined;
+    reviewedBy?: string | null | undefined;
+    reviewedAt?: NativeDate | null | undefined;
+    rejectionReason?: string | null | undefined;
 } & mongoose.DefaultTimestampProps, mongoose.Document<unknown, {}, mongoose.FlatRecord<{
     recordType: "visa_application" | "spouse_skill_assessment";
     status: "rejected" | "pending" | "approved";
     requestType: "field_change";
     leadId: string;
     fieldName: string;
-    currentValue: string;
     requestedValue: string;
     reason: string;
     requestedBy: string;
     requestedTo: string;
-    reviewedBy: string;
-    reviewedAt: NativeDate;
-    rejectionReason: string;
-} & mongoose.DefaultTimestampProps>, {}, mongoose.ResolveSchemaOptions<{
+    currentValue?: string | null | undefined;
+    reviewedBy?: string | null | undefined;
+    reviewedAt?: NativeDate | null | undefined;
+    rejectionReason?: string | null | undefined;
+} & mongoose.DefaultTimestampProps>, {}, mongoose.MergeType<mongoose.DefaultSchemaOptions, {
     timestamps: true;
 }>> & mongoose.FlatRecord<{
     recordType: "visa_application" | "spouse_skill_assessment";
@@ -40,14 +40,14 @@ declare const adminApprovalRequestSchema: mongoose.Schema<any, mongoose.Model<an
     requestType: "field_change";
     leadId: string;
     fieldName: string;
-    currentValue: string;
     requestedValue: string;
     reason: string;
     requestedBy: string;
     requestedTo: string;
-    reviewedBy: string;
-    reviewedAt: NativeDate;
-    rejectionReason: string;
+    currentValue?: string | null | undefined;
+    reviewedBy?: string | null | undefined;
+    reviewedAt?: NativeDate | null | undefined;
+    rejectionReason?: string | null | undefined;
 } & mongoose.DefaultTimestampProps> & {
     _id: mongoose.Types.ObjectId;
 } & {
@@ -60,42 +60,42 @@ declare const AdminApprovalRequest: mongoose.Model<{
     requestType: "field_change";
     leadId: string;
     fieldName: string;
-    currentValue: string;
     requestedValue: string;
     reason: string;
     requestedBy: string;
     requestedTo: string;
-    reviewedBy: string;
-    reviewedAt: NativeDate;
-    rejectionReason: string;
+    currentValue?: string | null | undefined;
+    reviewedBy?: string | null | undefined;
+    reviewedAt?: NativeDate | null | undefined;
+    rejectionReason?: string | null | undefined;
 } & mongoose.DefaultTimestampProps, {}, {}, {}, mongoose.Document<unknown, {}, {
     recordType: "visa_application" | "spouse_skill_assessment";
     status: "rejected" | "pending" | "approved";
     requestType: "field_change";
     leadId: string;
     fieldName: string;
-    currentValue: string;
     requestedValue: string;
     reason: string;
     requestedBy: string;
     requestedTo: string;
-    reviewedBy: string;
-    reviewedAt: NativeDate;
-    rejectionReason: string;
+    currentValue?: string | null | undefined;
+    reviewedBy?: string | null | undefined;
+    reviewedAt?: NativeDate | null | undefined;
+    rejectionReason?: string | null | undefined;
 } & mongoose.DefaultTimestampProps, {}, {}> & {
     recordType: "visa_application" | "spouse_skill_assessment";
     status: "rejected" | "pending" | "approved";
     requestType: "field_change";
     leadId: string;
     fieldName: string;
-    currentValue: string;
     requestedValue: string;
     reason: string;
     requestedBy: string;
     requestedTo: string;
-    reviewedBy: string;
-    reviewedAt: NativeDate;
-    rejectionReason: string;
+    currentValue?: string | null | undefined;
+    reviewedBy?: string | null | undefined;
+    reviewedAt?: NativeDate | null | undefined;
+    rejectionReason?: string | null | undefined;
 } & mongoose.DefaultTimestampProps & {
     _id: mongoose.Types.ObjectId;
 } & {

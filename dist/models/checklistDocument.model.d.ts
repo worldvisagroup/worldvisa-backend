@@ -5,37 +5,37 @@ declare const checklistDocumentSchema: mongoose.Schema<any, mongoose.Model<any, 
     category: string;
     documentType: string;
     allowedDocument: number;
-    sampleDocumentUrl: string;
-    importantNote: string;
     format: string[];
     visaServiceType: "All" | "University Admission" | "Work Permit" | "Investor Migration" | "College Admission" | "Student Visa" | "Business Visa" | "Permanent Residency" | "Dependent Spouse" | "Intra Office" | "Visit Visa" | "Tourist Visa" | "Oppurtunity Card" | "Job Seeker Visa" | "Germany Opportunity Card" | "Parent Visa RRV" | "Australia GTI" | "Australia Parent Visa" | "Australia Child Visa" | "Australia Partner Visa" | "Parent Visa Australia SC804" | "Australia RRV" | "Child Visa Agreement Australia" | "Retainer Agreement JSV Germany" | "Parent Visa Australia retainer agreement" | "EOI & Visa Stage 2" | "Australia GTI Agreement" | "Temporary Dependent Visa" | "Australian Student Visa" | "Visitor Visa Rejection" | "Australia Work in Holiday Visa" | "Germany Family Re-Union Visa" | "Partner of Student Work Visa" | "Business Visitor Visa" | "Super Visa" | "SC 403 Visa Application" | "SC 400 Visa Application" | "National Innovation Visa(NIV)";
     state: "active" | "inactive";
-    addedBy: string;
-    updatedBy: string;
+    sampleDocumentUrl?: string | null | undefined;
+    importantNote?: string | null | undefined;
+    addedBy?: string | null | undefined;
+    updatedBy?: string | null | undefined;
 } & mongoose.DefaultTimestampProps, mongoose.Document<unknown, {}, mongoose.FlatRecord<{
     category: string;
     documentType: string;
     allowedDocument: number;
-    sampleDocumentUrl: string;
-    importantNote: string;
     format: string[];
     visaServiceType: "All" | "University Admission" | "Work Permit" | "Investor Migration" | "College Admission" | "Student Visa" | "Business Visa" | "Permanent Residency" | "Dependent Spouse" | "Intra Office" | "Visit Visa" | "Tourist Visa" | "Oppurtunity Card" | "Job Seeker Visa" | "Germany Opportunity Card" | "Parent Visa RRV" | "Australia GTI" | "Australia Parent Visa" | "Australia Child Visa" | "Australia Partner Visa" | "Parent Visa Australia SC804" | "Australia RRV" | "Child Visa Agreement Australia" | "Retainer Agreement JSV Germany" | "Parent Visa Australia retainer agreement" | "EOI & Visa Stage 2" | "Australia GTI Agreement" | "Temporary Dependent Visa" | "Australian Student Visa" | "Visitor Visa Rejection" | "Australia Work in Holiday Visa" | "Germany Family Re-Union Visa" | "Partner of Student Work Visa" | "Business Visitor Visa" | "Super Visa" | "SC 403 Visa Application" | "SC 400 Visa Application" | "National Innovation Visa(NIV)";
     state: "active" | "inactive";
-    addedBy: string;
-    updatedBy: string;
-} & mongoose.DefaultTimestampProps>, {}, mongoose.ResolveSchemaOptions<{
+    sampleDocumentUrl?: string | null | undefined;
+    importantNote?: string | null | undefined;
+    addedBy?: string | null | undefined;
+    updatedBy?: string | null | undefined;
+} & mongoose.DefaultTimestampProps>, {}, mongoose.MergeType<mongoose.DefaultSchemaOptions, {
     timestamps: true;
 }>> & mongoose.FlatRecord<{
     category: string;
     documentType: string;
     allowedDocument: number;
-    sampleDocumentUrl: string;
-    importantNote: string;
     format: string[];
     visaServiceType: "All" | "University Admission" | "Work Permit" | "Investor Migration" | "College Admission" | "Student Visa" | "Business Visa" | "Permanent Residency" | "Dependent Spouse" | "Intra Office" | "Visit Visa" | "Tourist Visa" | "Oppurtunity Card" | "Job Seeker Visa" | "Germany Opportunity Card" | "Parent Visa RRV" | "Australia GTI" | "Australia Parent Visa" | "Australia Child Visa" | "Australia Partner Visa" | "Parent Visa Australia SC804" | "Australia RRV" | "Child Visa Agreement Australia" | "Retainer Agreement JSV Germany" | "Parent Visa Australia retainer agreement" | "EOI & Visa Stage 2" | "Australia GTI Agreement" | "Temporary Dependent Visa" | "Australian Student Visa" | "Visitor Visa Rejection" | "Australia Work in Holiday Visa" | "Germany Family Re-Union Visa" | "Partner of Student Work Visa" | "Business Visitor Visa" | "Super Visa" | "SC 403 Visa Application" | "SC 400 Visa Application" | "National Innovation Visa(NIV)";
     state: "active" | "inactive";
-    addedBy: string;
-    updatedBy: string;
+    sampleDocumentUrl?: string | null | undefined;
+    importantNote?: string | null | undefined;
+    addedBy?: string | null | undefined;
+    updatedBy?: string | null | undefined;
 } & mongoose.DefaultTimestampProps> & {
     _id: mongoose.Types.ObjectId;
 } & {
@@ -46,35 +46,35 @@ declare const ChecklistDocument: mongoose.Model<{
     category: string;
     documentType: string;
     allowedDocument: number;
-    sampleDocumentUrl: string;
-    importantNote: string;
     format: string[];
     visaServiceType: "All" | "University Admission" | "Work Permit" | "Investor Migration" | "College Admission" | "Student Visa" | "Business Visa" | "Permanent Residency" | "Dependent Spouse" | "Intra Office" | "Visit Visa" | "Tourist Visa" | "Oppurtunity Card" | "Job Seeker Visa" | "Germany Opportunity Card" | "Parent Visa RRV" | "Australia GTI" | "Australia Parent Visa" | "Australia Child Visa" | "Australia Partner Visa" | "Parent Visa Australia SC804" | "Australia RRV" | "Child Visa Agreement Australia" | "Retainer Agreement JSV Germany" | "Parent Visa Australia retainer agreement" | "EOI & Visa Stage 2" | "Australia GTI Agreement" | "Temporary Dependent Visa" | "Australian Student Visa" | "Visitor Visa Rejection" | "Australia Work in Holiday Visa" | "Germany Family Re-Union Visa" | "Partner of Student Work Visa" | "Business Visitor Visa" | "Super Visa" | "SC 403 Visa Application" | "SC 400 Visa Application" | "National Innovation Visa(NIV)";
     state: "active" | "inactive";
-    addedBy: string;
-    updatedBy: string;
+    sampleDocumentUrl?: string | null | undefined;
+    importantNote?: string | null | undefined;
+    addedBy?: string | null | undefined;
+    updatedBy?: string | null | undefined;
 } & mongoose.DefaultTimestampProps, {}, {}, {}, mongoose.Document<unknown, {}, {
     category: string;
     documentType: string;
     allowedDocument: number;
-    sampleDocumentUrl: string;
-    importantNote: string;
     format: string[];
     visaServiceType: "All" | "University Admission" | "Work Permit" | "Investor Migration" | "College Admission" | "Student Visa" | "Business Visa" | "Permanent Residency" | "Dependent Spouse" | "Intra Office" | "Visit Visa" | "Tourist Visa" | "Oppurtunity Card" | "Job Seeker Visa" | "Germany Opportunity Card" | "Parent Visa RRV" | "Australia GTI" | "Australia Parent Visa" | "Australia Child Visa" | "Australia Partner Visa" | "Parent Visa Australia SC804" | "Australia RRV" | "Child Visa Agreement Australia" | "Retainer Agreement JSV Germany" | "Parent Visa Australia retainer agreement" | "EOI & Visa Stage 2" | "Australia GTI Agreement" | "Temporary Dependent Visa" | "Australian Student Visa" | "Visitor Visa Rejection" | "Australia Work in Holiday Visa" | "Germany Family Re-Union Visa" | "Partner of Student Work Visa" | "Business Visitor Visa" | "Super Visa" | "SC 403 Visa Application" | "SC 400 Visa Application" | "National Innovation Visa(NIV)";
     state: "active" | "inactive";
-    addedBy: string;
-    updatedBy: string;
+    sampleDocumentUrl?: string | null | undefined;
+    importantNote?: string | null | undefined;
+    addedBy?: string | null | undefined;
+    updatedBy?: string | null | undefined;
 } & mongoose.DefaultTimestampProps, {}, {}> & {
     category: string;
     documentType: string;
     allowedDocument: number;
-    sampleDocumentUrl: string;
-    importantNote: string;
     format: string[];
     visaServiceType: "All" | "University Admission" | "Work Permit" | "Investor Migration" | "College Admission" | "Student Visa" | "Business Visa" | "Permanent Residency" | "Dependent Spouse" | "Intra Office" | "Visit Visa" | "Tourist Visa" | "Oppurtunity Card" | "Job Seeker Visa" | "Germany Opportunity Card" | "Parent Visa RRV" | "Australia GTI" | "Australia Parent Visa" | "Australia Child Visa" | "Australia Partner Visa" | "Parent Visa Australia SC804" | "Australia RRV" | "Child Visa Agreement Australia" | "Retainer Agreement JSV Germany" | "Parent Visa Australia retainer agreement" | "EOI & Visa Stage 2" | "Australia GTI Agreement" | "Temporary Dependent Visa" | "Australian Student Visa" | "Visitor Visa Rejection" | "Australia Work in Holiday Visa" | "Germany Family Re-Union Visa" | "Partner of Student Work Visa" | "Business Visitor Visa" | "Super Visa" | "SC 403 Visa Application" | "SC 400 Visa Application" | "National Innovation Visa(NIV)";
     state: "active" | "inactive";
-    addedBy: string;
-    updatedBy: string;
+    sampleDocumentUrl?: string | null | undefined;
+    importantNote?: string | null | undefined;
+    addedBy?: string | null | undefined;
+    updatedBy?: string | null | undefined;
 } & mongoose.DefaultTimestampProps & {
     _id: mongoose.Types.ObjectId;
 } & {

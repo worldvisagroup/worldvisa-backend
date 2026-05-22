@@ -10,6 +10,12 @@ const rateLimit = require('express-rate-limit');
 const logger = require('./utils/logger');
 
 const server = http.createServer(app);
+
+server.on('connection', (socket) => {
+  console.log(`[TCP] connection from ${socket.remoteAddress}:${socket.remotePort}`);
+  socket.on('error', (err) => console.error(`[TCP] socket error from ${socket.remoteAddress}:`, err.message));
+});
+
 const { Server } = require("socket.io");
 const jwt = require('jsonwebtoken');
 const { registerPresenceHandlers } = require('./socket/presenceHandler');
@@ -174,6 +180,8 @@ mongoose.connection.on('reconnected', () => {
   console.log('🔄 MongoDB reconnected');
   logger.info('MongoDB reconnected');
 });
+
+app.set('trust proxy', 1);
 
 app.use(helmet({
   contentSecurityPolicy: false, // Needed for PDF generation
@@ -352,6 +360,16 @@ app.post('/api/email/webhook/resend', express.raw({ type: 'application/json' }),
 // Clerk webhook — text body required for Svix signature verification
 app.use('/webhook/clerk', express.text({ type: 'application/json' }), require('./routes/clerk/clerkWebhook'));
 
+// Early request logger — runs before clerkMiddleware so every request is captured
+app.use((req, res, next) => {
+  if (req.path === '/health') return next();
+  console.log(`API Call: ${req.method} ${req.originalUrl}`);
+  console.log('content-type:', req.headers['content-type']);
+  console.log('origin:', req.headers['origin']);
+  console.log('referer:', req.headers['referer']);
+  next();
+});
+
 app.use(express.json({ limit: '10mb' }));
 app.use(clerkMiddleware({ authorizedParties: AUTHORIZED_PARTIES }));
 app.use(auditLogger);
@@ -382,16 +400,6 @@ app.use((req, res, next) => {
 
 app.options('*', (req, res) => {
   res.status(200).end();
-});
-
-// Logging middleware (skip /health to avoid log noise from probes)
-app.use((req, res, next) => {
-  if (req.path === '/health') return next();
-  console.log(`API Call: ${req.method} ${req.originalUrl}`);
-  console.log('content-type:', req.headers['content-type']);
-  console.log('origin:', req.headers['origin']);
-  console.log('referer:', req.headers['referer']);
-  next();
 });
 
 app.get("/", async (req, res) => {
