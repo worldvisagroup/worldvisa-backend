@@ -4,7 +4,15 @@ const EmailNotification = require('../../models/emailNotification');
 const logger = require('../../utils/logger');
 
 
-const IMMEDIATE_TYPES = new Set(['document_rejected', 'checklist_created', 'checklist_updated', 'checklist_requested']);
+const IMMEDIATE_TYPES = new Set([
+  'document_rejected',
+  'checklist_created',
+  'checklist_updated',
+  'checklist_requested',
+  'checklist_reminder',
+  'language_test_expiry_warning',
+  'language_test_expiry_overdue',
+]);
 
 const DEDUPE_WINDOW_MS = 15 * 60 * 1000;
 

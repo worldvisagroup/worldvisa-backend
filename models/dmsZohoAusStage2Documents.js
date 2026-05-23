@@ -90,6 +90,10 @@ const dmsZohoAusStage2DocumentSchema = new Schema(
       type: Date,
       required: false,
     },
+    last_expiry_reminder_sent_at: {
+      type: Date,
+      default: null,
+    },
     language_assessing_body: {
       type: String,
       required: false,

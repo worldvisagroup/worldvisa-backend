@@ -32,6 +32,9 @@ const emailNotificationSchema = new mongoose.Schema(
         'checklist_requested',  // batched 60min → admin/lead owner
         'comment_by_client',    // batched 60min → admin/lead owner
         'review_requested',     // batched 30min → supervisor/master_admin
+        'checklist_reminder',           // immediate → client (cron, every 10 days)
+        'language_test_expiry_warning', // immediate → client + case officer (30d before, every 15d)
+        'language_test_expiry_overdue', // immediate → client + case officer (post-expiry, every 15d)
       ],
       required: true,
     },

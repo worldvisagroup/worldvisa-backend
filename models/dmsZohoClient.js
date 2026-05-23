@@ -61,6 +61,10 @@ const dmsZohoClientSchema = new mongoose.Schema({
       description: String
     },
   ],
+  last_checklist_reminder_sent_at: {
+    type: Date,
+    default: null,
+  },
   created_at: {
     type: Date,
     default: Date.now,

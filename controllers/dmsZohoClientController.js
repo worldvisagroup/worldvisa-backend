@@ -71,7 +71,7 @@ function buildApplicationPayload(body) {
 
   const strFields = [
     ['service_type',            'service_type'],
-    ['application_stage',       'application_stage'],
+    // ['application_stage',       'application_stage'],
     ['dms_application_status',  'dms_application_status'],
     ['qualified_country',       'qualified_country'],
     ['deadline_for_lodgment',   'deadline_for_lodgment'],

@@ -15,6 +15,9 @@ const adminActionSummaryTpl = require('../../emailTemplates/adminActionSummary')
 const clientActivitySummaryTpl = require('../../emailTemplates/clientActivitySummary');
 const reviewRequestedTpl = require('../../emailTemplates/reviewRequested');
 const checklistUpdatedTpl = require('../../emailTemplates/checklistUpdated');
+const checklistReminderTpl          = require('../../emailTemplates/checklistReminder');
+const languageTestExpiryWarningTpl  = require('../../emailTemplates/languageTestExpiryWarning');
+const languageTestExpiryOverdueTpl  = require('../../emailTemplates/languageTestExpiryOverdue');
 
 // Types that render via adminActionSummary (admin action → client)
 const ADMIN_ACTION_TYPES = new Set([
@@ -111,6 +114,24 @@ function renderTemplate(notification) {
       recipientName,
       leadId: entityParentId !== 'system' ? entityParentId : null,
     });
+  }
+
+  if (notificationType === 'checklist_reminder') {
+    return checklistReminderTpl.render({
+      recipientName,
+      missingDocuments: templateData?.missingDocuments ?? [],
+      leadId: entityParentId !== 'system' ? entityParentId : null,
+    });
+  }
+
+  if (notificationType === 'language_test_expiry_warning') {
+    const leadId = entityParentId !== 'system' ? entityParentId : null;
+    return languageTestExpiryWarningTpl.render({ recipientName, leadId, ...templateData });
+  }
+
+  if (notificationType === 'language_test_expiry_overdue') {
+    const leadId = entityParentId !== 'system' ? entityParentId : null;
+    return languageTestExpiryOverdueTpl.render({ recipientName, leadId, ...templateData });
   }
 
   if (notificationType === 'review_requested') {

@@ -72,6 +72,12 @@ const { startBatchAggregator } = require('./workers/emailBatchAggregator');
 const notificationsRouter = require('./routes/notifications');
 const { startFcmCleanupCron } = require('./utils/fcmCleanupCron');
 
+// Checklist Reminder Cron
+const { startChecklistReminderCron } = require('./workers/checklistReminderCron');
+
+// Stage 2 English Language Test Expiry Cron
+const { startStage2ExpiryReminderCron } = require('./workers/stage2ExpiryReminderCron');
+
 
 let zipExportWorker = null;
 let emailWorker = null;
@@ -287,6 +293,24 @@ mongoose
         startFcmCleanupCron();
       } catch (error) {
         logger.error('Failed to start FCM cleanup cron', { error: error.message });
+      }
+    }
+
+    if (process.env.DISABLE_CHECKLIST_REMINDER_CRON !== 'true') {
+      try {
+        startChecklistReminderCron();
+        logger.info('[Checklist Reminder] Cron started successfully');
+      } catch (error) {
+        logger.error('Failed to start checklist reminder cron', { error: error.message });
+      }
+    }
+
+    if (process.env.DISABLE_STAGE2_EXPIRY_CRON !== 'true') {
+      try {
+        startStage2ExpiryReminderCron();
+        logger.info('[Stage2 Expiry] Cron started successfully');
+      } catch (error) {
+        logger.error('Failed to start stage2 expiry reminder cron', { error: error.message });
       }
     }
   })
