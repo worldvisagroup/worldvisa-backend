@@ -5,10 +5,8 @@ const { base } = require('./base');
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://dms.worldvisagroup.com';
 
 function render(data) {
-  const { recipientName, leadId, clientName, documentName, expiryDate, daysUntilExpiry } = data;
-  const portalUrl = leadId
-    ? `${FRONTEND_URL}/v2/applications/${leadId}`
-    : `${FRONTEND_URL}/v2/applications`;
+  const { recipientName, leadId, clientName, documentName, expiryDate, daysUntilExpiry, caseOfficerEmail } = data;
+  const resolvedCaseOfficerEmail = caseOfficerEmail || process.env.EMAIL_FROM_AUSTRALIA || 'australia@worldvisa.in';
 
   const firstName = (recipientName || clientName || 'Applicant').split(' ')[0];
 
@@ -46,23 +44,23 @@ function render(data) {
       </tr>
     </table>
 
-    <p style="margin:0 0 28px 0;font-size:15px;color:#111111;line-height:1.6;">
-      Please arrange to sit your English language test and upload the updated result before the expiry date to avoid delays to your application.
+    <p style="margin:0 0 20px 0;font-size:15px;color:#111111;line-height:1.6;">
+      Please arrange to sit your English language test before the expiry date. Once you have your updated result, email it directly to your case officer so they can update your application file.
     </p>
 
     <!-- CTA -->
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:28px;">
       <tr>
         <td style="background-color:#000000;">
-          <a href="${portalUrl}" target="_blank" style="display:inline-block;padding:13px 28px;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;letter-spacing:0.3px;">
-            View Application
+          <a href="mailto:${resolvedCaseOfficerEmail}?subject=English%20Language%20Test%20-%20Updated%20Result%20-%20${encodeURIComponent(firstName)}" style="display:inline-block;padding:13px 28px;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;letter-spacing:0.3px;">
+            Email Updated Result to Case Officer
           </a>
         </td>
       </tr>
     </table>
 
     <p style="margin:0;font-size:14px;color:#555555;line-height:1.6;">
-      If you have already renewed your test or need assistance, please contact your visa consultant.
+      Send your updated test result to: <a href="mailto:${resolvedCaseOfficerEmail}" style="color:#000000;font-weight:700;">${resolvedCaseOfficerEmail}</a>
     </p>
   `;
 

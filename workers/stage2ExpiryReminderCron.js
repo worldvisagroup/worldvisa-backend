@@ -91,6 +91,7 @@ async function runStage2ExpiryReminders() {
           expiryDate: doc.expiry_at,
           daysUntilExpiry,
           leadId: doc.record_id,
+          caseOfficerEmail,
         };
 
         let sent = false;

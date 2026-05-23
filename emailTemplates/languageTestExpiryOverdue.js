@@ -5,10 +5,8 @@ const { base } = require('./base');
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://dms.worldvisagroup.com';
 
 function render(data) {
-  const { recipientName, leadId, clientName, documentName, expiryDate, daysUntilExpiry } = data;
-  const portalUrl = leadId
-    ? `${FRONTEND_URL}/v2/applications/${leadId}`
-    : `${FRONTEND_URL}/v2/applications`;
+  const { recipientName, leadId, clientName, documentName, expiryDate, daysUntilExpiry, caseOfficerEmail } = data;
+  const resolvedCaseOfficerEmail = caseOfficerEmail || process.env.EMAIL_FROM_AUSTRALIA || 'australia@worldvisa.in';
 
   const firstName = (recipientName || clientName || 'Applicant').split(' ')[0];
 
@@ -46,23 +44,23 @@ function render(data) {
       </tr>
     </table>
 
-    <p style="margin:0 0 28px 0;font-size:15px;color:#111111;line-height:1.6;">
-      Please book your English language test at the earliest opportunity and upload the new result to your portal to avoid further delays to your application.
+    <p style="margin:0 0 20px 0;font-size:15px;color:#111111;line-height:1.6;">
+      Please book your English language test at the earliest opportunity. Once you have your new result, email it directly to your case officer so they can update your application file immediately.
     </p>
 
     <!-- CTA -->
     <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:28px;">
       <tr>
         <td style="background-color:#c0392b;">
-          <a href="${portalUrl}" target="_blank" style="display:inline-block;padding:13px 28px;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;letter-spacing:0.3px;">
-            Upload Renewed Test Result
+          <a href="mailto:${resolvedCaseOfficerEmail}?subject=English%20Language%20Test%20-%20Renewed%20Result%20-%20${encodeURIComponent(firstName)}" style="display:inline-block;padding:13px 28px;font-size:14px;font-weight:700;color:#ffffff;text-decoration:none;letter-spacing:0.3px;">
+            Email Renewed Result to Case Officer
           </a>
         </td>
       </tr>
     </table>
 
     <p style="margin:0;font-size:14px;color:#555555;line-height:1.6;">
-      If you need guidance on which English language test to take or have already renewed your test, please contact your visa consultant immediately.
+      Send your renewed test result to: <a href="mailto:${resolvedCaseOfficerEmail}" style="color:#c0392b;font-weight:700;">${resolvedCaseOfficerEmail}</a>
     </p>
   `;
 
