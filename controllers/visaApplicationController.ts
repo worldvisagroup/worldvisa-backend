@@ -947,6 +947,7 @@ function toZohoVisaRecord(doc: Record<string, unknown>): ZohoRecord {
     Quality_Check_From: doc.quality_check_from ?? null,
     DMS_Application_Status: doc.dms_application_status ?? null,
     Checklist_Requested: doc.checklist_requested ?? false,
+    Checklist_Reminders_Enabled: doc.checklist_reminders_enabled ?? true,
 
     Deadline_For_Lodgment: doc.deadline_for_lodgment ?? null,
     Assessing_Authority: doc.assessing_authority ?? null,
