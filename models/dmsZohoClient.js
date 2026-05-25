@@ -199,6 +199,10 @@ const dmsZohoClientSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  checklist_reminders_enabled: {
+    type: Boolean,
+    default: true,
+  },
   send_check_list: {
     type: String,
     default: null,

@@ -29,6 +29,7 @@ const ACTIVITY_TYPES = [
   'field_change_approved',
   'field_change_rejected',
   'application_synced',
+  'stage_updated',
 ];
 
 const applicationActivityLogSchema = new mongoose.Schema(

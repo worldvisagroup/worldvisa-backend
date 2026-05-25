@@ -18,6 +18,7 @@ const checklistUpdatedTpl = require('../../emailTemplates/checklistUpdated');
 const checklistReminderTpl          = require('../../emailTemplates/checklistReminder');
 const languageTestExpiryWarningTpl  = require('../../emailTemplates/languageTestExpiryWarning');
 const languageTestExpiryOverdueTpl  = require('../../emailTemplates/languageTestExpiryOverdue');
+const stageUpdatedTpl               = require('../../emailTemplates/stageUpdated');
 
 // Types that render via adminActionSummary (admin action → client)
 const ADMIN_ACTION_TYPES = new Set([
@@ -137,6 +138,13 @@ function renderTemplate(notification) {
 
   if (notificationType === 'review_requested') {
     return reviewRequestedTpl.render([notification], { recipientName });
+  }
+
+  if (notificationType === 'stage_updated') {
+    return stageUpdatedTpl.render({
+      recipientName,
+      ...templateData,
+    });
   }
 
   return null; // batch types handled in renderBatchTemplate

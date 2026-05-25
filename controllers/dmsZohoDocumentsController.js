@@ -23,6 +23,7 @@ const { searchApplications } = require('../services/mongoSearchService');
 const DEFAULT_GLOBAL_SEARCH_LIMIT = 10;
 const { updateRecentActivityInMongo, addToTimeline, addMovedFiles } = require('./helper/service/functions');
 const { addActivityLog, getCompanyLabel } = require('./helper/service/activityLog');
+const { createEmailNotification } = require('../services/notifications/notificationService');
 const { getAccessToken, refreshAccessToken } = require('./zohoDms/zohoAuth');
 const DmsMovedDocuments = require('../models/movedDocuments');
 const { capitalizeFn } = require('../utils/helperFunction');
@@ -1763,7 +1764,69 @@ exports.updateZohoFields = async (req, res) => {
     // Update Recent Acitivity
     await updateRecentActivityInMongo(moduleName, leadId);
 
+    // Sync Stage and Application_State to MongoDB immediately so UI is consistent
+    const mongoSync = {};
+    if (fieldsToUpdate.Stage) mongoSync.application_stage = fieldsToUpdate.Stage;
+    if (fieldsToUpdate.Application_State) mongoSync.application_state = fieldsToUpdate.Application_State;
+    if (Object.keys(mongoSync).length) {
+      await DmsZohoClient.findOneAndUpdate({ lead_id: leadId }, { $set: mongoSync });
+    }
+
     if (response.data) {
+      // Fire stage-update notifications without blocking the response
+      if (fieldsToUpdate.Stage) {
+        const newStage = fieldsToUpdate.Stage;
+        const actorName = req.user?.username || req.user?.name || 'Staff';
+
+        setImmediate(async () => {
+          try {
+            const client = await DmsZohoClient.findOne({ lead_id: leadId }).select('name').lean();
+            const clientName = client?.name || leadId;
+
+            // Email to master_admin shared inbox
+            createEmailNotification({
+              recipientRole: 'master_admin',
+              recipientEmail: process.env.EMAIL_MASTER_ADMIN,
+              recipientName: 'WorldVisa Master Admin',
+              notificationType: 'stage_updated',
+              entityParentId: leadId,
+              templateData: { clientName, newStage, updatedBy: actorName, leadId },
+            }).catch((err) =>
+              require('../utils/logger').error('[StageUpdate] Email failed', { error: err.message })
+            );
+
+            // In-app notification to all master_admin users
+            const masterAdmins = await ZohoDmsUser.find({ role: 'master_admin' }).select('_id').lean();
+            for (const admin of masterAdmins) {
+              await addNotificationAndEmit({
+                req,
+                userId: admin._id,
+                title: 'Application Stage Updated',
+                message: `${clientName} - Application stage has been updated to "${newStage}" by ${actorName}`,
+                type: 'info',
+                category: 'general',
+                source: 'stage_update',
+                leadId,
+                applicationType: moduleName,
+                sender_type: 'staff',
+              });
+            }
+
+            // Activity log
+            addActivityLog({
+              lead_id: leadId,
+              activity_type: 'stage_updated',
+              summary: `Application stage updated to "${newStage}" by ${actorName}`,
+              actor_type: 'staff',
+              actor_name: actorName,
+              metadata: { newStage },
+            });
+          } catch (err) {
+            require('../utils/logger').error('[StageUpdate] Notification error', { error: err.message });
+          }
+        });
+      }
+
       return res.status(200).json({ success: true, message: 'Fields updated successfully.' });
     } else {
       return res.status(500).json({ success: false, message: 'Failed to update fields.' });
@@ -4285,6 +4348,36 @@ exports.deleteSampleDocuments = async (req, res) => {
   } catch (error) {
     console.error('Error deleting sample document:', error);
     res.status(500).json({ success: false, message: 'Unable to delete the document. Please try again.' });
+  }
+};
+
+exports.toggleChecklistReminders = async (req, res) => {
+  try {
+    const { leadId } = req.params;
+    const { enabled } = req.body;
+
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ message: '`enabled` must be a boolean' });
+    }
+
+    const client = await DmsZohoClient.findOneAndUpdate(
+      { lead_id: leadId },
+      { $set: { checklist_reminders_enabled: enabled } },
+      { new: true }
+    ).select('lead_id name checklist_reminders_enabled');
+
+    if (!client) {
+      return res.status(404).json({ message: 'Application not found' });
+    }
+
+    return res.json({
+      lead_id: client.lead_id,
+      name: client.name,
+      checklist_reminders_enabled: client.checklist_reminders_enabled,
+    });
+  } catch (error) {
+    console.error('Error toggling checklist reminders:', error);
+    return res.status(500).json({ message: 'Unable to update notification preference. Please try again.' });
   }
 };
 

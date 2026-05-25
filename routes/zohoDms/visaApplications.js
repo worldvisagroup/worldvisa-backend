@@ -56,6 +56,9 @@ router.put('/update_fields', protect, dmsZohoDocumentsController.updateZohoField
 // Get all requested checklist
 router.get('/checklist/requested', protect, dmsZohoDocumentsController.getChecklistRequestedApplications);
 
+// Toggle checklist reminder notifications for an application
+router.patch('/checklist/:leadId/reminders', protect, dmsZohoDocumentsController.toggleChecklistReminders);
+
 // Spouse Skill Assessment Applications
 router.get('/spouse/applications', protect, getSpouseApplicationsWithAttachments);
 router.get('/spouse/applications/search', protect, dmsZohoDocumentsController.searchSpouseZohoApplications);

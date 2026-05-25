@@ -63,7 +63,10 @@ async function runStage2ExpiryReminders() {
 
       // Bulk-fetch clients for this batch
       const leadIds = [...new Set(docs.map((d) => d.record_id).filter(Boolean))];
-      const clients = await DmsZohoClient.find({ lead_id: { $in: leadIds } })
+      const clients = await DmsZohoClient.find({
+        lead_id: { $in: leadIds },
+        application_state: { $regex: /^active$/i },
+      })
         .select('name email lead_id')
         .lean();
 

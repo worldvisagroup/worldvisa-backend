@@ -45,6 +45,8 @@ async function runChecklistReminders() {
     while (true) {
       const query = {
         'checklist.required': true,
+        application_state: { $regex: /^active$/i },
+        checklist_reminders_enabled: { $ne: false },
         $or: [
           { last_checklist_reminder_sent_at: null },
           { last_checklist_reminder_sent_at: { $lte: cutoff } },

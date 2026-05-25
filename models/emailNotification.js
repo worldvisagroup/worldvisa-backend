@@ -35,6 +35,7 @@ const emailNotificationSchema = new mongoose.Schema(
         'checklist_reminder',           // immediate → client (cron, every 10 days)
         'language_test_expiry_warning', // immediate → client + case officer (30d before, every 15d)
         'language_test_expiry_overdue', // immediate → client + case officer (post-expiry, every 15d)
+        'stage_updated',                // immediate → master_admin (on stage change)
       ],
       required: true,
     },
