@@ -17,7 +17,7 @@ const { SUPPORTED_COUNTRIES, SEARCH_TERM_MAX_LENGTH, } = require('./helper/const
 const { sanitizeSearchTerm, escapeString } = require('../utils/querySanitizer.js');
 // ─── Module constants ─────────────────────────────────────────────────────────
 const VALID_SERVICE_TYPES = checklistDocument_1.VISA_SERVICE_TYPE_VALUES.filter((v) => v !== 'All');
-const VISA_APPLICATION_LIST_SELECT = 'lead_id name email phone record_type lead_owner application_stage application_state qualified_country service_type recent_activity zoho_created_time created_at deadline_for_lodgment assessing_authority suggested_anzsco send_check_list package_finalize spouse_name spouse_skill_assessment main_applicant zoho_modified_time';
+const VISA_APPLICATION_LIST_SELECT = 'lead_id name email phone record_type lead_owner application_stage application_state qualified_country service_type recent_activity zoho_created_time created_at deadline_for_lodgment assessing_authority suggested_anzsco send_check_list package_finalize spouse_name spouse_skill_assessment main_applicant zoho_modified_time checklist_reminders_enabled';
 const SPOUSE_APPLICATION_LIST_SELECT = 'lead_id name email phone record_type lead_owner application_stage application_state qualified_country recent_activity zoho_created_time created_at deadline_for_lodgment assessing_authority suggested_anzsco send_check_list package_finalize spouse_name spouse_skill_assessment main_applicant zoho_modified_time quality_check_from dms_application_status checklist_requested service_type';
 // ─── Route handlers ───────────────────────────────────────────────────────────
 const getApplicationsWithAttachments = async (req, res) => {
