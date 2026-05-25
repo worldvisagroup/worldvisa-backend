@@ -3,7 +3,7 @@
 const LOGO_URL = 'https://res.cloudinary.com/djvvz62dw/image/upload/v1765014046/worldvisa/logo_uavsjh.svg';
 const COMPANY_NAME = 'WorldVisa Group';
 
-function base(contentHtml, { previewText = '' } = {}) {
+function base(contentHtml, { previewText = '', signature = null } = {}) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -48,9 +48,10 @@ ${previewText ? `<div style="display:none;max-height:0;overflow:hidden;mso-hide:
         <!-- Footer -->
         <tr>
           <td style="padding:20px 32px 28px 32px;border-top:1px solid #e0e0e0;">
-            <p style="margin:0 0 4px 0;font-size:11px;color:#888888;line-height:1.5;">
-              This is an automated notification from ${COMPANY_NAME}. Please do not reply to this email.
-            </p>
+            ${signature
+              ? `<p style="margin:0 0 8px 0;font-size:13px;color:#111111;line-height:1.7;">${signature}</p>`
+              : `<p style="margin:0 0 4px 0;font-size:11px;color:#888888;line-height:1.5;">This is an automated notification from ${COMPANY_NAME}. Please do not reply to this email.</p>`
+            }
             <p style="margin:0;font-size:11px;color:#888888;line-height:1.5;">
               &copy; ${new Date().getFullYear()} ${COMPANY_NAME}. All rights reserved.
             </p>

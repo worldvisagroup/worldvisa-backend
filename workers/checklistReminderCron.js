@@ -4,6 +4,7 @@ const cron = require('node-cron');
 const crypto = require('crypto');
 const DmsZohoClient = require('../models/dmsZohoClient');
 const DmsZohoDocument = require('../models/dmsZohoDocument');
+const ZohoDmsUser = require('../models/zohoDmsUser');
 const { createEmailNotification } = require('../services/notifications/notificationService');
 const logger = require('../utils/logger');
 
@@ -52,7 +53,7 @@ async function runChecklistReminders() {
       if (lastId) query._id = { $gt: lastId };
 
       const clients = await DmsZohoClient.find(query)
-        .select('name email lead_id checklist last_checklist_reminder_sent_at')
+        .select('name email lead_id checklist last_checklist_reminder_sent_at lead_owner')
         .sort({ _id: 1 })
         .limit(BATCH_SIZE)
         .lean();
@@ -60,6 +61,13 @@ async function runChecklistReminders() {
       if (!clients.length) break;
 
       lastId = clients[clients.length - 1]._id;
+
+      // Bulk-fetch case officer display names for this batch
+      const uniqueOwners = [...new Set(clients.map((c) => c.lead_owner).filter(Boolean))];
+      const staffUsers = await ZohoDmsUser.find({ username: { $in: uniqueOwners } })
+        .select('username full_name')
+        .lean();
+      const nameByUsername = Object.fromEntries(staffUsers.map((u) => [u.username, u.full_name]));
 
       // Bulk-fetch documents for this batch of leads
       const leadIds = clients.map((c) => c.lead_id).filter(Boolean);
@@ -110,6 +118,7 @@ async function runChecklistReminders() {
                 document_type: d.document_type,
                 document_category: d.document_category,
               })),
+              caseOfficerName: nameByUsername[client.lead_owner] || client.lead_owner || null,
             },
           });
 

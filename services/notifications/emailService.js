@@ -121,6 +121,7 @@ function renderTemplate(notification) {
       recipientName,
       missingDocuments: templateData?.missingDocuments ?? [],
       leadId: entityParentId !== 'system' ? entityParentId : null,
+      caseOfficerName: templateData?.caseOfficerName,
     });
   }
 

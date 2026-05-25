@@ -5,7 +5,7 @@ const { base } = require('./base');
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://dms.worldvisagroup.com';
 
 function render(data) {
-  const { recipientName, missingDocuments = [], leadId } = data;
+  const { recipientName, missingDocuments = [], leadId, caseOfficerName } = data;
   const portalUrl = leadId
     ? `${FRONTEND_URL}/v2/applications/${leadId}`
     : `${FRONTEND_URL}/v2/applications`;
@@ -74,14 +74,16 @@ function render(data) {
       </tr>
     </table>
 
-    <p style="margin:0;font-size:14px;color:#555555;line-height:1.6;">
-      If you have any questions or need assistance, please reach out to your visa consultant — we're here to help.
-    </p>
   `;
+
+  const signature = caseOfficerName
+    ? `Regards,<br><strong>${caseOfficerName}</strong><br>WorldVisa Group`
+    : null;
 
   return {
     html: base(content, {
       previewText: `Reminder: ${missingDocuments.length} document(s) still needed for your visa application.`,
+      signature,
     }),
     subject: 'Reminder: Outstanding Documents Required for Your Visa Application',
   };
