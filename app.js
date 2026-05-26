@@ -40,6 +40,7 @@ const { AUTHORIZED_PARTIES } = require('./constants/clerk');
 const ZohoDmsUser = require('./models/zohoDmsUser');
 const DmsZohoClient = require('./models/dmsZohoClient');
 const zohoDmsClientAuthRouter = require("./routes/dmsZohoClients");
+const dmsZohoClientController = require('./controllers/dmsZohoClientController');
 const technicalAssessmentRouter = require("./routes/ai/technicalAssessment");
 const packagesRouter = require("./routes/packages");
 const travelBudget = require("./routes/ai/travelBudget");
@@ -391,6 +392,12 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json({ limit: '10mb' }));
+
+// Zoho API-key routes — registered before clerkMiddleware so Clerk's JWKS refresh never blocks them
+app.post('/api/zoho_dms/clients/signup', apiKeyMiddleware, dmsZohoClientController.signup);
+app.post('/api/zoho_dms/clients/webhook/update-lead-owner', apiKeyMiddleware, dmsZohoClientController.updateLeadOwnerFromZoho);
+app.post('/api/zoho_dms/clients/webhook/add-note', apiKeyMiddleware, dmsZohoClientController.addNoteFromCRM);
+
 app.use(clerkMiddleware({ authorizedParties: AUTHORIZED_PARTIES }));
 app.use(auditLogger);
 app.use(compression());
