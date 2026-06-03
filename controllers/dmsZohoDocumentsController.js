@@ -22,6 +22,7 @@ const {
 const { searchApplications } = require('../services/mongoSearchService');
 const DEFAULT_GLOBAL_SEARCH_LIMIT = 10;
 const { updateRecentActivityInMongo, addToTimeline, addMovedFiles } = require('./helper/service/functions');
+const { applyStageAdvancement } = require('./helper/stageAutoUpdate');
 const { addActivityLog, getCompanyLabel } = require('./helper/service/activityLog');
 const { createEmailNotification } = require('../services/notifications/notificationService');
 const { getAccessToken, refreshAccessToken } = require('./zohoDms/zohoAuth');
@@ -4135,6 +4136,12 @@ exports.uploadAusStage2Document = async (req, res) => {
     });
 
     const uploadedDocuments = await Promise.all(uploadPromises);
+
+    try {
+      await applyStageAdvancement(record_id);
+    } catch (err) {
+      console.error('[stageAutoUpdate] Failed for record_id', record_id, err.message);
+    }
 
     res.status(201).json({ success: true, data: uploadedDocuments });
   } catch (error) {
