@@ -4,8 +4,10 @@ const cron = require('node-cron');
 const crypto = require('crypto');
 const DmsZohoClient = require('../models/dmsZohoClient');
 const DmsZohoDocument = require('../models/dmsZohoDocument');
+const DmsZohoAusStage2Documents = require('../models/dmsZohoAusStage2Documents');
 const ZohoDmsUser = require('../models/zohoDmsUser');
 const { createEmailNotification } = require('../services/notifications/notificationService');
+const { STAGE_1_STAGES } = require('../controllers/helper/constants');
 const logger = require('../utils/logger');
 
 const INSTANCE_ID = crypto.randomUUID();
@@ -46,6 +48,7 @@ async function runChecklistReminders() {
       const query = {
         'checklist.required': true,
         application_state: { $regex: /^active$/i },
+        application_stage: { $in: STAGE_1_STAGES },
         checklist_reminders_enabled: { $ne: false },
         $or: [
           { last_checklist_reminder_sent_at: null },
@@ -73,6 +76,12 @@ async function runChecklistReminders() {
 
       // Bulk-fetch documents for this batch of leads
       const leadIds = clients.map((c) => c.lead_id).filter(Boolean);
+
+      // Leads with any Stage 2 document uploaded — skip checklist reminders for these
+      const stage2LeadIds = await DmsZohoAusStage2Documents.distinct('record_id', {
+        record_id: { $in: leadIds },
+      });
+      const stage2Set = new Set(stage2LeadIds);
       const documents = await DmsZohoDocument.find({
         record_id: { $in: leadIds },
         status: { $in: SUBMITTED_STATUSES },
@@ -91,6 +100,11 @@ async function runChecklistReminders() {
 
       for (const client of clients) {
         if (!client.email || !client.lead_id) {
+          totalSkipped++;
+          continue;
+        }
+
+        if (stage2Set.has(client.lead_id)) {
           totalSkipped++;
           continue;
         }
