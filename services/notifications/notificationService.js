@@ -13,6 +13,8 @@ const IMMEDIATE_TYPES = new Set([
   'language_test_expiry_warning',
   'language_test_expiry_overdue',
   'stage_updated',
+  'task_created',
+  'task_reminder',
 ]);
 
 const DEDUPE_WINDOW_MS = 15 * 60 * 1000;

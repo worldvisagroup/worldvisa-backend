@@ -36,6 +36,8 @@ const emailNotificationSchema = new mongoose.Schema(
         'language_test_expiry_warning', // immediate → client + case officer (30d before, every 15d)
         'language_test_expiry_overdue', // immediate → client + case officer (post-expiry, every 15d)
         'stage_updated',                // immediate → master_admin (on stage change)
+        'task_created',                 // immediate → client (on task create)
+        'task_reminder',                // immediate → client (scheduled/ad-hoc task follow-up)
       ],
       required: true,
     },

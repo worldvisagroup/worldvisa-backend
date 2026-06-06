@@ -30,6 +30,10 @@ const ACTIVITY_TYPES = [
   'field_change_rejected',
   'application_synced',
   'stage_updated',
+  'task_created',
+  'task_updated',
+  'task_completed',
+  'task_deleted',
 ];
 
 const applicationActivityLogSchema = new mongoose.Schema(

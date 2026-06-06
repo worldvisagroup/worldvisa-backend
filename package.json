@@ -9,7 +9,11 @@
         "build:templates": "tsc",
         "build:templates:watch": "tsc --watch",
         "start:prod": "npm run build:templates && pm2 start app.js",
-        "test": "jest"
+        "test": "jest",
+        "seed:mock-tasks": "node scripts/seedMockApplicationTasks.js",
+        "seed:mock-tasks:dry": "node scripts/seedMockApplicationTasks.js --dry-run",
+        "cleanup:mock-tasks": "node scripts/cleanupMockApplicationTasks.js",
+        "cleanup:mock-tasks:execute": "node scripts/cleanupMockApplicationTasks.js --execute"
     },
     "author": "",
     "license": "ISC",
