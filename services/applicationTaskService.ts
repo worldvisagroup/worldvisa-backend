@@ -32,6 +32,34 @@ const {
 
 const SEARCH_TERM_MAX_LENGTH = 100;
 
+function leadOwnerFilterForUser(username: string): RegExp {
+  const safe = escapeRegexForMongo(username.trim());
+  return new RegExp(`^${safe}$`, 'i');
+}
+
+function leadOwnersMatch(
+  leadOwner: string | null | undefined,
+  username: string | null | undefined
+): boolean {
+  if (!leadOwner || !username) return false;
+  return leadOwner.trim().toLowerCase() === username.trim().toLowerCase();
+}
+
+async function normalizeLeadOwner(raw: string): Promise<string> {
+  const trimmed = raw.trim();
+  if (!trimmed) return trimmed;
+
+  const user = await ZohoDmsUser.findOne({
+    username: { $regex: leadOwnerFilterForUser(trimmed) },
+  })
+    .select('username')
+    .lean();
+
+  if (user?.username) return user.username;
+
+  return sanitizeUsername(trimmed) ?? trimmed.toLowerCase();
+}
+
 function parseDate(value?: string): Date | null {
   if (!value || typeof value !== 'string') return null;
   const d = new Date(value);
@@ -78,16 +106,16 @@ export function buildTaskListFilter(
     const username = context.username ?? '';
 
     if (role === 'admin' && username) {
-      filter.leadOwner = username;
+      filter.leadOwner = leadOwnerFilterForUser(username);
     }
 
     if (query.mine === 'true' && username) {
-      filter.leadOwner = username;
+      filter.leadOwner = leadOwnerFilterForUser(username);
     }
 
     if (query.leadOwner && role === 'master_admin') {
-      const owner = sanitizeUsername(query.leadOwner);
-      if (owner) filter.leadOwner = owner;
+      const owner = query.leadOwner.trim();
+      if (owner) filter.leadOwner = leadOwnerFilterForUser(owner);
     }
 
     if (query.leadId) filter.leadId = query.leadId.trim();
@@ -285,7 +313,7 @@ export async function assertStaffCanAccessTask(
     return true;
   }
   if (role === 'admin') {
-    return task.leadOwner === username;
+    return leadOwnersMatch(task.leadOwner, username);
   }
   return false;
 }
@@ -328,10 +356,12 @@ export async function createTask(body: CreateTaskBody, staffUsername: string) {
 
   validateScheduleRange(scheduledFrom, scheduledTo);
 
-  const leadOwner = body.leadOwner ?? client.lead_owner;
-  if (!leadOwner) {
+  const rawLeadOwner = body.leadOwner ?? client.lead_owner;
+  if (!rawLeadOwner) {
     throw new Error('leadOwner could not be resolved for this application');
   }
+
+  const leadOwner = await normalizeLeadOwner(rawLeadOwner);
 
   const task = await ApplicationTask.create({
     leadId: body.leadId,

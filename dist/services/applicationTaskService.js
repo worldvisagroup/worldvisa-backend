@@ -27,6 +27,28 @@ const { addNotificationAndEmit } = require('../controllers/helper/service/notifi
 const { addActivityLog } = require('../controllers/helper/service/activityLog');
 const { escapeRegexForMongo, sanitizeSearchTerm, sanitizeUsername, } = require('../utils/querySanitizer');
 const SEARCH_TERM_MAX_LENGTH = 100;
+function leadOwnerFilterForUser(username) {
+    const safe = escapeRegexForMongo(username.trim());
+    return new RegExp(`^${safe}$`, 'i');
+}
+function leadOwnersMatch(leadOwner, username) {
+    if (!leadOwner || !username)
+        return false;
+    return leadOwner.trim().toLowerCase() === username.trim().toLowerCase();
+}
+async function normalizeLeadOwner(raw) {
+    const trimmed = raw.trim();
+    if (!trimmed)
+        return trimmed;
+    const user = await ZohoDmsUser.findOne({
+        username: { $regex: leadOwnerFilterForUser(trimmed) },
+    })
+        .select('username')
+        .lean();
+    if (user?.username)
+        return user.username;
+    return sanitizeUsername(trimmed) ?? trimmed.toLowerCase();
+}
 function parseDate(value) {
     if (!value || typeof value !== 'string')
         return null;
@@ -65,15 +87,15 @@ function buildTaskListFilter(query, context) {
         const role = context.role ?? '';
         const username = context.username ?? '';
         if (role === 'admin' && username) {
-            filter.leadOwner = username;
+            filter.leadOwner = leadOwnerFilterForUser(username);
         }
         if (query.mine === 'true' && username) {
-            filter.leadOwner = username;
+            filter.leadOwner = leadOwnerFilterForUser(username);
         }
         if (query.leadOwner && role === 'master_admin') {
-            const owner = sanitizeUsername(query.leadOwner);
+            const owner = query.leadOwner.trim();
             if (owner)
-                filter.leadOwner = owner;
+                filter.leadOwner = leadOwnerFilterForUser(owner);
         }
         if (query.leadId)
             filter.leadId = query.leadId.trim();
@@ -240,7 +262,7 @@ async function assertStaffCanAccessTask(task, username, role) {
         return true;
     }
     if (role === 'admin') {
-        return task.leadOwner === username;
+        return leadOwnersMatch(task.leadOwner, username);
     }
     return false;
 }
@@ -271,10 +293,11 @@ async function createTask(body, staffUsername) {
     const scheduledTo = body.scheduledTo ? parseDate(body.scheduledTo) : null;
     const date = body.date ? parseDate(body.date) : null;
     validateScheduleRange(scheduledFrom, scheduledTo);
-    const leadOwner = body.leadOwner ?? client.lead_owner;
-    if (!leadOwner) {
+    const rawLeadOwner = body.leadOwner ?? client.lead_owner;
+    if (!rawLeadOwner) {
         throw new Error('leadOwner could not be resolved for this application');
     }
+    const leadOwner = await normalizeLeadOwner(rawLeadOwner);
     const task = await applicationTask_model_1.default.create({
         leadId: body.leadId,
         recordType,
