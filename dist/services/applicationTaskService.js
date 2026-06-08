@@ -86,10 +86,7 @@ function buildTaskListFilter(query, context) {
     else {
         const role = context.role ?? '';
         const username = context.username ?? '';
-        if (role === 'admin' && username) {
-            filter.leadOwner = leadOwnerFilterForUser(username);
-        }
-        if (query.mine === 'true' && username) {
+        if (query.mine === 'true' && username && role !== 'admin') {
             filter.leadOwner = leadOwnerFilterForUser(username);
         }
         if (query.leadOwner && role === 'master_admin') {
@@ -177,6 +174,35 @@ function buildTaskListFilter(query, context) {
     }
     return filter;
 }
+/** Admin scope: all tasks on applications they own (by client.lead_owner), any createdBy. */
+async function applyStaffScopeToFilter(filter, query, context) {
+    if (context.actorType !== 'staff')
+        return;
+    const role = context.role ?? '';
+    const username = context.username ?? '';
+    if (role !== 'admin' || !username)
+        return;
+    delete filter.leadOwner;
+    const leadIdQuery = query.leadId?.trim();
+    if (leadIdQuery) {
+        const client = await DmsZohoClient.findOne({ lead_id: leadIdQuery })
+            .select('lead_owner')
+            .lean();
+        if (!client || !leadOwnersMatch(client.lead_owner, username)) {
+            filter.leadId = { $in: [] };
+        }
+        return;
+    }
+    const clients = await DmsZohoClient.find({
+        lead_owner: leadOwnerFilterForUser(username),
+    })
+        .select('lead_id')
+        .lean();
+    const leadIds = clients
+        .map((c) => c.lead_id)
+        .filter(Boolean);
+    filter.leadId = leadIds.length ? { $in: leadIds } : { $in: [] };
+}
 async function getClientInfoMap(leadIds) {
     const unique = [...new Set(leadIds.filter(Boolean))];
     if (!unique.length)
@@ -238,6 +264,7 @@ async function enrichTask(task) {
 }
 async function listTasks(query, context) {
     const filter = buildTaskListFilter(query, context);
+    await applyStaffScopeToFilter(filter, query, context);
     const { page, limit, skip } = parsePagination(query);
     const sort = buildSort(query, context.actorType);
     const [tasks, total] = await Promise.all([
@@ -262,6 +289,12 @@ async function assertStaffCanAccessTask(task, username, role) {
         return true;
     }
     if (role === 'admin') {
+        if (task.leadId) {
+            const client = await getClientByLeadId(task.leadId);
+            if (client && leadOwnersMatch(client.lead_owner, username)) {
+                return true;
+            }
+        }
         return leadOwnersMatch(task.leadOwner, username);
     }
     return false;

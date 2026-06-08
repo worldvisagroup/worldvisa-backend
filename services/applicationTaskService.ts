@@ -105,11 +105,7 @@ export function buildTaskListFilter(
     const role = context.role ?? '';
     const username = context.username ?? '';
 
-    if (role === 'admin' && username) {
-      filter.leadOwner = leadOwnerFilterForUser(username);
-    }
-
-    if (query.mine === 'true' && username) {
+    if (query.mine === 'true' && username && role !== 'admin') {
       filter.leadOwner = leadOwnerFilterForUser(username);
     }
 
@@ -200,6 +196,44 @@ export function buildTaskListFilter(
   return filter;
 }
 
+/** Admin scope: all tasks on applications they own (by client.lead_owner), any createdBy. */
+async function applyStaffScopeToFilter(
+  filter: FilterQuery<ApplicationTaskType>,
+  query: TaskListQuery,
+  context: TaskListContext
+): Promise<void> {
+  if (context.actorType !== 'staff') return;
+
+  const role = context.role ?? '';
+  const username = context.username ?? '';
+  if (role !== 'admin' || !username) return;
+
+  delete filter.leadOwner;
+
+  const leadIdQuery = query.leadId?.trim();
+  if (leadIdQuery) {
+    const client = await DmsZohoClient.findOne({ lead_id: leadIdQuery })
+      .select('lead_owner')
+      .lean();
+    if (!client || !leadOwnersMatch(client.lead_owner, username)) {
+      filter.leadId = { $in: [] };
+    }
+    return;
+  }
+
+  const clients = await DmsZohoClient.find({
+    lead_owner: leadOwnerFilterForUser(username),
+  })
+    .select('lead_id')
+    .lean();
+
+  const leadIds = (clients as Array<{ lead_id?: string }>)
+    .map((c) => c.lead_id)
+    .filter(Boolean) as string[];
+
+  filter.leadId = leadIds.length ? { $in: leadIds } : { $in: [] };
+}
+
 async function getClientInfoMap(
   leadIds: string[]
 ): Promise<Record<string, TaskClientSummary>> {
@@ -281,6 +315,7 @@ export async function enrichTask<T extends { leadId?: string | null; createdBy?:
 
 export async function listTasks(query: TaskListQuery, context: TaskListContext) {
   const filter = buildTaskListFilter(query, context);
+  await applyStaffScopeToFilter(filter, query, context);
   const { page, limit, skip } = parsePagination(query);
   const sort = buildSort(query, context.actorType);
 
@@ -305,7 +340,7 @@ async function getClientByLeadId(leadId: string) {
 }
 
 export async function assertStaffCanAccessTask(
-  task: { leadOwner?: string | null },
+  task: { leadOwner?: string | null; leadId?: string | null },
   username: string,
   role: string
 ): Promise<boolean> {
@@ -313,6 +348,12 @@ export async function assertStaffCanAccessTask(
     return true;
   }
   if (role === 'admin') {
+    if (task.leadId) {
+      const client = await getClientByLeadId(task.leadId);
+      if (client && leadOwnersMatch(client.lead_owner, username)) {
+        return true;
+      }
+    }
     return leadOwnersMatch(task.leadOwner, username);
   }
   return false;
