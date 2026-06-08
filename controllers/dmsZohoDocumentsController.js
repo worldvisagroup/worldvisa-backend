@@ -149,7 +149,7 @@ exports.uploadDocument = async (req, res) => {
 
     const uploadPromises = req.files.map(async (file) => {
       const { originalname, buffer, mimetype } = file;
-      const r2Key = buildDocumentKey(clientName, record_id, document_category, document_name, originalname);
+      const r2Key = buildVersionedDocumentKey(clientName, record_id, document_category, document_name, originalname);
       await uploadDocument(r2Key, buffer, mimetype);
 
       const doc = await dmsZohoDocument.create({
