@@ -49,7 +49,7 @@ const dmsZohoAusStage2DocumentSchema = new Schema(
     },
     type: {
       type: String,
-      enum: ['outcome', 'eoi', 'invitation'],
+      enum: ['outcome', 'eoi', 'invitation', 'roi'],
       required: true,
     },
     invitation_type: {
