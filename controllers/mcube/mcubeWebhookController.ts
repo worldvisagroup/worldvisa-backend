@@ -120,7 +120,7 @@ async function processOnCall(payload: McubeInboundPayload, req: Request): Promis
     resolveClient(payload.callto),
   ]);
 
-  const doc = await CallLog.findOneAndUpdate(
+  const result = await CallLog.findOneAndUpdate(
     { call_id: payload.callid },
     {
       $setOnInsert: {
@@ -144,11 +144,14 @@ async function processOnCall(payload: McubeInboundPayload, req: Request): Promis
         updated_at:       now,
       },
     },
-    { upsert: true, new: true }
+    { upsert: true, new: true, includeResultMetadata: true }
   );
 
+  const doc = result?.value;
+  const isNewCall = result?.lastErrorObject?.updatedExisting === false;
+
   const io = (req.app as any).get('io');
-  if (io && doc) {
+  if (io && doc && isNewCall) {
     io.emit('call-log:new', doc);
     if (agent_id) {
       io.to(`user:${agent_id}`).emit('call:inbound', doc);
