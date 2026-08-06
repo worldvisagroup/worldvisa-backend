@@ -8,7 +8,7 @@ router.get("/", (req, res) => {
   const ZOHO_DMS_CLIENT_ID = process.env.ZOHO_DMS_CLIENT_ID;
   const ZOHO_DMS_REDIRECT_URI = process.env.ZOHO_DMS_REDIRECT_URI;
 
-  const scope = "ZohoCRM.modules.all,ZohoCRM.coql.READ,WorkDrive.files.CREATE,WorkDrive.files.READ,WorkDrive.files.UPDATE,WorkDrive.files.DELETE,WorkDrive.files.ALL,ZohoFiles.files.ALL";
+  const scope = "ZohoCRM.modules.all,ZohoCRM.coql.READ,WorkDrive.files.CREATE,WorkDrive.files.READ,WorkDrive.files.UPDATE,WorkDrive.files.DELETE,WorkDrive.files.ALL,ZohoFiles.files.ALL,ZohoCRM.settings.ALL,PhoneBridge.call.log";
 
   const authUrl = `https://accounts.zoho.${process.env.ZOHO_DC}/oauth/v2/auth?response_type=code&client_id=${ZOHO_DMS_CLIENT_ID}&scope=${scope}&redirect_uri=${ZOHO_DMS_REDIRECT_URI}&access_type=offline`;
 
