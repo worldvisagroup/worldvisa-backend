@@ -81,7 +81,27 @@ applicationTaskSchema.index({ createdAt: -1 });
 // Text search fallback
 applicationTaskSchema.index({ title: 'text', description: 'text' });
 
-export type ApplicationTaskType = InferSchemaType<typeof applicationTaskSchema> & {
+export type ApplicationTaskType = Omit<
+  InferSchemaType<typeof applicationTaskSchema>,
+  | 'date'
+  | 'scheduledFrom'
+  | 'scheduledTo'
+  | 'completedAt'
+  | 'completedBy'
+  | 'cancelledAt'
+  | 'cancelledBy'
+  | 'deletedAt'
+  | 'deletedBy'
+> & {
+  date: Date | null;
+  scheduledFrom: Date | null;
+  scheduledTo: Date | null;
+  completedAt: Date | null;
+  completedBy: string | null;
+  cancelledAt: Date | null;
+  cancelledBy: string | null;
+  deletedAt: Date | null;
+  deletedBy: string | null;
   _id: mongoose.Types.ObjectId;
 };
 
