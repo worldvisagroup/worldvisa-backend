@@ -62,6 +62,15 @@ jobs:
           name: native-lockfile
           path: package-lock.json
 
+      - name: DEBUG - hash lockfile right before build, and show pwd
+        run: |
+          pwd
+          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
+          sha256sum package.json package-lock.json
+          wc -l package-lock.json
+          grep -c '"ws"' package-lock.json || true
+          grep -A2 '"node_modules/ws"' package-lock.json | head -5
+
       - name: Build and Push Backend Image
         uses: docker/build-push-action@v6
         with:
