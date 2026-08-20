@@ -71,10 +71,6 @@ const { createWorker: createEmailWorker } = require('./workers/emailWorker');
 const { createWorker: createChatReminderWorker } = require('./workers/chatReminderWorker');
 const { startBatchAggregator } = require('./workers/emailBatchAggregator');
 
-// FCM Notifications
-const notificationsRouter = require('./routes/notifications');
-const { startFcmCleanupCron } = require('./utils/fcmCleanupCron');
-
 // Checklist Reminder Cron
 const { startChecklistReminderCron } = require('./workers/checklistReminderCron');
 
@@ -291,14 +287,6 @@ mongoose
       }
     }
 
-    if (process.env.DISABLE_FCM_CLEANUP !== 'true') {
-      try {
-        startFcmCleanupCron();
-      } catch (error) {
-        logger.error('Failed to start FCM cleanup cron', { error: error.message });
-      }
-    }
-
     if (process.env.DISABLE_CHECKLIST_REMINDER_CRON !== 'true') {
       try {
         startChecklistReminderCron();
@@ -500,8 +488,6 @@ app.use('/api/zoho_dms/users', zohoDmsUserAuthRouter);
 
 app.use('/api/zoho_dms/clients', clientTasksRouter);
 app.use('/api/zoho_dms/clients', zohoDmsClientAuthRouter);
-
-app.use('/api/notifications', notificationsRouter);
 
 const chatRouter = require('./routes/chat');
 app.use('/api/zoho_dms/chats', chatRouter);

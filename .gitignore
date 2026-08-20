@@ -4,6 +4,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# This project uses pnpm — pnpm-lock.yaml is the real lockfile
+package-lock.json
+
 .claude/worktrees/
 .env
 # Logs

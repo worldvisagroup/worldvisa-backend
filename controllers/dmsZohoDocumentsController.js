@@ -446,30 +446,7 @@ exports.updateStatus = async (req, res) => {
       metadata:          { new_status: status, reject_message: reject_message ?? null },
     });
 
-    // Send notification to client when document status changes (approved, rejected, reviewed)
-    if (status === 'reviewed') {
-      try {
-        const clientData = await DmsZohoClient.findOne({ lead_id: document.record_id }).lean();
-        if (clientData?._id) {
-          const { sendToUser } = require('../services/fcm/fcmService');
-          setImmediate(async () => {
-            try {
-              await sendToUser(String(clientData._id), {
-                title: 'Document In Review',
-                body: `Your ${_statusDocLabel} is with our team for review.`,
-                data: { url: '/', tag: `doc-reviewed-${document._id}` },
-              });
-            } catch (err) {
-              require('../utils/logger').error('[FCM] reviewed push failed', { error: err.message });
-            }
-          });
-        }
-      } catch (notifErr) {
-        const logger = require('../utils/logger');
-        logger.error('Failed to send document reviewed FCM', { error: notifErr.message, docId, status });
-      }
-    }
-
+    // Send notification to client when document status changes (approved, rejected)
     if (status === 'approved' || status === 'rejected') {
       try {
         const clientData = await DmsZohoClient.findOne({ lead_id: document.record_id }).lean();
@@ -496,13 +473,6 @@ exports.updateStatus = async (req, res) => {
               rejectReason: reject_message || null,
               reviewedBy: changed_by || null,
               companyName: _statusCompany || null,
-            },
-            fcmPayload: {
-              title: status === 'approved' ? 'Document Approved' : 'Action Required',
-              body: status === 'approved'
-                ? `Your ${_statusDocLabel} has been approved!`
-                : `Your ${_statusDocLabel} needs a quick update — please review and reupload.`,
-              data: { tag: `doc-${status}-${document._id}` },
             },
           });
         }
@@ -674,25 +644,6 @@ exports.addComment = async (req, res) => {
       document_name:     document.document_name,
       document_category: document.document_category,
     });
-
-    // FCM push to client when a staff member adds a comment
-    if (!req.user?.lead_id && document?.record_id) {
-      setImmediate(async () => {
-        try {
-          const clientTarget = await DmsZohoClient.findOne({ lead_id: document.record_id }).select('_id').lean();
-          if (clientTarget?._id) {
-            const { sendToUser } = require('../services/fcm/fcmService');
-            await sendToUser(String(clientTarget._id), {
-              title: 'New Update',
-              body: `Your case manager has a note on your ${_commentDocLabel}.`,
-              data: { url: '/', tag: `comment-${document._id}` },
-            });
-          }
-        } catch (err) {
-          require('../utils/logger').error('[FCM] comment push failed', { error: err.message });
-        }
-      });
-    }
 
     // In-app + email notification to lead owner when CLIENT adds a comment
     if (req.user?.lead_id && document?.record_id && req.user?.lead_owner) {
@@ -1311,23 +1262,6 @@ exports.requestQualityCheck = async (req, res) => {
         actor_name:    user.username,
         actor_role:    user.role ?? null,
         metadata:      { requested_to: reqUserName, record_type: recordType ?? null },
-      });
-
-      // FCM push to client — positive progress notification
-      setImmediate(async () => {
-        try {
-          const clientForFcm = await DmsZohoClient.findOne({ lead_id: leadId }).select('_id').lean();
-          if (clientForFcm?._id) {
-            const { sendToUser } = require('../services/fcm/fcmService');
-            await sendToUser(String(clientForFcm._id), {
-              title: 'Application Progressing',
-              body: 'Excellent progress! Your application is moving to quality review.',
-              data: { url: '/', tag: `quality-check-${leadId}` },
-            });
-          }
-        } catch (err) {
-          require('../utils/logger').error('[FCM] quality-check push failed', { error: err.message });
-        }
       });
 
       return res.status(200).json({ success: true, message: 'Quality check requested successfully.' });
@@ -2271,11 +2205,6 @@ exports.addChecklist = async (req, res) => {
           emailNotificationType: 'checklist_created',
           emailSubject: 'Your Document Checklist is Ready',
           emailTemplateData: {},
-          fcmPayload: {
-            title: 'Document Checklist Ready',
-            body: 'Your document checklist has been prepared. Please log in to view and submit the required documents.',
-            data: { tag: 'checklist-created' },
-          },
         });
       } else {
         // Adding to an existing checklist — notify client of the update
@@ -2292,11 +2221,6 @@ exports.addChecklist = async (req, res) => {
           emailNotificationType: 'checklist_updated',
           emailSubject: 'Your Document Checklist Has Been Updated',
           emailTemplateData: {},
-          fcmPayload: {
-            title: 'Document Checklist Updated',
-            body: 'Your document checklist has been updated. Please review the latest requirements.',
-            data: { tag: 'checklist-updated' },
-          },
         });
       }
     }
@@ -2385,11 +2309,6 @@ exports.editChecklist = async (req, res) => {
         emailNotificationType: 'checklist_updated',
         emailSubject: 'Your Document Checklist Has Been Updated',
         emailTemplateData: {},
-        fcmPayload: {
-          title: 'Document Checklist Updated',
-          body: 'Your document checklist has been updated. Please review the latest requirements.',
-          data: { tag: 'checklist-updated' },
-        },
       });
     }
 

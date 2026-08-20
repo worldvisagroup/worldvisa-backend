@@ -36,48 +36,6 @@ jobs:
         run: |
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
-      - name: DEBUG - hash lockfile
-        run: |
-          sha256sum package.json package-lock.json
-          wc -l package-lock.json
-          node -v
-          npm -v
-
-      - name: DEBUG - setup Node 20 and regenerate lockfile natively
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-
-      - name: DEBUG - test npm ci against UNMODIFIED committed lockfile, fresh node_modules
-        run: |
-          node -v
-          npm -v
-          rm -rf node_modules
-          npm ci --omit=dev && echo "FRESH CI PASSED (unmodified lockfile)" || echo "FRESH CI FAILED (unmodified lockfile)"
-
-      - name: DEBUG - npm install natively on amd64 runner
-        run: |
-          rm -rf node_modules
-          rm -f package-lock.json
-          npm install
-          rm -rf node_modules
-          npm ci --omit=dev && echo "NATIVE CI PASSED (fresh node_modules)" || echo "NATIVE CI FAILED (fresh node_modules)"
-
-      - name: DEBUG - upload native lockfile
-        uses: actions/upload-artifact@v4
-        with:
-          name: native-lockfile
-          path: package-lock.json
-
-      - name: DEBUG - hash lockfile right before build, and show pwd
-        run: |
-          pwd
-          echo "GITHUB_WORKSPACE=$GITHUB_WORKSPACE"
-          sha256sum package.json package-lock.json
-          wc -l package-lock.json
-          grep -c '"ws"' package-lock.json || true
-          grep -A2 '"node_modules/ws"' package-lock.json | head -5
-
       - name: Build and Push Backend Image
         uses: docker/build-push-action@v6
         with:
@@ -87,7 +45,8 @@ jobs:
           tags: |
             ${{ env.IMAGE_NAME }}:latest
             ${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.sha_short }}
-          no-cache: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Trigger Dokploy Deployment
         if: success()

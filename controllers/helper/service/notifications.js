@@ -34,8 +34,6 @@ async function addNotificationAndEmit({
   emailNotificationType = null,
   emailSubject = null,
   emailTemplateData = {},
-  // FCM push notification (optional — set to trigger push delivery)
-  fcmPayload = null, 
 }) {
   const ZohoDmsNotification = require('../../../models/zohoDmsNotification');
 
@@ -84,26 +82,6 @@ async function addNotificationAndEmit({
       io?.to(`user:${userId}`).emit('notification:new', notificationPayload);
     } catch (err) {
       logger.warn('WebSocket emit failed for notification', { error: err?.message, userId });
-    }
-
-    // FCM push notification — non-blocking, only fires when fcmPayload is provided
-    if (fcmPayload) {
-      setImmediate(async () => {
-        try {
-          const { sendToUser } = require('../../../services/fcm/fcmService');
-          await sendToUser(String(userId), {
-            title: fcmPayload.title,
-            body:  fcmPayload.body,
-            data: {
-              url: link || '/',
-              tag: source || 'worldvisa-notification',
-              ...(fcmPayload.data || {}),
-            },
-          });
-        } catch (err) {
-          logger.warn('[FCM] Push notification failed', { error: err?.message, userId });
-        }
-      });
     }
 
     // Email notification — fully non-blocking, never throws to caller
