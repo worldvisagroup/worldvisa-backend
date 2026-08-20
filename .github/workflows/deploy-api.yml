@@ -36,6 +36,13 @@ jobs:
         run: |
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
+      - name: DEBUG - hash lockfile
+        run: |
+          sha256sum package.json package-lock.json
+          wc -l package-lock.json
+          node -v
+          npm -v
+
       - name: Build and Push Backend Image
         uses: docker/build-push-action@v6
         with:
