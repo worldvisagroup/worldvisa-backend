@@ -43,6 +43,25 @@ jobs:
           node -v
           npm -v
 
+      - name: DEBUG - setup Node 20 and regenerate lockfile natively
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: DEBUG - npm install natively on amd64 runner
+        run: |
+          node -v
+          npm -v
+          rm -f package-lock.json
+          npm install
+          npm ci --omit=dev && echo "NATIVE CI PASSED" || echo "NATIVE CI FAILED"
+
+      - name: DEBUG - upload native lockfile
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-lockfile
+          path: package-lock.json
+
       - name: Build and Push Backend Image
         uses: docker/build-push-action@v6
         with:
