@@ -231,8 +231,8 @@ mongoose
     socketTimeoutMS: 45000,
     connectTimeoutMS: 30000,
 
-    maxPoolSize: 10,
-    minPoolSize: 5,
+    maxPoolSize: 50,
+    minPoolSize: 10,
     maxIdleTimeMS: 30000,
 
     retryWrites: true,
