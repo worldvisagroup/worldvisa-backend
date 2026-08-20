@@ -48,13 +48,20 @@ jobs:
         with:
           node-version: "20"
 
-      - name: DEBUG - npm install natively on amd64 runner
+      - name: DEBUG - test npm ci against UNMODIFIED committed lockfile, fresh node_modules
         run: |
           node -v
           npm -v
+          rm -rf node_modules
+          npm ci --omit=dev && echo "FRESH CI PASSED (unmodified lockfile)" || echo "FRESH CI FAILED (unmodified lockfile)"
+
+      - name: DEBUG - npm install natively on amd64 runner
+        run: |
+          rm -rf node_modules
           rm -f package-lock.json
           npm install
-          npm ci --omit=dev && echo "NATIVE CI PASSED" || echo "NATIVE CI FAILED"
+          rm -rf node_modules
+          npm ci --omit=dev && echo "NATIVE CI PASSED (fresh node_modules)" || echo "NATIVE CI FAILED (fresh node_modules)"
 
       - name: DEBUG - upload native lockfile
         uses: actions/upload-artifact@v4
