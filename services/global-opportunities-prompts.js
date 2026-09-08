@@ -139,6 +139,36 @@ const AU_PROFESSIONAL_PROFILE = {
   },
 };
 
+const AU_VISA_PATHWAY_DETAIL = obj(
+  {
+    name: str('Pathway name, e.g. "Skilled Independent visa"'),
+    subclass: str('Visa subclass number, e.g. "189"'),
+    pointsRequirement: str('Minimum points threshold for this pathway'),
+    ageRequirement: str('Age requirement/limit for this pathway'),
+    employerSponsorship: str('Whether employer sponsorship is required, and details'),
+    stateSponsorship: str('Whether state/territory sponsorship applies, and details'),
+    keyRequirements: strArr('Key eligibility requirements for this pathway'),
+    processingTime: str('Typical processing time for this pathway'),
+    pathway: str('The route to permanent residency this visa leads to'),
+    whySuitable: str('Why this pathway suits this specific client, based on their profile'),
+    additionalInfo: str('Any additional relevant detail, or an empty string if none'),
+    keyStates: strArr('States/territories actively nominating for this pathway, or an empty array if not state-specific'),
+    regionalRequirements: str('Regional-area requirements for this pathway, or an empty string if none'),
+    duration: str('Initial visa duration, or an empty string if not applicable'),
+    prPathway: str('The path to permanent residency from this visa, or an empty string if not applicable'),
+    keyAdvantage: str('The single standout advantage of this pathway for this client, or an empty string if none'),
+  },
+  'Detailed visa pathway'
+);
+
+const AU_VISA_PATHWAY_CATEGORY = obj(
+  {
+    description: str('Short introduction to this category of pathways, or an empty string if none'),
+    pathways: arrOf(AU_VISA_PATHWAY_DETAIL, 'Pathways in this category'),
+  },
+  'A category of visa pathways with full detail per pathway'
+);
+
 const AU_VISA_PATHWAYS = {
   key: 'visaPathways',
   cacheable: false,
@@ -147,16 +177,16 @@ const AU_VISA_PATHWAYS = {
     'australia_visa_pathways',
     {
       conceptOverview: str("Overview of Australia's points-based visa system"),
-      withJobOfferPathways: strArr('Employer-sponsored pathway names suitable for this client'),
-      withoutJobOfferPathways: strArr('Independent (points-tested) pathway names suitable for this client'),
-      recommendedPathway: str('The single most suitable pathway for this client, with reasoning'),
+      withJobOffer: AU_VISA_PATHWAY_CATEGORY,
+      withoutJobOffer: AU_VISA_PATHWAY_CATEGORY,
+      recommended: AU_VISA_PATHWAY_CATEGORY,
     },
     'Visa pathways section, personalized to this client'
   ),
   buildMessages(ctx) {
     return {
-      system: 'You are an Australian skilled-migration consultant assessing which visa pathways best suit this specific client.',
-      user: `${clientContextBlock(ctx)}\nRecommend and explain visa pathways for this client based on their profile.`,
+      system: 'You are an Australian skilled-migration consultant assessing which visa pathways best suit this specific client. Provide full, accurate detail for every pathway -- subclass numbers, points thresholds, processing times, and eligibility requirements must be current and correct.',
+      user: `${clientContextBlock(ctx)}\nAssess and detail Australia's skilled-migration visa pathways for this client, across three categories:\n- withoutJobOffer: independent (points-tested) pathways, e.g. Skilled Independent (subclass 189), Skilled Nominated (subclass 190), Skilled Work Regional (subclass 491).\n- withJobOffer: employer-sponsored pathways, e.g. Employer Nomination Scheme (subclass 186), Skilled Employer Sponsored Regional (subclass 494).\n- recommended: the pathway(s) from either category most suitable for this specific client, with reasoning for the fit.\nGive full per-pathway detail per the schema for every pathway listed. Use an empty string/array for any field genuinely not applicable to a given pathway.`,
     };
   },
 };
@@ -344,12 +374,17 @@ const CA_PROFESSIONAL_PROFILE = {
         ),
         'Primary and secondary NOC code mappings'
       ),
-      totalYears: str('Total years of experience'),
-      currentRole: str('Current role title'),
-      seniorityLevel: str('Seniority level'),
-      age: str("Client's age"),
-      ageAdvantage: str('CRS age-points advantage note'),
-      crsAdvantage: str('Overall CRS advantage summary'),
+      experienceMetrics: obj(
+        {
+          totalYears: str('Total years of experience'),
+          currentRole: str('Current role title'),
+          seniorityLevel: str('Seniority level'),
+          age: str("Client's age"),
+          ageAdvantage: str('CRS age-points advantage note'),
+          crsAdvantage: str('Overall CRS advantage summary'),
+        },
+        "Client's experience/age metrics relevant to CRS"
+      ),
     },
     'Professional profile section for the Canada report'
   ),
@@ -375,7 +410,38 @@ const CA_NO_JOB_OFFER = {
             name: str('Category name'),
             type: str('"Primary" or "Secondary"'),
             description: str('Description'),
+            estimatedCRS: obj(
+              {
+                age: { type: 'integer', description: 'CRS points for age' },
+                education: { type: 'integer', description: 'CRS points for education' },
+                language: { type: 'integer', description: 'CRS points for language' },
+                workExperience: { type: 'integer', description: 'CRS points for work experience' },
+                spouse: { type: 'integer', description: 'CRS points for spouse factors, 0 if not applicable' },
+                subtotal: { type: 'integer', description: 'Subtotal CRS points' },
+              },
+              "Estimated CRS point breakdown for this category, if CRS-scored (Express Entry programs); all zero if this category doesn't use CRS scoring"
+            ),
             cutOffScores: str('Recent CRS cut-off scores, or "N/A"'),
+            improvements: arrOf(
+              obj({ action: str('Action to take'), boost: str('CRS point boost from this action') }, 'CRS improvement action'),
+              'Actions this client could take to improve their CRS score for this category, empty array if not applicable'
+            ),
+            options: arrOf(
+              obj(
+                {
+                  name: str('Option/stream name'),
+                  province: str('Province, or "N/A" if not province-specific'),
+                  details: strArr('Key details of this option'),
+                  crsBonus: str('CRS bonus points from this option, or "N/A"'),
+                  advantages: strArr('Advantages of this option'),
+                  process: strArr('Process steps for this option'),
+                  timeline: str('Timeline for this option'),
+                  disadvantages: strArr('Disadvantages of this option, empty array if none'),
+                },
+                'Specific option/stream within this category'
+              ),
+              'Specific options/streams within this category, empty array if not applicable'
+            ),
           },
           'Visa category'
         ),
@@ -402,7 +468,7 @@ const CA_NO_JOB_OFFER = {
   buildMessages(ctx) {
     return {
       system: 'You are a Canadian immigration consultant assessing no-job-offer pathway eligibility for this specific client.',
-      user: `${clientContextBlock(ctx)}\nAssess this client's no-job-offer Canadian immigration pathway options.`,
+      user: `${clientContextBlock(ctx)}\nAssess this client's no-job-offer Canadian immigration pathway options. For each category, give an estimated CRS breakdown (zero fields if CRS scoring doesn't apply), concrete actions to improve their CRS score, and any specific streams/options (e.g. Provincial Nominee Program streams) relevant to this client.`,
     };
   },
 };
@@ -419,14 +485,23 @@ const CA_NO_SPONSOR = {
         obj({ route: str('Route name'), sponsorRequired: str('Sponsor required?'), jobOfferRequired: str('Job offer required?'), viability: str('Viability for this client') }, 'Self-sponsored route'),
         'Self-sponsored route options'
       ),
-      settlementStages: arrOf(obj({ stage: str('Stage name'), duration: str('Duration'), status: str('Status for this client') }, 'Settlement stage'), 'Settlement pathway stages'),
+      matrix: arrOf(
+        obj({ option: str('Option name'), type: str('Option type'), details: str('Details') }, 'Options comparison row'),
+        'Comparison matrix of self-sponsored options'
+      ),
+      settlementPathway: obj(
+        {
+          stages: arrOf(obj({ stage: str('Stage name'), duration: str('Duration'), status: str('Status for this client') }, 'Settlement stage'), 'Settlement pathway stages'),
+        },
+        'PR-to-citizenship settlement pathway'
+      ),
     },
     "Assessment of client's no-sponsor pathway options"
   ),
   buildMessages(ctx) {
     return {
       system: 'You are a Canadian immigration consultant assessing self-sponsored pathway eligibility for this specific client.',
-      user: `${clientContextBlock(ctx)}\nAssess this client's no-sponsor Canadian immigration pathway options.`,
+      user: `${clientContextBlock(ctx)}\nAssess this client's no-sponsor Canadian immigration pathway options, including a comparison matrix of the available options and the long-term settlement-to-citizenship timeline.`,
     };
   },
 };
@@ -446,8 +521,34 @@ const CA_SKILL_DEMAND = {
       shortageListInfo: str('Shortage-list status note'),
       jobVacancyData: strArr('Job vacancy data points'),
       demandByProvince: arrOf(
-        obj({ province: str('Province'), overallDemand: str('Overall demand'), jobs: str('Job count note'), growth: str('Growth trend') }, 'Province demand row'),
+        obj(
+          {
+            province: str('Province'),
+            noc21231: str('Relevance to NOC 21231, or "N/A"'),
+            noc21234: str('Relevance to NOC 21234, or "N/A"'),
+            overallDemand: str('Overall demand'),
+            jobs: str('Job count note'),
+            growth: str('Growth trend'),
+          },
+          'Province demand row'
+        ),
         'Demand by province'
+      ),
+      provinceContexts: arrOf(
+        obj(
+          {
+            province: str('Province'),
+            city: str('Major city in this province'),
+            techHubStatus: str('Tech/industry hub status note'),
+            companies: strArr('Notable companies in this province for this occupation'),
+            salaryRange: str('Salary range in this province'),
+            jobOpenings: str('Job openings note'),
+            visaTechEmployers: str('Note on visa-sponsoring employers in this sector'),
+            costOfLiving: str('Cost of living note, or "N/A"'),
+          },
+          'Province context detail'
+        ),
+        'Per-province market context detail'
       ),
     },
     'Skill demand mapping, general to this occupation+country'
@@ -455,7 +556,7 @@ const CA_SKILL_DEMAND = {
   buildMessages({ occupationCode, occupationTitle }) {
     return {
       system: 'You are a Canadian labour-market analyst. Use web search for current NOC shortage and provincial demand data. Cite only official/current sources.',
-      user: `Occupation: ${occupationTitle} (NOC ${occupationCode}). Produce current skill demand mapping across Canadian provinces for this occupation.`,
+      user: `Occupation: ${occupationTitle} (NOC ${occupationCode}). Produce current skill demand mapping across Canadian provinces for this occupation, including per-province market context (tech-hub status, notable companies, salary range, job openings).`,
     };
   },
 };
@@ -515,11 +616,40 @@ const CA_SALARY_VARIATION = {
         obj(
           {
             city: str('City name'),
-            factors: arrOf(obj({ factor: str('Factor name, e.g. "Mid-level salary"'), value: str('Value for this city') }, 'Factor value'), 'Salary factors for this city'),
+            factors: arrOf(
+              obj(
+                {
+                  factor: str('Factor name, e.g. "Mid-level salary"'),
+                  toronto: str('Value for Toronto'),
+                  vancouver: str('Value for Vancouver'),
+                  montreal: str('Value for Montreal'),
+                  winner: str('Which city wins on this factor'),
+                },
+                'Factor comparison row'
+              ),
+              'Salary factors compared across cities'
+            ),
           },
           'City salary comparison'
         ),
         'Toronto/Vancouver/Montreal salary comparison'
+      ),
+      recommendation: obj(
+        {
+          priorities: arrOf(
+            obj(
+              {
+                priority: str('A general decision priority for this occupation, e.g. "Highest salary", "Lowest cost of living", "Fastest job market entry"'),
+                toronto: str('How Toronto ranks on this priority'),
+                vancouver: str('How Vancouver ranks on this priority'),
+                montreal: str('How Montreal ranks on this priority'),
+              },
+              'Priority comparison row'
+            ),
+            'Common decision priorities compared across the three cities for this occupation'
+          ),
+        },
+        'General recommendation summary framework for choosing between cities, occupation-based (not client-specific, this section is cached per occupation)'
       ),
     },
     'Salary variation section, general to this occupation+country'
@@ -527,7 +657,7 @@ const CA_SALARY_VARIATION = {
   buildMessages({ occupationCode, occupationTitle }) {
     return {
       system: 'You are a Canadian compensation market analyst. Use web search for current salary benchmark data. Cite only official/current sources, do not invent figures.',
-      user: `Occupation: ${occupationTitle} (NOC ${occupationCode}). Produce current salary benchmarking across Toronto, Vancouver and Montreal for this occupation.`,
+      user: `Occupation: ${occupationTitle} (NOC ${occupationCode}). Produce current salary benchmarking across Toronto, Vancouver and Montreal for this occupation, plus a general decision-priorities comparison (salary, cost of living, job market) across the three cities.`,
     };
   },
 };
@@ -540,18 +670,69 @@ const CA_VISA_PATHWAYS = {
     'canada_visa_pathways',
     {
       overview: arrOf(
-        obj({ route: str('Route'), type: str('Type'), processingTime: str('Processing time'), jobOffer: str('Job offer required?'), prTimeline: str('PR timeline'), recommendation: str('Recommendation') }, 'Visa route overview'),
+        obj(
+          {
+            route: str('Route'),
+            type: str('Type'),
+            processingTime: str('Processing time'),
+            jobOffer: str('Job offer required?'),
+            prTimeline: str('PR timeline'),
+            cost: str('Approximate cost'),
+            recommendation: str('Recommendation'),
+          },
+          'Visa route overview'
+        ),
         'Visa route overview rows'
       ),
-      crsScoringBreakdown: str("This client's estimated CRS score breakdown"),
-      bestStrategy: str('Best-fit strategy recommendation for this client'),
+      eligibilitySnapshot: arrOf(
+        obj(
+          {
+            criterion: str('Eligibility criterion'),
+            requirement: str('Requirement for this criterion'),
+            yourProfile: str("This client's profile value for this criterion"),
+            status: str('Whether this client meets this criterion'),
+          },
+          'Eligibility snapshot row'
+        ),
+        "Snapshot of this client's eligibility against key criteria"
+      ),
+      crsScoring: obj(
+        {
+          breakdown: str("This client's estimated CRS score breakdown"),
+          scenarios: arrOf(
+            obj({ scenario: str('Scenario name'), points: str('Estimated CRS points in this scenario'), competitive: str('Whether this score is competitive in recent draws') }, 'CRS scenario'),
+            'CRS scenarios for this client'
+          ),
+          improvements: arrOf(
+            obj({ action: str('Action to take'), boost: str('CRS point boost from this action') }, 'CRS improvement action'),
+            "Actions this client could take to improve their CRS score"
+          ),
+          bestStrategy: str('Best-fit strategy recommendation for this client'),
+        },
+        "This client's CRS scoring analysis"
+      ),
+      statusComparison: arrOf(
+        obj(
+          {
+            status: str('Visa/permit status type'),
+            processing: str('Processing note'),
+            duration: str('Duration'),
+            workPermit: str('Work permit implications'),
+            changeJobs: str('Whether the client can change jobs under this status'),
+            prPathway: str('PR pathway implications'),
+            recommendation: str('Recommendation'),
+          },
+          'Status comparison row'
+        ),
+        'Comparison of PR vs temporary vs work permit routes'
+      ),
     },
     "Visa pathways section, personalized to this client's CRS profile"
   ),
   buildMessages(ctx) {
     return {
       system: 'You are a Canadian immigration consultant assessing which visa pathways best suit this specific client, including an estimated CRS breakdown.',
-      user: `${clientContextBlock(ctx)}\nRecommend and explain visa pathways for this client, including an estimated CRS scoring breakdown based on their profile.`,
+      user: `${clientContextBlock(ctx)}\nRecommend and explain visa pathways for this client: give a route overview, an eligibility snapshot against key criteria, a full CRS scoring analysis (breakdown, scenarios, improvement actions, best strategy), and a status comparison of PR vs temporary vs work-permit routes -- all based on this client's actual profile.`,
     };
   },
 };
@@ -583,7 +764,10 @@ const DE_EXECUTIVE_SUMMARY = {
     'germany_executive_summary',
     {
       purpose: str('One paragraph stating the purpose of this report for this client'),
-      globalMobilityAdvantages: strArr('Key advantages of Germany for this client'),
+      globalMobility: obj(
+        { keyAdvantages: strArr('Key advantages of Germany for this client') },
+        'Global mobility advantages'
+      ),
       topCities: arrOf(
         obj(
           {
@@ -616,17 +800,31 @@ const DE_PROFESSIONAL_PROFILE = {
   ...schemaFor(
     'germany_professional_profile',
     {
-      primaryRoleTitle: str('Primary role title'),
-      primaryRoleResponsibilities: strArr('Primary role responsibilities'),
-      secondaryRoleTitle: str('Closest secondary/alternative role title'),
-      secondaryRoleResponsibilities: strArr('Secondary role responsibilities'),
-      verdict: str('Overall verdict on occupation fit for the German market'),
+      coreSkills: obj(
+        {
+          primaryRole: obj(
+            { title: str('Primary role title'), responsibilities: strArr('Primary role responsibilities') },
+            'Primary German occupation mapping'
+          ),
+          secondaryRole: obj(
+            { title: str('Closest secondary/alternative role title'), responsibilities: strArr('Secondary role responsibilities') },
+            'Secondary German occupation mapping'
+          ),
+          verdict: str('Overall verdict on occupation fit for the German market'),
+        },
+        'Core skills and occupation mapping to German classifications'
+      ),
       experience: arrOf(obj({ metric: str('Metric name'), yourProfile: str('This client\'s value for this metric') }, 'Experience metric'), 'Experience metrics'),
-      englishProficiency: arrOf(obj({ requirement: str('Requirement'), status: str('Status for this client'), actionNeeded: str('Action needed, if any') }, 'Language row'), 'English proficiency assessment'),
-      germanNote: str('Note on German-language requirement/benefit for this client'),
-      education: arrOf(
-        obj({ qualification: str('Qualification'), details: str('Details'), germanyRecognition: str('Recognition status in Germany'), status: str('Status') }, 'Education qualification'),
-        'Education qualification recognition assessment'
+      languageAndEducation: obj(
+        {
+          englishProficiency: arrOf(obj({ requirement: str('Requirement'), status: str('Status for this client'), actionNeeded: str('Action needed, if any') }, 'Language row'), 'English proficiency assessment'),
+          germanNote: str('Note on German-language requirement/benefit for this client'),
+          education: arrOf(
+            obj({ qualification: str('Qualification'), details: str('Details'), germanyRecognition: str('Recognition status in Germany'), status: str('Status') }, 'Education qualification'),
+            'Education qualification recognition assessment'
+          ),
+        },
+        'Language proficiency and education recognition assessment'
       ),
     },
     'Professional profile section for the Germany report'
@@ -647,19 +845,31 @@ const DE_VISA_CATEGORIES = {
     'germany_visa_categories',
     {
       conceptOverview: str("Overview of Germany's points/demand-based visa categories relevant to this client"),
-      opportunityCardDescription: str('Opportunity Card (Chancenkarte) suitability description for this client'),
-      opportunityCardAdvantages: strArr('Opportunity Card advantages for this client'),
-      opportunityCardSuccessProbability: str('Estimated success probability for this client'),
-      euBlueCardDescription: str('EU Blue Card suitability description for this client'),
-      euBlueCardAdvantages: strArr('EU Blue Card advantages for this client'),
-      euBlueCardSuccessProbability: str('Estimated success probability for this client'),
+      opportunityCard: obj(
+        {
+          title: str('Opportunity Card (Chancenkarte) pathway title'),
+          description: str('Opportunity Card suitability description for this client'),
+          advantages: strArr('Opportunity Card advantages for this client'),
+          successProbability: str('Estimated success probability for this client'),
+        },
+        'Opportunity Card pathway detail'
+      ),
+      euBlueCard: obj(
+        {
+          title: str('EU Blue Card pathway title'),
+          description: str('EU Blue Card suitability description for this client'),
+          advantages: strArr('EU Blue Card advantages for this client'),
+          successProbability: str('Estimated success probability for this client'),
+        },
+        'EU Blue Card pathway detail'
+      ),
     },
     "Visa categories section, personalized to this client's eligibility"
   ),
   buildMessages(ctx) {
     return {
       system: 'You are a German immigration consultant assessing Opportunity Card and EU Blue Card eligibility for this specific client.',
-      user: `${clientContextBlock(ctx)}\nAssess this client's suitability for the Opportunity Card and EU Blue Card pathways.`,
+      user: `${clientContextBlock(ctx)}\nAssess this client's suitability for the Opportunity Card and EU Blue Card pathways -- give each pathway its own title, description, advantages, and estimated success probability.`,
     };
   },
 };
@@ -673,11 +883,16 @@ const DE_SKILL_DEMAND = {
     'germany_skill_demand',
     {
       skillMapping: arrOf(obj({ skill: str('Skill'), marketDemand: str('Market demand level'), salaryImpact: str('Salary impact note'), shortageStatus: str('Shortage-occupation status') }, 'Skill map row'), 'Skill demand rows'),
-      techShortageDescription: str('Description of the shortage situation for this occupation'),
-      techShortageMarketFacts: strArr('Market facts supporting the shortage claim'),
-      techShortageConclusion: str('Conclusion on shortage-occupation status'),
+      techShortage: obj(
+        {
+          description: str('Description of the shortage situation for this occupation'),
+          marketFacts: strArr('Market facts supporting the shortage claim'),
+          conclusion: str('Conclusion on shortage-occupation status'),
+        },
+        'Shortage-occupation analysis'
+      ),
       demandByCity: arrOf(
-        obj({ city: str('City'), techMarket: str('Market note'), jobOpportunities: str('Job opportunities note'), salaryRange: str('Salary range') }, 'City demand row'),
+        obj({ city: str('City'), techMarket: str('Market note'), jobOpportunities: str('Job opportunities note'), salaryRange: str('Salary range'), type: str('City/market type note, e.g. "Tech hub"') }, 'City demand row'),
         'Demand by German city'
       ),
     },
@@ -702,10 +917,12 @@ const DE_JOB_OPPORTUNITIES = {
       cities: arrOf(
         obj(
           {
-            cityName: str('City name'),
+            cityKey: str('Lowercase city key, e.g. "berlin", "munich", "frankfurt"'),
+            name: str('City name'),
             jobTitles: strArr('Relevant job titles available in this city'),
+            specializedRoles: strArr('Specialized/niche roles available in this city, empty array if none'),
             targetCompanies: strArr('Real, currently hiring target companies in this city'),
-            advantage: str('Advantage of this city for this occupation'),
+            advantage: str('Advantage of this city for this occupation, or an empty string if none'),
           },
           'City job data'
         ),
@@ -721,7 +938,7 @@ const DE_JOB_OPPORTUNITIES = {
   buildMessages({ occupationCode, occupationTitle }) {
     return {
       system: 'You are a German recruitment market analyst. Use web search to name real, currently-hiring companies. Never invent company names.',
-      user: `Occupation: ${occupationTitle}${occupationCode ? ` (${occupationCode})` : ''}. Identify real, currently active German employers and cities hiring for this occupation.`,
+      user: `Occupation: ${occupationTitle}${occupationCode ? ` (${occupationCode})` : ''}. Identify real, currently active German employers and cities hiring for this occupation, including any specialized/niche roles available per city.`,
     };
   },
 };
