@@ -54,6 +54,7 @@ const razorpayController = require("./routes/razorpay");
 const visaReferenceFormController = require("./routes/visaReferenceForm");
 
 const pdfRoutes = require('./routes/worldvisa2.0/pdf/pdf.routes');
+const globalOpportunitiesContentRoutes = require('./routes/worldvisa2.0/pdf/global-opportunities-content.routes');
 const meetingRouter = require('./routes/worldvisa2.0/meeting/meeting.routes');
 const anabinRouter = require('./routes/anabin');
 const { handleResendWebhook } = require('./controllers/email/webhookController');
@@ -546,7 +547,7 @@ app.post("/webhook", (req, res) => {
 });
 
 // PDF generation routes
-app.use('/api/worldvisaV2/global-assessment-report', pdfRateLimiter, pdfRoutes);
+app.use('/api/worldvisaV2/global-assessment-report', pdfRateLimiter, pdfRoutes, globalOpportunitiesContentRoutes);
 
 // Meeting booking routes
 app.use('/api/worldvisaV2/schedule-meeting', meetingRouter);
