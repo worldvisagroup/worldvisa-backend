@@ -47,7 +47,6 @@ async function callStructuredSection({ model, system, user, schemaName, schema, 
       },
     },
     ...(useWebSearch ? { tools: [{ type: 'web_search' }], parallel_tool_calls: true } : {}),
-    temperature: useWebSearch ? 0.3 : 0.4,
     store: false,
   });
 
@@ -63,7 +62,6 @@ async function summarizeResume(resumeText) {
       { role: 'user', content: user },
     ],
     max_output_tokens: 500,
-    temperature: 0.2,
     store: false,
   });
   return response.output_text.trim();
