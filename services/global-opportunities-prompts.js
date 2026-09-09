@@ -243,11 +243,16 @@ const AU_TOP_EMPLOYERS = {
         ),
         '2-3 tiers of target employers'
       ),
-      whyActivelyHiring: str('Why these companies are actively hiring for this occupation'),
-      whySponsorMigrants: str('Why these companies sponsor skilled migrants'),
-      whyGrowthTrajectory: str('Growth trajectory of these companies/sector'),
-      whyYourFit: str('Why this occupation profile fits these employers'),
-      whyLearningOpportunity: str('Learning/career growth opportunity at these employers'),
+      whyTheseCompanies: obj(
+        {
+          activelyHiring: str('Why these companies are actively hiring for this occupation'),
+          sponsorMigrants: str('Why these companies sponsor skilled migrants'),
+          growthTrajectory: str('Growth trajectory of these companies/sector'),
+          yourFit: str('Why this occupation profile fits these employers'),
+          learningOpportunity: str('Learning/career growth opportunity at these employers'),
+        },
+        'Why these companies are a good fit'
+      ),
     },
     'Top employers section, general to this occupation+country'
   ),
