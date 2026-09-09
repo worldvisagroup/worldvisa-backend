@@ -7,7 +7,7 @@ const { generatePDFWithRetry } = require('./pdf-generator.service');
 const { COUNTRY_SECTIONS, resumeSummaryPrompt } = require('./global-opportunities-prompts');
 
 const CLIENT_MODEL = 'gpt-5.6-terra';
-const RESEARCH_MODEL = 'gpt-5.6-sol';
+const RESEARCH_MODEL = 'gpt-5.6-terra';
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
