@@ -1,6 +1,7 @@
 import React from 'react';
 import type { SkillDemandData } from '../types/report-types';
 import { SectionHeader } from './shared/SectionHeader';
+import { renderTextWithLinks } from '../shared/renderTextWithLinks';
 
 interface Props {
   data: SkillDemandData;
@@ -31,7 +32,7 @@ export function Section4_SkillDemand({ data }: Props) {
           4.1 Core Skills to Occupation Codes
         </h3>
         <p style={{ fontSize: '12pt', color: '#4B5563', margin: '0 0 6pt 0' }}>
-          <strong style={{ color: '#2563EB' }}>Primary Occupation Code:</strong> {data.primaryOccupationCode}
+          <strong style={{ color: '#2563EB' }}>Primary Occupation Code:</strong> {renderTextWithLinks(data.primaryOccupationCode)}
         </p>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt' }}>
           <thead>
@@ -51,10 +52,10 @@ export function Section4_SkillDemand({ data }: Props) {
             {data.skillMappingTable.map((row, index) => (
               <tr key={index}>
                 <td style={{ padding: '5pt 8pt', border: '1pt solid #E5E7EB', color: '#111827', fontWeight: 600, verticalAlign: 'top', background: index % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
-                  {row.skill}
+                  {renderTextWithLinks(row.skill)}
                 </td>
                 <td style={{ padding: '5pt 8pt', border: '1pt solid #E5E7EB', color: '#4B5563', verticalAlign: 'top', background: index % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
-                  {row.anzscoCategory}
+                  {renderTextWithLinks(row.anzscoCategory)}
                 </td>
                 <td style={{ padding: '5pt 8pt', border: '1pt solid #E5E7EB', verticalAlign: 'top', background: index % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
                   <span style={{
@@ -67,7 +68,7 @@ export function Section4_SkillDemand({ data }: Props) {
                     border: `1pt solid ${getDemandColor(row.demandLevel)}`,
                     borderRadius: '2pt'
                   }}>
-                    {row.demandLevel}
+                    {renderTextWithLinks(row.demandLevel)}
                   </span>
                 </td>
               </tr>
@@ -92,12 +93,12 @@ export function Section4_SkillDemand({ data }: Props) {
             }}
           >
             <p style={{ fontSize: '12pt', fontWeight: 600, color: '#111827', margin: '0 0 4pt 0' }}>
-              {list.listName}
+              {renderTextWithLinks(list.listName)}
             </p>
             <ul style={{ fontSize: '12pt', color: '#4B5563', margin: 0, paddingLeft: '14pt' }}>
               {list.occupations.map((occ, occIndex) => (
                 <li key={occIndex} style={{ marginBottom: '2pt', lineHeight: '1.4' }}>
-                  <strong>{occ}</strong>
+                  <strong>{renderTextWithLinks(occ)}</strong>
                 </li>
               ))}
             </ul>
@@ -125,10 +126,10 @@ export function Section4_SkillDemand({ data }: Props) {
             {data.statePriorityLists.map((state, stateIndex) => (
               <tr key={stateIndex}>
                 <td style={{ padding: '5pt 8pt', border: '1pt solid #E5E7EB', color: '#111827', fontWeight: 600, background: stateIndex % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
-                  {state.state}
+                  {renderTextWithLinks(state.state)}
                 </td>
                 <td style={{ padding: '5pt 8pt', border: '1pt solid #E5E7EB', color: '#4B5563', background: stateIndex % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
-                  {state.status}
+                  {renderTextWithLinks(state.status)}
                 </td>
               </tr>
             ))}
@@ -139,7 +140,7 @@ export function Section4_SkillDemand({ data }: Props) {
       {/* Availability Note */}
       <div style={{ borderLeft: '3pt solid #1B2A4A', padding: '6pt 10pt', background: '#F8F9FB' }}>
         <p style={{ margin: 0, fontSize: '12pt', color: '#4B5563', lineHeight: '1.5' }}>
-          <strong style={{ color: '#111827' }}>Availability:</strong> {data.availabilityNote}
+          <strong style={{ color: '#111827' }}>Availability:</strong> {renderTextWithLinks(data.availabilityNote)}
         </p>
       </div>
     </div>

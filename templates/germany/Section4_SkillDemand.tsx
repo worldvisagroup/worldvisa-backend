@@ -1,6 +1,7 @@
 import React from 'react';
 import type { GermanySkillDemandData } from '../types/report-types';
 import { SectionHeader } from '../shared/SectionHeader';
+import { renderTextWithLinks } from '../shared/renderTextWithLinks';
 
 interface Props {
   data: GermanySkillDemandData;
@@ -28,7 +29,7 @@ export function Section4_SkillDemand({ data }: Props) {
           <tbody>
             {data.skillMapping.map((skill, index) => (
               <tr key={index} style={{ backgroundColor: index % 2 === 0 ? '#FFFFFF' : '#FAFAFA' }}>
-                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#111827', fontWeight: 600 }}>{skill.skill}</td>
+                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#111827', fontWeight: 600 }}>{renderTextWithLinks(skill.skill)}</td>
                 <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB' }}>
                   <span style={{
                     display: 'inline-block',
@@ -39,11 +40,11 @@ export function Section4_SkillDemand({ data }: Props) {
                     fontWeight: 600,
                     borderRadius: '3pt'
                   }}>
-                    {skill.marketDemand}
+                    {renderTextWithLinks(skill.marketDemand)}
                   </span>
                 </td>
-                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#4B5563' }}>{skill.salaryImpact}</td>
-                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#4B5563' }}>{skill.shortageStatus}</td>
+                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#4B5563' }}>{renderTextWithLinks(skill.salaryImpact)}</td>
+                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#4B5563' }}>{renderTextWithLinks(skill.shortageStatus)}</td>
               </tr>
             ))}
           </tbody>
@@ -56,16 +57,16 @@ export function Section4_SkillDemand({ data }: Props) {
           4.2 Germany&apos;s Tech Skill Shortage
         </h3>
         <p style={{ fontSize: '12pt', fontWeight: 600, color: '#111827', marginTop: 0, marginBottom: '4pt' }}>
-          {data.techShortage.description}
+          {renderTextWithLinks(data.techShortage.description)}
         </p>
         <ul style={{ margin: 0, paddingLeft: '14pt', marginBottom: '6pt' }}>
           {data.techShortage.marketFacts.map((fact, index) => (
-            <li key={index} style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '3pt', lineHeight: 1.4 }}>{fact}</li>
+            <li key={index} style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '3pt', lineHeight: 1.4 }}>{renderTextWithLinks(fact)}</li>
           ))}
         </ul>
         <div style={{ borderLeft: '3pt solid #059669', backgroundColor: '#F0FDF4', padding: '6pt 10pt' }}>
           <p style={{ fontSize: '12pt', color: '#111827', margin: 0 }}>
-            <strong>Conclusion:</strong> <span style={{ color: '#4B5563' }}>{data.techShortage.conclusion}</span>
+            <strong>Conclusion:</strong> <span style={{ color: '#4B5563' }}>{renderTextWithLinks(data.techShortage.conclusion)}</span>
           </p>
         </div>
       </div>
@@ -88,11 +89,11 @@ export function Section4_SkillDemand({ data }: Props) {
           <tbody>
             {data.demandByCity.map((city, index) => (
               <tr key={index} style={{ backgroundColor: index % 2 === 0 ? '#FFFFFF' : '#FAFAFA' }}>
-                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#111827', fontWeight: 600 }}>{city.city}</td>
-                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#4B5563' }}>{city.techMarket}</td>
-                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#4B5563' }}>{city.jobOpportunities}</td>
-                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#4B5563' }}>{city.salaryRange}</td>
-                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#4B5563' }}>{city.type}</td>
+                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#111827', fontWeight: 600 }}>{renderTextWithLinks(city.city)}</td>
+                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#4B5563' }}>{renderTextWithLinks(city.techMarket)}</td>
+                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#4B5563' }}>{renderTextWithLinks(city.jobOpportunities)}</td>
+                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#4B5563' }}>{renderTextWithLinks(city.salaryRange)}</td>
+                <td style={{ padding: '6pt 8pt', borderBottom: '0.5pt solid #E5E7EB', color: '#4B5563' }}>{renderTextWithLinks(city.type)}</td>
               </tr>
             ))}
           </tbody>

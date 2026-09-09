@@ -1,6 +1,7 @@
 import React from 'react';
 import type { CanadaSalaryVariationData } from '../types/report-types';
 import { SectionHeader } from '../shared/SectionHeader';
+import { renderTextWithLinks } from '../shared/renderTextWithLinks';
 
 interface Props {
   data: CanadaSalaryVariationData;
@@ -38,7 +39,7 @@ export function Section7_SalaryVariation({ data }: Props) {
           <div key={index} style={{ marginBottom: '8pt' }}>
             {data.cities.length > 1 && (
               <div style={{ fontSize: '12pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '3pt' }}>
-                {city.city}
+                {renderTextWithLinks(city.city)}
               </div>
             )}
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt' }}>
@@ -55,13 +56,13 @@ export function Section7_SalaryVariation({ data }: Props) {
                 {city.factors.map((factor, i) => (
                   <tr key={i} style={{ background: i % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
                     <td style={{ ...tdStyle, fontWeight: 600, color: '#111827' }}>
-                      {factor.factor}
+                      {renderTextWithLinks(factor.factor)}
                     </td>
-                    <td style={tdStyle}>{factor.toronto}</td>
-                    <td style={tdStyle}>{factor.vancouver}</td>
-                    <td style={tdStyle}>{factor.montreal}</td>
+                    <td style={tdStyle}>{renderTextWithLinks(factor.toronto)}</td>
+                    <td style={tdStyle}>{renderTextWithLinks(factor.vancouver)}</td>
+                    <td style={tdStyle}>{renderTextWithLinks(factor.montreal)}</td>
                     <td style={{ ...tdStyle, fontWeight: 600, color: '#059669' }}>
-                      {factor.winner}
+                      {renderTextWithLinks(factor.winner)}
                     </td>
                   </tr>
                 ))}
@@ -90,11 +91,11 @@ export function Section7_SalaryVariation({ data }: Props) {
             {data.recommendation.priorities.map((priority, i) => (
               <tr key={i} style={{ background: i % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
                 <td style={{ ...tdStyle, fontWeight: 600, color: '#111827' }}>
-                  {priority.priority}
+                  {renderTextWithLinks(priority.priority)}
                 </td>
-                <td style={tdStyle}>{priority.toronto}</td>
-                <td style={tdStyle}>{priority.vancouver}</td>
-                <td style={tdStyle}>{priority.montreal}</td>
+                <td style={tdStyle}>{renderTextWithLinks(priority.toronto)}</td>
+                <td style={tdStyle}>{renderTextWithLinks(priority.vancouver)}</td>
+                <td style={tdStyle}>{renderTextWithLinks(priority.montreal)}</td>
               </tr>
             ))}
           </tbody>

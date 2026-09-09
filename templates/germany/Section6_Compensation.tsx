@@ -1,6 +1,7 @@
 import React from 'react';
 import type { GermanyCompensationData } from '../types/report-types';
 import { SectionHeader } from '../shared/SectionHeader';
+import { renderTextWithLinks } from '../shared/renderTextWithLinks';
 
 interface Props {
   data: GermanyCompensationData;
@@ -45,10 +46,10 @@ export function Section6_Compensation({ data }: Props) {
           <tbody>
             {data.salaryRanges.map((salary, index) => (
               <tr key={index} style={{ background: index % 2 === 0 ? '#F8F9FB' : '#FFFFFF' }}>
-                <td style={tdStyle}>{salary.level}</td>
-                <td style={tdStyle}>{salary.location}</td>
-                <td style={tdStyle}>{salary.eurAnnual}</td>
-                <td style={tdStyle}>{salary.inrEquivalent}</td>
+                <td style={tdStyle}>{renderTextWithLinks(salary.level)}</td>
+                <td style={tdStyle}>{renderTextWithLinks(salary.location)}</td>
+                <td style={tdStyle}>{renderTextWithLinks(salary.eurAnnual)}</td>
+                <td style={tdStyle}>{renderTextWithLinks(salary.inrEquivalent)}</td>
               </tr>
             ))}
           </tbody>
@@ -73,11 +74,11 @@ export function Section6_Compensation({ data }: Props) {
           <tbody>
             {data.cityComparison.map((comparison, index) => (
               <tr key={index} style={{ background: index % 2 === 0 ? '#F8F9FB' : '#FFFFFF' }}>
-                <td style={{ ...tdStyle, fontWeight: 600, color: '#111827' }}>{comparison.factor}</td>
-                <td style={tdStyle}>{comparison.berlin}</td>
-                <td style={tdStyle}>{comparison.munich}</td>
-                <td style={tdStyle}>{comparison.frankfurt}</td>
-                <td style={{ ...tdStyle, fontWeight: 600, color: '#059669' }}>{comparison.winner}</td>
+                <td style={{ ...tdStyle, fontWeight: 600, color: '#111827' }}>{renderTextWithLinks(comparison.factor)}</td>
+                <td style={tdStyle}>{renderTextWithLinks(comparison.berlin)}</td>
+                <td style={tdStyle}>{renderTextWithLinks(comparison.munich)}</td>
+                <td style={tdStyle}>{renderTextWithLinks(comparison.frankfurt)}</td>
+                <td style={{ ...tdStyle, fontWeight: 600, color: '#059669' }}>{renderTextWithLinks(comparison.winner)}</td>
               </tr>
             ))}
           </tbody>

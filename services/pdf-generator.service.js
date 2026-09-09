@@ -275,6 +275,10 @@ async function generatePDF({ userName, countries, reportData, requestId }) {
       form.append("marginBottom", "0");
       form.append("marginLeft", "0");
       form.append("marginRight", "0");
+      // Without this, Gotenberg ignores the CSS @page margin rule entirely and
+      // only honors the form margins above -- two unreconciled margin systems.
+      // Making the CSS authoritative here instead.
+      form.append("preferCssPageSize", "true");
       form.append("printBackground", "true");
       // Allow time for Cloudinary images to load
       form.append("waitDelay", "1s");

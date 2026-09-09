@@ -1,6 +1,7 @@
 import React from 'react';
 import type { GermanyJobOpportunitiesData } from '../types/report-types';
 import { SectionHeader } from '../shared/SectionHeader';
+import { renderTextWithLinks } from '../shared/renderTextWithLinks';
 
 interface Props {
   data: GermanyJobOpportunitiesData;
@@ -31,7 +32,7 @@ export function Section5_JobOpportunities({ data }: Props) {
               <ul style={{ margin: 0, paddingLeft: '14pt' }}>
                 {city.jobTitles.map((title, index) => (
                   <li key={index} style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '2pt', lineHeight: '1.4' }}>
-                    {title}
+                    {renderTextWithLinks(title)}
                   </li>
                 ))}
               </ul>
@@ -46,7 +47,7 @@ export function Section5_JobOpportunities({ data }: Props) {
                 <ul style={{ margin: 0, paddingLeft: '14pt' }}>
                   {city.specializedRoles.map((role, index) => (
                     <li key={index} style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '2pt', lineHeight: '1.4' }}>
-                      {role}
+                      {renderTextWithLinks(role)}
                     </li>
                   ))}
                 </ul>
@@ -61,7 +62,7 @@ export function Section5_JobOpportunities({ data }: Props) {
               <ul style={{ margin: 0, paddingLeft: '14pt' }}>
                 {city.targetCompanies.map((company, index) => (
                   <li key={index} style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '2pt', lineHeight: '1.4' }}>
-                    {company}
+                    {renderTextWithLinks(company)}
                   </li>
                 ))}
               </ul>
@@ -76,7 +77,7 @@ export function Section5_JobOpportunities({ data }: Props) {
                 marginBottom: '4pt',
               }}>
                 <p style={{ fontSize: '12pt', color: '#4B5563', margin: 0, lineHeight: '1.4' }}>
-                  <strong style={{ color: '#111827' }}>Advantage:</strong> {city.advantage}
+                  <strong style={{ color: '#111827' }}>Advantage:</strong> {renderTextWithLinks(city.advantage)}
                 </p>
               </div>
             )}
@@ -103,19 +104,19 @@ export function Section5_JobOpportunities({ data }: Props) {
             {data.keyIndustries.map((industry, index) => (
               <tr key={index} style={{ background: index % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
                 <td style={{ padding: '5pt 8pt', fontWeight: 600, color: '#111827', borderBottom: '0.5pt solid #E5E7EB', verticalAlign: 'top' }}>
-                  {industry.industry}
+                  {renderTextWithLinks(industry.industry)}
                 </td>
                 <td style={{ padding: '5pt 8pt', color: '#4B5563', borderBottom: '0.5pt solid #E5E7EB', verticalAlign: 'top' }}>
-                  {industry.demand}
+                  {renderTextWithLinks(industry.demand)}
                 </td>
                 <td style={{ padding: '5pt 8pt', color: '#4B5563', borderBottom: '0.5pt solid #E5E7EB', verticalAlign: 'top' }}>
-                  {industry.growth}
+                  {renderTextWithLinks(industry.growth)}
                 </td>
                 <td style={{ padding: '5pt 8pt', color: '#4B5563', borderBottom: '0.5pt solid #E5E7EB', verticalAlign: 'top' }}>
-                  {industry.exampleCompanies}
+                  {renderTextWithLinks(industry.exampleCompanies)}
                 </td>
                 <td style={{ padding: '5pt 8pt', color: '#4B5563', borderBottom: '0.5pt solid #E5E7EB', verticalAlign: 'top' }}>
-                  {industry.yourFit}
+                  {renderTextWithLinks(industry.yourFit)}
                 </td>
               </tr>
             ))}

@@ -1,6 +1,7 @@
 import React from 'react';
 import type { CanadaTopEmployersData } from '../types/report-types';
 import { SectionHeader } from '../shared/SectionHeader';
+import { renderTextWithLinks } from '../shared/renderTextWithLinks';
 
 interface Props {
   data: CanadaTopEmployersData;
@@ -20,7 +21,7 @@ export function Section6_TopEmployers({ data }: Props) {
             background: '#F8F9FB',
           }}>
             <div style={{ fontSize: '12pt', fontWeight: 700, color: '#111827' }}>
-              {provinceData.province} / {provinceData.city}
+              {renderTextWithLinks(provinceData.province)} / {renderTextWithLinks(provinceData.city)}
             </div>
             <div style={{ fontSize: '10pt', color: '#9CA3AF', marginTop: '1pt' }}>
               Top {provinceData.employers.length} Target Employers
@@ -55,7 +56,7 @@ export function Section6_TopEmployers({ data }: Props) {
                     color: '#1B2A4A',
                     borderBottom: '0.5pt solid #E5E7EB',
                   }}>
-                    {employer.rank}
+                    {renderTextWithLinks(employer.rank)}
                   </td>
                   <td style={{
                     padding: '4pt 6pt',
@@ -63,21 +64,21 @@ export function Section6_TopEmployers({ data }: Props) {
                     color: '#111827',
                     borderBottom: '0.5pt solid #E5E7EB',
                   }}>
-                    {employer.company}
+                    {renderTextWithLinks(employer.company)}
                   </td>
                   <td style={{
                     padding: '4pt 6pt',
                     color: '#4B5563',
                     borderBottom: '0.5pt solid #E5E7EB',
                   }}>
-                    {employer.industry}
+                    {renderTextWithLinks(employer.industry)}
                   </td>
                   <td style={{
                     padding: '4pt 6pt',
                     color: '#4B5563',
                     borderBottom: '0.5pt solid #E5E7EB',
                   }}>
-                    {employer.salary}
+                    {renderTextWithLinks(employer.salary)}
                   </td>
                   <td style={{
                     padding: '4pt 6pt',
@@ -85,7 +86,7 @@ export function Section6_TopEmployers({ data }: Props) {
                     fontWeight: employer.visaSponsorship?.toLowerCase().includes('yes') ? 600 : 400,
                     borderBottom: '0.5pt solid #E5E7EB',
                   }}>
-                    {employer.visaSponsorship}
+                    {renderTextWithLinks(employer.visaSponsorship)}
                   </td>
                 </tr>
               ))}
@@ -107,7 +108,7 @@ export function Section6_TopEmployers({ data }: Props) {
                         width: '20%',
                         verticalAlign: 'top',
                       }}>
-                        {employer.company}
+                        {renderTextWithLinks(employer.company)}
                       </td>
                       <td style={{
                         padding: '3pt 6pt',
@@ -115,7 +116,7 @@ export function Section6_TopEmployers({ data }: Props) {
                         borderBottom: '0.5pt solid #E5E7EB',
                         lineHeight: '1.4',
                       }}>
-                        {employer.whyHireYou}
+                        {renderTextWithLinks(employer.whyHireYou)}
                       </td>
                     </tr>
                   ) : null

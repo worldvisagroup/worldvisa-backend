@@ -1,6 +1,7 @@
 import React from 'react';
 import type { SalaryVariationData } from '../types/report-types';
 import { SectionHeader } from './shared/SectionHeader';
+import { renderTextWithLinks } from '../shared/renderTextWithLinks';
 
 interface Props {
   data: SalaryVariationData;
@@ -12,9 +13,11 @@ export function Section6_SalaryVariation({ data }: Props) {
       <SectionHeader number="6" title="City-wise Salary Variation (Capitals vs Tier-2)" />
 
       <p style={{ fontSize: '12pt', color: '#4B5563', marginBottom: '20pt', lineHeight: '1.5' }}>
-        {data.roleName
-          ? `Salary variation for ${data.roleName} across Australian cities, including take-home estimates and living costs.`
-          : 'Salary ranges across Australian cities, including take-home estimates and living costs.'}
+        {renderTextWithLinks(
+          data.roleName
+            ? `Salary variation for ${data.roleName} across Australian cities, including take-home estimates and living costs.`
+            : 'Salary ranges across Australian cities, including take-home estimates and living costs.'
+        )}
       </p>
 
       {data.cities.map((city, index) => (
@@ -34,10 +37,10 @@ export function Section6_SalaryVariation({ data }: Props) {
         >
           {/* City Header */}
           <div style={{ marginBottom: '6pt', paddingBottom: '4pt', borderBottom: '0.5pt solid #E5E7EB' }}>
-            <span style={{ fontSize: '12pt', fontWeight: 700, color: '#111827' }}>{city.cityName}</span>
+            <span style={{ fontSize: '12pt', fontWeight: 700, color: '#111827' }}>{renderTextWithLinks(city.cityName)}</span>
             {(city.techHub || city.nicheOpportunity) && (
               <span style={{ fontSize: '10pt', color: '#6B7280', marginLeft: '8pt' }}>
-                {city.techHub || city.nicheOpportunity}
+                {renderTextWithLinks(city.techHub || city.nicheOpportunity)}
               </span>
             )}
           </div>
@@ -46,23 +49,23 @@ export function Section6_SalaryVariation({ data }: Props) {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8pt', marginBottom: '6pt', padding: '6pt 8pt', background: '#FAFAFA', borderRadius: '3pt' }}>
             <div>
               <div style={{ fontSize: '10pt', fontWeight: 600, color: '#6B7280', marginBottom: '2pt' }}>
-                {city.midLevelRoleName || 'Mid-level'}
+                {renderTextWithLinks(city.midLevelRoleName) || 'Mid-level'}
               </div>
               <div style={{ fontSize: '12pt', fontWeight: 700, color: '#1B2A4A' }}>
-                {city.midLevelRange}
+                {renderTextWithLinks(city.midLevelRange)}
               </div>
               {city.premium && (
                 <span style={{ fontSize: '10pt', fontWeight: 600, color: '#1E40AF', background: '#EFF6FF', border: '0.5pt solid #BFDBFE', padding: '1pt 4pt', borderRadius: '2pt', display: 'inline-block', marginTop: '2pt' }}>
-                  {city.premium}
+                  {renderTextWithLinks(city.premium)}
                 </span>
               )}
             </div>
             <div>
               <div style={{ fontSize: '10pt', fontWeight: 600, color: '#6B7280', marginBottom: '2pt' }}>
-                {city.seniorLevelRoleName || 'Senior'}
+                {renderTextWithLinks(city.seniorLevelRoleName) || 'Senior'}
               </div>
               <div style={{ fontSize: '12pt', fontWeight: 700, color: '#1B2A4A' }}>
-                {city.seniorLevelRange}
+                {renderTextWithLinks(city.seniorLevelRange)}
               </div>
             </div>
           </div>
@@ -78,7 +81,7 @@ export function Section6_SalaryVariation({ data }: Props) {
             ].map((item, i) => (
               <div key={i} style={{ fontSize: '12pt' }}>
                 <span style={{ color: '#6B7280' }}>{item.label}: </span>
-                <span style={{ fontWeight: 600, color: 'accent' in item && item.accent ? '#1B2A4A' : '#1F2937' }}>{item.value}</span>
+                <span style={{ fontWeight: 600, color: 'accent' in item && item.accent ? '#1B2A4A' : '#1F2937' }}>{renderTextWithLinks(item.value)}</span>
               </div>
             ))}
           </div>
@@ -87,7 +90,7 @@ export function Section6_SalaryVariation({ data }: Props) {
           {(city.additionalNotes || city.yourAdvantage) && (
             <div style={{ marginTop: '4pt', padding: '4pt 8pt', background: '#F0F4F8', borderLeft: '2pt solid #1B2A4A', borderRadius: '0 3pt 3pt 0' }}>
               <p style={{ fontSize: '12pt', color: '#374151', margin: 0, lineHeight: '1.4' }}>
-                {city.additionalNotes || city.yourAdvantage}
+                {renderTextWithLinks(city.additionalNotes || city.yourAdvantage)}
               </p>
             </div>
           )}

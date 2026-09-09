@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.Section5_JobOpportunities = Section5_JobOpportunities;
 const react_1 = __importDefault(require("react"));
 const SectionHeader_1 = require("../shared/SectionHeader");
+const renderTextWithLinks_1 = require("../shared/renderTextWithLinks");
 function Section5_JobOpportunities({ data }) {
     const cityEntries = Object.entries(data.cities);
     const totalCities = cityEntries.length;
@@ -21,13 +22,13 @@ function Section5_JobOpportunities({ data }) {
                     city.name),
                 react_1.default.createElement("div", { style: { marginBottom: '6pt' } },
                     react_1.default.createElement("div", { style: { fontSize: '12pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '3pt' } }, "Typical Job Titles"),
-                    react_1.default.createElement("ul", { style: { margin: 0, paddingLeft: '14pt' } }, city.jobTitles.map((title, index) => (react_1.default.createElement("li", { key: index, style: { fontSize: '12pt', color: '#4B5563', marginBottom: '2pt', lineHeight: '1.4' } }, title))))),
+                    react_1.default.createElement("ul", { style: { margin: 0, paddingLeft: '14pt' } }, city.jobTitles.map((title, index) => (react_1.default.createElement("li", { key: index, style: { fontSize: '12pt', color: '#4B5563', marginBottom: '2pt', lineHeight: '1.4' } }, (0, renderTextWithLinks_1.renderTextWithLinks)(title)))))),
                 city.specializedRoles && city.specializedRoles.length > 0 && (react_1.default.createElement("div", { style: { marginBottom: '6pt' } },
                     react_1.default.createElement("div", { style: { fontSize: '12pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '3pt' } }, "Specialized Roles"),
-                    react_1.default.createElement("ul", { style: { margin: 0, paddingLeft: '14pt' } }, city.specializedRoles.map((role, index) => (react_1.default.createElement("li", { key: index, style: { fontSize: '12pt', color: '#4B5563', marginBottom: '2pt', lineHeight: '1.4' } }, role)))))),
+                    react_1.default.createElement("ul", { style: { margin: 0, paddingLeft: '14pt' } }, city.specializedRoles.map((role, index) => (react_1.default.createElement("li", { key: index, style: { fontSize: '12pt', color: '#4B5563', marginBottom: '2pt', lineHeight: '1.4' } }, (0, renderTextWithLinks_1.renderTextWithLinks)(role))))))),
                 react_1.default.createElement("div", { style: { marginBottom: '6pt' } },
                     react_1.default.createElement("div", { style: { fontSize: '12pt', fontWeight: 600, color: '#1B2A4A', marginBottom: '3pt' } }, "Target Companies"),
-                    react_1.default.createElement("ul", { style: { margin: 0, paddingLeft: '14pt' } }, city.targetCompanies.map((company, index) => (react_1.default.createElement("li", { key: index, style: { fontSize: '12pt', color: '#4B5563', marginBottom: '2pt', lineHeight: '1.4' } }, company))))),
+                    react_1.default.createElement("ul", { style: { margin: 0, paddingLeft: '14pt' } }, city.targetCompanies.map((company, index) => (react_1.default.createElement("li", { key: index, style: { fontSize: '12pt', color: '#4B5563', marginBottom: '2pt', lineHeight: '1.4' } }, (0, renderTextWithLinks_1.renderTextWithLinks)(company)))))),
                 city.advantage && (react_1.default.createElement("div", { style: {
                         borderLeft: '3pt solid #1B2A4A',
                         padding: '6pt 10pt',
@@ -37,7 +38,7 @@ function Section5_JobOpportunities({ data }) {
                     react_1.default.createElement("p", { style: { fontSize: '12pt', color: '#4B5563', margin: 0, lineHeight: '1.4' } },
                         react_1.default.createElement("strong", { style: { color: '#111827' } }, "Advantage:"),
                         " ",
-                        city.advantage)))));
+                        (0, renderTextWithLinks_1.renderTextWithLinks)(city.advantage))))));
         }),
         react_1.default.createElement("div", { style: { marginTop: '8pt' } },
             react_1.default.createElement("h3", { style: { fontSize: '14pt', fontWeight: 700, color: '#111827', marginBottom: '4pt', marginTop: 0 } },
@@ -53,9 +54,9 @@ function Section5_JobOpportunities({ data }) {
                         react_1.default.createElement("th", { style: { padding: '6pt 8pt', textAlign: 'left', fontWeight: 600, color: '#374151', borderBottom: '1.5pt solid #D1D5DB', fontSize: '12pt' } }, "Example Companies"),
                         react_1.default.createElement("th", { style: { padding: '6pt 8pt', textAlign: 'left', fontWeight: 600, color: '#374151', borderBottom: '1.5pt solid #D1D5DB', fontSize: '12pt' } }, "Your Fit"))),
                 react_1.default.createElement("tbody", null, data.keyIndustries.map((industry, index) => (react_1.default.createElement("tr", { key: index, style: { background: index % 2 === 0 ? '#FFFFFF' : '#F8F9FB' } },
-                    react_1.default.createElement("td", { style: { padding: '5pt 8pt', fontWeight: 600, color: '#111827', borderBottom: '0.5pt solid #E5E7EB', verticalAlign: 'top' } }, industry.industry),
-                    react_1.default.createElement("td", { style: { padding: '5pt 8pt', color: '#4B5563', borderBottom: '0.5pt solid #E5E7EB', verticalAlign: 'top' } }, industry.demand),
-                    react_1.default.createElement("td", { style: { padding: '5pt 8pt', color: '#4B5563', borderBottom: '0.5pt solid #E5E7EB', verticalAlign: 'top' } }, industry.growth),
-                    react_1.default.createElement("td", { style: { padding: '5pt 8pt', color: '#4B5563', borderBottom: '0.5pt solid #E5E7EB', verticalAlign: 'top' } }, industry.exampleCompanies),
-                    react_1.default.createElement("td", { style: { padding: '5pt 8pt', color: '#4B5563', borderBottom: '0.5pt solid #E5E7EB', verticalAlign: 'top' } }, industry.yourFit)))))))));
+                    react_1.default.createElement("td", { style: { padding: '5pt 8pt', fontWeight: 600, color: '#111827', borderBottom: '0.5pt solid #E5E7EB', verticalAlign: 'top' } }, (0, renderTextWithLinks_1.renderTextWithLinks)(industry.industry)),
+                    react_1.default.createElement("td", { style: { padding: '5pt 8pt', color: '#4B5563', borderBottom: '0.5pt solid #E5E7EB', verticalAlign: 'top' } }, (0, renderTextWithLinks_1.renderTextWithLinks)(industry.demand)),
+                    react_1.default.createElement("td", { style: { padding: '5pt 8pt', color: '#4B5563', borderBottom: '0.5pt solid #E5E7EB', verticalAlign: 'top' } }, (0, renderTextWithLinks_1.renderTextWithLinks)(industry.growth)),
+                    react_1.default.createElement("td", { style: { padding: '5pt 8pt', color: '#4B5563', borderBottom: '0.5pt solid #E5E7EB', verticalAlign: 'top' } }, (0, renderTextWithLinks_1.renderTextWithLinks)(industry.exampleCompanies)),
+                    react_1.default.createElement("td", { style: { padding: '5pt 8pt', color: '#4B5563', borderBottom: '0.5pt solid #E5E7EB', verticalAlign: 'top' } }, (0, renderTextWithLinks_1.renderTextWithLinks)(industry.yourFit))))))))));
 }
