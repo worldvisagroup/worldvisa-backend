@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const logger = require('../../../utils/logger');
 const { validateGlobalOpportunitiesRequest } = require('../../../middleware/global-opportunities-validation.middleware');
 const { buildAndRenderGlobalOpportunitiesReport } = require('../../../services/global-opportunities-content.service');
+const { processGoReportJob } = require('../../../workers/goReportWorker');
 
 const router = express.Router();
 
@@ -97,6 +98,46 @@ router.post('/generate-report', apiTokenAuth, validateGlobalOpportunitiesRequest
       requestId,
     });
   }
+});
+
+router.post('/generate-report/start', apiTokenAuth, validateGlobalOpportunitiesRequest, (req, res) => {
+  const requestId = req.requestId;
+  const { personalInfo, spouseInfo, visaProfileInfo, resumeText, countries, versionId, organizationId, callbackUrl } = req.body;
+
+  if (!versionId || typeof versionId !== 'string') {
+    return res.status(400).json({ error: 'Invalid request', message: 'versionId is required' });
+  }
+  if (!organizationId || typeof organizationId !== 'string') {
+    return res.status(400).json({ error: 'Invalid request', message: 'organizationId is required' });
+  }
+  if (!callbackUrl || typeof callbackUrl !== 'string') {
+    return res.status(400).json({ error: 'Invalid request', message: 'callbackUrl is required' });
+  }
+
+  const normalizedCountries = countries.map((c) => c.toLowerCase());
+
+  logger.info('Global Opportunities async report generation requested', {
+    requestId,
+    versionId,
+    userName: personalInfo.name,
+    countries: normalizedCountries,
+  });
+
+  setImmediate(() => {
+    processGoReportJob({
+      requestId,
+      versionId,
+      organizationId,
+      callbackUrl,
+      personalInfo,
+      spouseInfo,
+      visaProfileInfo,
+      resumeText,
+      countries: normalizedCountries,
+    });
+  });
+
+  res.status(202).json({ requestId });
 });
 
 module.exports = router;

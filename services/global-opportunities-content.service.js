@@ -11,7 +11,7 @@ const RESEARCH_MODEL = 'gpt-5.6-terra';
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
-  timeout: 90000,
+  timeout: 180000,
   maxRetries: 2,
 });
 
