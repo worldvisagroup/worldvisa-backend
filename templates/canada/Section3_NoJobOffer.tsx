@@ -42,33 +42,12 @@ export function Section3_NoJobOffer({ data }: Props) {
               <span style={{ fontWeight: 600, color: '#111827' }}>What It Is:</span> {category.description}
             </p>
 
-            {/* CRS Breakdown */}
+            {/* Estimated CRS score */}
             {category.estimatedCRS && (
-              <div style={{ marginBottom: '6pt' }}>
-                <p style={{ fontSize: '12pt', fontWeight: 600, color: '#111827', margin: '0 0 3pt 0' }}>
-                  Your Estimated CRS Score (Without Job Offer):
-                </p>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12pt' }}>
-                  <tbody>
-                    {[
-                      { label: 'Age (18-35)', value: `+${category.estimatedCRS.age} points` },
-                      { label: 'Education (Bachelor\'s)', value: `+${category.estimatedCRS.education} points` },
-                      { label: 'Language (CLB 8, estimated)', value: `+${category.estimatedCRS.language} points` },
-                      { label: 'Work Experience (4 years)', value: `+${category.estimatedCRS.workExperience} points` },
-                      { label: 'Spouse/Partner', value: `+${category.estimatedCRS.spouse} points` },
-                    ].map((row, i) => (
-                      <tr key={i} style={{ backgroundColor: i % 2 === 0 ? '#FFFFFF' : '#F8F9FB' }}>
-                        <td style={{ padding: '3pt 6pt', color: '#4B5563', borderBottom: '1pt solid #E5E7EB' }}>{row.label}</td>
-                        <td style={{ padding: '3pt 6pt', color: '#059669', fontWeight: 600, textAlign: 'right', borderBottom: '1pt solid #E5E7EB' }}>{row.value}</td>
-                      </tr>
-                    ))}
-                    <tr style={{ backgroundColor: '#1B2A4A' }}>
-                      <td style={{ padding: '4pt 6pt', color: '#FFFFFF', fontWeight: 700 }}>SUBTOTAL</td>
-                      <td style={{ padding: '4pt 6pt', color: '#FFFFFF', fontWeight: 700, textAlign: 'right' }}>~{category.estimatedCRS.subtotal} points</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              <p style={{ fontSize: '12pt', margin: '0 0 6pt 0' }}>
+                <span style={{ fontWeight: 600, color: '#111827' }}>Your Estimated CRS Score (Without Job Offer):</span>{' '}
+                <span style={{ fontWeight: 700, color: '#059669' }}>~{category.estimatedCRS} points</span>
+              </p>
             )}
 
             {category.cutOffScores && (

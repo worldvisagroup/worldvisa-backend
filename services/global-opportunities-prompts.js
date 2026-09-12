@@ -415,17 +415,11 @@ const CA_NO_JOB_OFFER = {
             name: str('Category name'),
             type: str('"Primary" or "Secondary"'),
             description: str('Description'),
-            estimatedCRS: obj(
-              {
-                age: { type: 'integer', description: 'CRS points for age' },
-                education: { type: 'integer', description: 'CRS points for education' },
-                language: { type: 'integer', description: 'CRS points for language' },
-                workExperience: { type: 'integer', description: 'CRS points for work experience' },
-                spouse: { type: 'integer', description: 'CRS points for spouse factors, 0 if not applicable' },
-                subtotal: { type: 'integer', description: 'Subtotal CRS points' },
-              },
-              "Estimated CRS point breakdown for this category, if CRS-scored (Express Entry programs); all zero if this category doesn't use CRS scoring"
-            ),
+            estimatedCRS: {
+              type: 'integer',
+              description:
+                "Estimated CRS score for this category, if CRS-scored (Express Entry programs); 0 if this category doesn't use CRS scoring",
+            },
             cutOffScores: str('Recent CRS cut-off scores, or "N/A"'),
             improvements: arrOf(
               obj({ action: str('Action to take'), boost: str('CRS point boost from this action') }, 'CRS improvement action'),
@@ -792,7 +786,7 @@ const DE_EXECUTIVE_SUMMARY = {
   ),
   buildMessages(ctx) {
     return {
-      system: 'You are a German immigration consultant writing a client-facing report section. Be specific and factual.',
+      system: 'You are a German immigration consultant writing a client-facing report section. Be specific and factual. Respond in English.',
       user: `${clientContextBlock(ctx)}\nWrite the Executive Summary section for this client's Germany Global Opportunities report.`,
     };
   },
@@ -823,7 +817,7 @@ const DE_PROFESSIONAL_PROFILE = {
       languageAndEducation: obj(
         {
           englishProficiency: arrOf(obj({ requirement: str('Requirement'), status: str('Status for this client'), actionNeeded: str('Action needed, if any') }, 'Language row'), 'English proficiency assessment'),
-          germanNote: str('Note on German-language requirement/benefit for this client'),
+          germanNote: str('Note, written in English, on the German-language requirement/benefit for this client'),
           education: arrOf(
             obj({ qualification: str('Qualification'), details: str('Details'), germanyRecognition: str('Recognition status in Germany'), status: str('Status') }, 'Education qualification'),
             'Education qualification recognition assessment'
@@ -836,7 +830,7 @@ const DE_PROFESSIONAL_PROFILE = {
   ),
   buildMessages(ctx) {
     return {
-      system: 'You are a German immigration consultant assessing occupation fit, language readiness, and qualification recognition for this specific client.',
+      system: 'You are a German immigration consultant assessing occupation fit, language readiness, and qualification recognition for this specific client. Respond in English.',
       user: `${clientContextBlock(ctx)}\nWrite the Professional Profile section for this client's German immigration prospects.`,
     };
   },
@@ -873,7 +867,7 @@ const DE_VISA_CATEGORIES = {
   ),
   buildMessages(ctx) {
     return {
-      system: 'You are a German immigration consultant assessing Opportunity Card and EU Blue Card eligibility for this specific client.',
+      system: 'You are a German immigration consultant assessing Opportunity Card and EU Blue Card eligibility for this specific client. Respond in English.',
       user: `${clientContextBlock(ctx)}\nAssess this client's suitability for the Opportunity Card and EU Blue Card pathways -- give each pathway its own title, description, advantages, and estimated success probability.`,
     };
   },
@@ -905,7 +899,7 @@ const DE_SKILL_DEMAND = {
   ),
   buildMessages({ occupationCode, occupationTitle }) {
     return {
-      system: 'You are a German labour-market analyst. Use web search for current shortage-occupation and city demand data. Cite only official/current sources.',
+      system: 'You are a German labour-market analyst. Use web search for current shortage-occupation and city demand data. Cite only official/current sources. Respond in English.',
       user: `Occupation: ${occupationTitle}${occupationCode ? ` (${occupationCode})` : ''}. Produce current skill demand mapping across German cities for this occupation.`,
     };
   },
@@ -942,7 +936,7 @@ const DE_JOB_OPPORTUNITIES = {
   ),
   buildMessages({ occupationCode, occupationTitle }) {
     return {
-      system: 'You are a German recruitment market analyst. Use web search to name real, currently-hiring companies. Never invent company names.',
+      system: 'You are a German recruitment market analyst. Use web search to name real, currently-hiring companies. Never invent company names. Respond in English.',
       user: `Occupation: ${occupationTitle}${occupationCode ? ` (${occupationCode})` : ''}. Identify real, currently active German employers and cities hiring for this occupation, including any specialized/niche roles available per city.`,
     };
   },
@@ -966,7 +960,7 @@ const DE_COMPENSATION = {
   ),
   buildMessages({ occupationCode, occupationTitle }) {
     return {
-      system: 'You are a German compensation market analyst. Use web search for current salary benchmark data. Cite only official/current sources, do not invent figures.',
+      system: 'You are a German compensation market analyst. Use web search for current salary benchmark data. Cite only official/current sources, do not invent figures. Respond in English.',
       user: `Occupation: ${occupationTitle}${occupationCode ? ` (${occupationCode})` : ''}. Produce current salary benchmarking across Berlin, Munich and Frankfurt for this occupation.`,
     };
   },

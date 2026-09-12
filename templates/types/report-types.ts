@@ -366,19 +366,10 @@ export interface CanadaVisaCategory {
   name: string;
   type: 'Primary' | 'Secondary';
   description: string;
-  estimatedCRS?: CRSBreakdown;
+  estimatedCRS?: number;
   cutOffScores?: string;
   improvements?: CRSImprovement[];
   options?: PNPOption[];
-}
-
-export interface CRSBreakdown {
-  age: number;
-  education: number;
-  language: number;
-  workExperience: number;
-  spouse: number;
-  subtotal: number;
 }
 
 export interface CRSImprovement {
