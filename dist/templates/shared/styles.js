@@ -869,6 +869,12 @@ exports.pdfStyles = `
     @bottom-center { content: none; }
   }
 
+  .country-intro-page { page: country-intro; }
+  @page country-intro {
+    margin: 0;
+    @bottom-center { content: none; }
+  }
+
   /* ========================================
      PRINT OPTIMIZATION
      ======================================== */

@@ -199,7 +199,10 @@ export function CoverPage({ data, meta, countries }: CoverPageProps) {
           </div>
 
           <p style={{ fontSize: '12pt', fontWeight: '600', color: theme.dark, marginTop: '10pt' }}>
-            Your 1:1 call will be followed up
+            Your 1:1 call will be followed up with immigration expert.
+          </p>
+          <p style={{ fontSize: '11pt', fontWeight: '400', color: theme.text, marginTop: '4pt' }}>
+            Free point calculation will be sent to you after the discussion.
           </p>
         </div>
 

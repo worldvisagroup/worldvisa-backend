@@ -134,5 +134,6 @@ function CoverPage({ data, meta, countries }) {
                         react_1.default.createElement("p", { style: { fontSize: '12pt', color: theme.text, marginBottom: '2pt', fontWeight: '500' } },
                             "Date: ",
                             meta.generatedDate))),
-                react_1.default.createElement("p", { style: { fontSize: '12pt', fontWeight: '600', color: theme.dark, marginTop: '10pt' } }, "Your 1:1 call will be followed up")))));
+                react_1.default.createElement("p", { style: { fontSize: '12pt', fontWeight: '600', color: theme.dark, marginTop: '10pt' } }, "Your 1:1 call will be followed up with immigration expert."),
+                react_1.default.createElement("p", { style: { fontSize: '11pt', fontWeight: '400', color: theme.text, marginTop: '4pt' } }, "Free point calculation will be sent to you after the discussion.")))));
 }

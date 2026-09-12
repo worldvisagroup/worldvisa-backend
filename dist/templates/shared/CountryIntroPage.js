@@ -13,8 +13,9 @@ function CountryIntroPage({ countryName, flagImagePath, usps, }) {
         border: '#E5E7EB',
         bg: '#FAFAFA',
     };
-    return (react_1.default.createElement("div", { style: {
-            minHeight: '100vh',
+    return (react_1.default.createElement("div", { className: "country-intro-page", style: {
+            height: '1123px',
+            overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',

@@ -24,8 +24,9 @@ export function CountryIntroPage({
   };
 
   return (
-    <div style={{
-      minHeight: '100vh',
+    <div className="country-intro-page" style={{
+      height: '1123px',
+      overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',
       justifyContent: 'center',
