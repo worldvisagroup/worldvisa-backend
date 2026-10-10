@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { handleInboundWebhook } from '../controllers/mcube/mcubeWebhookController';
+import { handleInboundLeadsWebhook } from '../controllers/mcube/mcubeLeadsWebhookController';
 import { handleOutboundCall }   from '../controllers/mcube/mcubeOutboundController';
 import { listCallLogs, getCallLogDetail, updateCallNotes } from '../controllers/mcube/callLogController';
 import { listLeadOwners, getLeadOwnerByPhone } from '../controllers/mcube/leadOwnersController';
@@ -9,8 +10,9 @@ const { protect } = require('../middleware/clerk/clerkAuth');
 
 const router: Router = Router();
 
-// ── Webhook (no auth — validated via shared secret header) ─────────────────
-router.post('/webhook/inbound', validateMcubeWebhook, handleInboundWebhook);
+// ── Webhooks (no auth — validated via shared secret header) ────────────────
+router.post('/webhook/inbound',       validateMcubeWebhook, handleInboundWebhook);
+router.post('/webhook/inbound-leads', validateMcubeWebhook, handleInboundLeadsWebhook);
 
 // ── Outbound call (staff only) ─────────────────────────────────────────────
 router.post('/calls/outbound', protect, handleOutboundCall);
