@@ -55,3 +55,34 @@ export interface McubeOutboundRequest {
   /** Optional reference ID for external tracking */
   refid?: string;
 }
+
+/**
+ * Payload delivered by MCube inbound webhook for Zoho lead integration.
+ * Supports events: "callstarted" | "callended".
+ */
+export interface McubeInboundLeadsPayload {
+  event: 'callstarted' | 'callended';
+  countryCode: string;
+  customerNumber: string;
+  callType: 'inbound' | 'outbound' | 'dialer' | string;
+  customerName?: string;
+  callStatus?: string;
+  startTime?: string;
+  endTime?: string;
+  callDuration?: string | number;
+  answerTime?: string | number;
+  agent?: string;
+  groupName?: string;
+  region?: string;
+  customerRingTime?: string | number;
+  disconnectedBy?: string;
+  did?: string;
+  // Tracking & UTM parameters
+  utm_source?: string;
+  utm_medium?: string;
+  gclid?: string;
+  utm_campaign?: string;
+  addgroup?: string;
+  utm_term?: string;
+}
+
