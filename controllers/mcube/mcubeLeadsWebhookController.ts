@@ -179,6 +179,7 @@ export async function handleInboundLeadsWebhook(req: Request, res: Response): Pr
       const updateFields: Record<string, any> = {};
 
       // Only fill fields that are currently blank
+      if (isBlank(fullRecord.Lead_Source)) updateFields.Lead_Source = leadSource;
       if (isBlank(fullRecord.UTM_Campaign_Name) && utmCampaign) updateFields.UTM_Campaign_Name = utmCampaign;
       if (isBlank(fullRecord.UTM_Term) && utmTerm) updateFields.UTM_Term = utmTerm;
       if (isBlank(fullRecord.UTM_Lead_Source) && utmSource) updateFields.UTM_Lead_Source = utmSource;
@@ -186,9 +187,6 @@ export async function handleInboundLeadsWebhook(req: Request, res: Response): Pr
       if (isBlank(fullRecord.GCLID) && gclid) updateFields.GCLID = gclid;
       if (isBlank(fullRecord.Country_Code)) updateFields.Country_Code = cleanCountryCode;
       if (isBlank(fullRecord.Lead_Originated_Region) && region) updateFields.Lead_Originated_Region = region;
-
-      // Overwrite Lead_Source
-      updateFields.Lead_Source = leadSource;
 
       // Update Re_Contacted_Date
       updateFields.Re_Contacted_Date = todayDate;
@@ -199,11 +197,13 @@ export async function handleInboundLeadsWebhook(req: Request, res: Response): Pr
 
       const result = await updateRecord(targetModule, recordId, updateFields);
 
+      const activeLeadSource = updateFields.Lead_Source ?? fullRecord.Lead_Source ?? leadSource;
+
       logger.info(`[MCube Leads Webhook] Successfully updated existing ${targetModule} record`, {
         id: recordId,
         phone: cleanNumber,
         countryCode: cleanCountryCode,
-        leadSource,
+        leadSource: activeLeadSource,
         newCallCount: updateFields.Call_Count,
         updatedFields: Object.keys(updateFields),
       });
@@ -218,7 +218,7 @@ export async function handleInboundLeadsWebhook(req: Request, res: Response): Pr
         action: 'updated',
         zohoModule: targetModule,
         zohoRecordId: recordId,
-        leadSource,
+        leadSource: activeLeadSource,
         updatedFields: Object.keys(updateFields),
         payload: req.body,
         zohoResponse: result,
