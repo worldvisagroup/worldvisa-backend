@@ -81,6 +81,7 @@ export interface McubeInboundLeadsPayload {
   utm_source?: string;
   utm_medium?: string;
   gclid?: string;
+  fbclid?: string;
   utm_campaign?: string;
   addgroup?: string;
   utm_term?: string;

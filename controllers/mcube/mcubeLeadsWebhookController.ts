@@ -28,6 +28,63 @@ function isBlank(value: unknown): boolean {
 }
 
 /**
+ * Determines Lead_Source based on campaign & UTM parameters:
+ * 1. 'IVR - Facebook': If fbclid exists or any UTM field references Facebook, Meta, or Instagram.
+ * 2. 'IVR - Google': If gclid exists or UTM fields reference Google / other campaign parameters.
+ * 3. 'IVR- Website': If no campaign/UTM tracking parameters are present.
+ */
+function determineLeadSource(params: {
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  utmTerm?: string;
+  gclid?: string;
+  fbclid?: string;
+}): string {
+  const source = params.utmSource?.toLowerCase().trim() || '';
+  const medium = params.utmMedium?.toLowerCase().trim() || '';
+  const campaign = params.utmCampaign?.toLowerCase().trim() || '';
+  const term = params.utmTerm?.toLowerCase().trim() || '';
+  const gclid = params.gclid?.trim() || '';
+  const fbclid = params.fbclid?.trim() || '';
+
+  // Combine all UTM text to check for Meta / Facebook keywords
+  const allText = `${source} ${medium} ${campaign} ${term}`;
+
+  const isMeta =
+    Boolean(fbclid) ||
+    allText.includes('facebook') ||
+    allText.includes('meta') ||
+    allText.includes('instagram') ||
+    /\b(fb|ig)\b/i.test(source) ||
+    /\b(fb|ig)\b/i.test(medium) ||
+    /\b(fb|ig)\b/i.test(campaign);
+
+  if (isMeta) {
+    return 'IVR - Facebook';
+  }
+
+  const isGoogle =
+    Boolean(gclid) ||
+    allText.includes('google') ||
+    allText.includes('adwords') ||
+    allText.includes('gads');
+
+  if (isGoogle) {
+    return 'IVR - Google';
+  }
+
+  // If any other UTM parameter exists (e.g. general campaign/medium)
+  const hasAnyUtm = Boolean(source || medium || campaign || term);
+  if (hasAnyUtm) {
+    return 'IVR - Google';
+  }
+
+  // No UTM parameters or click IDs
+  return 'IVR- Website';
+}
+
+/**
  * Type guard to validate whether the incoming request body satisfies McubeInboundLeadsPayload
  * with mandatory: event ('callstarted' | 'callended'), countryCode, customerNumber, callType.
  */
@@ -153,9 +210,16 @@ export async function handleInboundLeadsWebhook(req: Request, res: Response): Pr
   const utmCampaign = payload.utm_campaign?.trim() ?? '';
   const utmTerm = payload.utm_term?.trim() ?? '';
   const gclid = payload.gclid?.trim() ?? '';
+  const fbclid = payload.fbclid?.trim() ?? '';
 
-  const hasUtm = Boolean(utmSource || utmMedium || utmCampaign || gclid || utmTerm);
-  const leadSource = hasUtm ? 'IVR - Google' : 'IVR- Website';
+  const leadSource = determineLeadSource({
+    utmSource,
+    utmMedium,
+    utmCampaign,
+    utmTerm,
+    gclid,
+    fbclid,
+  });
   const todayDate = getTodayDateIST();
 
   try {
@@ -185,6 +249,7 @@ export async function handleInboundLeadsWebhook(req: Request, res: Response): Pr
       if (isBlank(fullRecord.UTM_Lead_Source) && utmSource) updateFields.UTM_Lead_Source = utmSource;
       if (isBlank(fullRecord.UTM_Medium) && utmMedium) updateFields.UTM_Medium = utmMedium;
       if (isBlank(fullRecord.GCLID) && gclid) updateFields.GCLID = gclid;
+      if (isBlank(fullRecord.FBCLID) && fbclid) updateFields.FBCLID = fbclid;
       if (isBlank(fullRecord.Country_Code)) updateFields.Country_Code = cleanCountryCode;
       if (isBlank(fullRecord.Lead_Originated_Region) && region) updateFields.Lead_Originated_Region = region;
 
@@ -255,6 +320,7 @@ export async function handleInboundLeadsWebhook(req: Request, res: Response): Pr
     if (utmSource) newLeadData.UTM_Lead_Source = utmSource;
     if (utmMedium) newLeadData.UTM_Medium = utmMedium;
     if (gclid) newLeadData.GCLID = gclid;
+    if (fbclid) newLeadData.FBCLID = fbclid;
 
     const createResult = await createLead(newLeadData);
     const createdId = createResult?.details?.id || createResult?.id || null;
