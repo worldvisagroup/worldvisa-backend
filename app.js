@@ -1,20 +1,19 @@
-require('tsx/cjs'); // enables require() of .ts files — does NOT affect existing .js files
+require("tsx/cjs"); // enables require() of .ts files — does NOT affect existing .js files
 const express = require("express");
 const app = express();
 const axios = require("axios");
 const helperFunctions = require("./utils/helperFunction");
-const http = require('http');
-const helmet = require('helmet');
-const compression = require('compression');
-const rateLimit = require('express-rate-limit');
-const logger = require('./utils/logger');
+const http = require("http");
+const helmet = require("helmet");
+const compression = require("compression");
+const rateLimit = require("express-rate-limit");
+const logger = require("./utils/logger");
 
 const server = http.createServer(app);
 
-
 const { Server } = require("socket.io");
-const jwt = require('jsonwebtoken');
-const { registerPresenceHandlers } = require('./socket/presenceHandler');
+const jwt = require("jsonwebtoken");
+const { registerPresenceHandlers } = require("./socket/presenceHandler");
 
 var cors = require("cors");
 require("dotenv").config();
@@ -29,55 +28,68 @@ const taskRouter = require("./routes/tasks");
 const jobsRouter = require("./routes/jobs");
 const mcubeWatiRouter = require("./routes/mcubeWati");
 const mcubeRouter = require("./routes/mcube");
-const { auditLogger } = require('./middleware/auditLogger');
+const { auditLogger } = require("./middleware/auditLogger");
 const reviewsRouter = require("./routes/reviews");
 const zohoDmsAuthRouter = require("./routes/zohoDms/auth");
 const zohoDmsVisaApplicationsRouter = require("./routes/zohoDms/visaApplications");
-const zohoDmsUserAuthRouter = require('./routes/zohoDmsAuth');
-const clerkInvitationsRouter = require('./routes/clerk/clerkInvitations');
-const { clerkMiddleware, verifyToken } = require('@clerk/express');
-const { AUTHORIZED_PARTIES } = require('./constants/clerk');
-const ZohoDmsUser = require('./models/zohoDmsUser');
-const DmsZohoClient = require('./models/dmsZohoClient');
+const zohoDmsUserAuthRouter = require("./routes/zohoDmsAuth");
+const clerkInvitationsRouter = require("./routes/clerk/clerkInvitations");
+const { clerkMiddleware, verifyToken } = require("@clerk/express");
+const { AUTHORIZED_PARTIES } = require("./constants/clerk");
+const ZohoDmsUser = require("./models/zohoDmsUser");
+const DmsZohoClient = require("./models/dmsZohoClient");
 const zohoDmsClientAuthRouter = require("./routes/dmsZohoClients");
-const dmsZohoClientController = require('./controllers/dmsZohoClientController');
+const dmsZohoClientController = require("./controllers/dmsZohoClientController");
 const technicalAssessmentRouter = require("./routes/ai/technicalAssessment");
 const packagesRouter = require("./routes/packages");
 const travelBudget = require("./routes/ai/travelBudget");
-const checklistDocumentsRouter = require('./routes/zohoDms/checklist/checklistDocuments');
-const applicationTasksRouter = require('./routes/zohoDms/tasks').default;
-const clientTasksRouter = require('./routes/zohoDms/clientTasks').default;
+const checklistDocumentsRouter = require("./routes/zohoDms/checklist/checklistDocuments");
+const applicationTasksRouter = require("./routes/zohoDms/tasks").default;
+const clientTasksRouter = require("./routes/zohoDms/clientTasks").default;
 
 const currecyController = require("./routes/currency");
 const razorpayController = require("./routes/razorpay");
 
 const visaReferenceFormController = require("./routes/visaReferenceForm");
 
-const pdfRoutes = require('./routes/worldvisa2.0/pdf/pdf.routes');
-const globalOpportunitiesContentRoutes = require('./routes/worldvisa2.0/pdf/global-opportunities-content.routes');
-const meetingRouter = require('./routes/worldvisa2.0/meeting/meeting.routes');
-const anabinRouter = require('./routes/anabin');
-const { handleResendWebhook } = require('./controllers/email/webhookController');
-const emailRouter = require('./routes/email');
+const pdfRoutes = require("./routes/worldvisa2.0/pdf/pdf.routes");
+const globalOpportunitiesContentRoutes = require("./routes/worldvisa2.0/pdf/global-opportunities-content.routes");
+const meetingRouter = require("./routes/worldvisa2.0/meeting/meeting.routes");
+const anabinRouter = require("./routes/anabin");
+const {
+  handleResendWebhook,
+} = require("./controllers/email/webhookController");
+const emailRouter = require("./routes/email");
 
 // Visa News Cron Job
 const visaNewsCron = require("./utils/visaNewsCron");
 
 // ZIP Export Worker and Cleanup Cron
-const { createWorker } = require('./workers/zipExportWorker');
-const { startCleanupCron } = require('./utils/zipCleanupCron');
+const { createWorker } = require("./workers/zipExportWorker");
+const { startCleanupCron } = require("./utils/zipCleanupCron");
 
 // Email Notification Worker and Batch Aggregator
-const { createWorker: createEmailWorker } = require('./workers/emailWorker');
-const { createWorker: createChatReminderWorker } = require('./workers/chatReminderWorker');
-const { startBatchAggregator } = require('./workers/emailBatchAggregator');
+const { createWorker: createEmailWorker } = require("./workers/emailWorker");
+const {
+  createWorker: createChatReminderWorker,
+} = require("./workers/chatReminderWorker");
+const { startBatchAggregator } = require("./workers/emailBatchAggregator");
 
 // Checklist Reminder Cron
-const { startChecklistReminderCron } = require('./workers/checklistReminderCron');
+const {
+  startChecklistReminderCron,
+} = require("./workers/checklistReminderCron");
 
 // Stage 2 English Language Test Expiry Cron
-const { startStage2ExpiryReminderCron } = require('./workers/stage2ExpiryReminderCron');
+const {
+  startStage2ExpiryReminderCron,
+} = require("./workers/stage2ExpiryReminderCron");
 
+// Australian State Nomination Route & Cron
+const stateNominationRouter = require("./routes/stateNomination");
+const {
+  startCronJob: startStateNominationCron,
+} = require("./workers/stateNominationCron");
 
 let zipExportWorker = null;
 let emailWorker = null;
@@ -89,7 +101,9 @@ try {
     aiJobOpportunitiesRouter = require("./routes/ai/generatejobopportunities");
     console.log("AI Job Opportunities router loaded successfully");
   } else {
-    console.warn("OPENAI_API_KEY not found - AI Job Opportunities router disabled");
+    console.warn(
+      "OPENAI_API_KEY not found - AI Job Opportunities router disabled",
+    );
   }
 } catch (error) {
   console.error("Failed to load AI Job Opportunities router:", error);
@@ -103,44 +117,48 @@ const fetchToken = helperFunctions.fetchToken;
 const { getRedisStatus, redis } = require("./services/redis");
 
 // Initialize ZIP worker when Redis is ready
-if (redis && process.env.DISABLE_ZIP_WORKER !== 'true') {
-  redis.on('ready', () => {
+if (redis && process.env.DISABLE_ZIP_WORKER !== "true") {
+  redis.on("ready", () => {
     try {
       zipExportWorker = createWorker();
-      console.log('[ZIP Worker] Background worker initialized');
-      logger.info('[ZIP Worker] Background worker started successfully');
+      console.log("[ZIP Worker] Background worker initialized");
+      logger.info("[ZIP Worker] Background worker started successfully");
     } catch (error) {
-      logger.error("Failed to start ZIP export worker", { error: error.message });
+      logger.error("Failed to start ZIP export worker", {
+        error: error.message,
+      });
     }
   });
 }
 
 // Initialize Email worker when Redis is ready
-if (redis && process.env.DISABLE_EMAIL_WORKER !== 'true') {
-  redis.on('ready', () => {
+if (redis && process.env.DISABLE_EMAIL_WORKER !== "true") {
+  redis.on("ready", () => {
     try {
       emailWorker = createEmailWorker();
-      logger.info('[Email] Worker initialized');
+      logger.info("[Email] Worker initialized");
     } catch (error) {
-      logger.error('Failed to start email worker', { error: error.message });
+      logger.error("Failed to start email worker", { error: error.message });
     }
   });
 }
 
 // Initialize Chat Reminder worker when Redis is ready
-if (redis && process.env.DISABLE_CHAT_REMINDER_WORKER !== 'true') {
-  redis.on('ready', () => {
+if (redis && process.env.DISABLE_CHAT_REMINDER_WORKER !== "true") {
+  redis.on("ready", () => {
     try {
       chatReminderWorker = createChatReminderWorker(app);
-      logger.info('[Chat Reminder] Worker initialized');
+      logger.info("[Chat Reminder] Worker initialized");
     } catch (error) {
-      logger.error('Failed to start chat reminder worker', { error: error.message });
+      logger.error("Failed to start chat reminder worker", {
+        error: error.message,
+      });
     }
   });
 }
 
-process.on('uncaughtException', (error) => {
-  logger.error('Uncaught Exception - Application will exit', {
+process.on("uncaughtException", (error) => {
+  logger.error("Uncaught Exception - Application will exit", {
     error: error.message,
     stack: error.stack,
     name: error.name,
@@ -150,8 +168,8 @@ process.on('uncaughtException', (error) => {
   }, 1000);
 });
 
-process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection - Application will continue', {
+process.on("unhandledRejection", (reason, promise) => {
+  logger.error("Unhandled Rejection - Application will continue", {
     reason: reason instanceof Error ? reason.message : String(reason),
     stack: reason instanceof Error ? reason.stack : undefined,
     promise: promise.toString(),
@@ -159,60 +177,63 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // MongoDB connection event handlers
-mongoose.connection.on('connected', () => {
+mongoose.connection.on("connected", () => {
   dbConnected = true;
-  console.log('✅ MongoDB connected successfully');
-  logger.info('MongoDB connection established');
+  console.log("✅ MongoDB connected successfully");
+  logger.info("MongoDB connection established");
 });
 
-mongoose.connection.on('error', (err) => {
+mongoose.connection.on("error", (err) => {
   dbConnected = false;
-  console.error('❌ MongoDB connection error:', err);
-  logger.error('MongoDB connection error', { error: err.message });
+  console.error("❌ MongoDB connection error:", err);
+  logger.error("MongoDB connection error", { error: err.message });
 });
 
-mongoose.connection.on('disconnected', () => {
+mongoose.connection.on("disconnected", () => {
   dbConnected = false;
-  console.log('⚠️  MongoDB disconnected');
-  logger.warn('MongoDB disconnected');
+  console.log("⚠️  MongoDB disconnected");
+  logger.warn("MongoDB disconnected");
 });
 
-mongoose.connection.on('reconnected', () => {
+mongoose.connection.on("reconnected", () => {
   dbConnected = true;
-  console.log('🔄 MongoDB reconnected');
-  logger.info('MongoDB reconnected');
+  console.log("🔄 MongoDB reconnected");
+  logger.info("MongoDB reconnected");
 });
 
-app.set('trust proxy', 1);
+app.set("trust proxy", 1);
 
-app.use(helmet({
-  contentSecurityPolicy: false, // Needed for PDF generation
-}));
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // Needed for PDF generation
+  }),
+);
 
 // Rate limiting for PDF generation
 const pdfRateLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: process.env.NODE_ENV === 'production' ? 30 : 100, // More lenient in development
-  message: { 
-    error: 'Too many PDF generation requests',
-    message: 'You have exceeded the rate limit for PDF generation. Please try again later.',
-    retryAfter: '15 minutes'
+  max: process.env.NODE_ENV === "production" ? 30 : 100, // More lenient in development
+  message: {
+    error: "Too many PDF generation requests",
+    message:
+      "You have exceeded the rate limit for PDF generation. Please try again later.",
+    retryAfter: "15 minutes",
   },
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
-    logger.warn('Rate limit exceeded for PDF generation', {
+    logger.warn("Rate limit exceeded for PDF generation", {
       ip: req.ip,
       path: req.path,
     });
     res.status(429).json({
-      error: 'Too many PDF generation requests',
-      message: 'You have exceeded the rate limit for PDF generation. Please try again in 15 minutes.',
+      error: "Too many PDF generation requests",
+      message:
+        "You have exceeded the rate limit for PDF generation. Please try again in 15 minutes.",
       retryAfter: Math.ceil(req.rateLimit.resetTime / 1000),
     });
   },
 });
-
 
 const dbURL = process.env.MONGODB_CONNECTION_STRING;
 const PORT = process.env.PORT || 3000;
@@ -220,9 +241,13 @@ const PORT = process.env.PORT || 3000;
 // Track MongoDB connection status
 let dbConnected = false;
 
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, "0.0.0.0", () => {
   console.log(`Server is running on http://0.0.0.0:${PORT}`);
-  logger.info('Server started', { port: PORT, host: '0.0.0.0', dbConnected: false });
+  logger.info("Server started", {
+    port: PORT,
+    host: "0.0.0.0",
+    dbConnected: false,
+  });
 });
 
 // Attempt MongoDB connection with retry logic
@@ -244,21 +269,28 @@ mongoose
   .then(async (result) => {
     dbConnected = true;
     console.log("Connected to db");
-    logger.info('MongoDB connected successfully');
+    logger.info("MongoDB connected successfully");
 
     // Reset any ZIP jobs stuck in 'processing' from a previous server crash
     try {
-      const ZipExportJob = require('./models/zipExportJob');
-      const stuckCount = await ZipExportJob.countDocuments({ status: 'processing' });
+      const ZipExportJob = require("./models/zipExportJob");
+      const stuckCount = await ZipExportJob.countDocuments({
+        status: "processing",
+      });
       if (stuckCount > 0) {
         await ZipExportJob.updateMany(
-          { status: 'processing' },
-          { status: 'failed', error_message: 'Server restarted during processing' }
+          { status: "processing" },
+          {
+            status: "failed",
+            error_message: "Server restarted during processing",
+          },
         );
-        logger.info(`[ZIP] Reset ${stuckCount} stuck processing job(s) to failed`);
+        logger.info(
+          `[ZIP] Reset ${stuckCount} stuck processing job(s) to failed`,
+        );
       }
     } catch (err) {
-      logger.error('Failed to reset stuck ZIP jobs', { error: err.message });
+      logger.error("Failed to reset stuck ZIP jobs", { error: err.message });
     }
 
     // Start visa news cron job after successful DB connection (disabled - comment back in to re-enable)
@@ -268,72 +300,96 @@ mongoose
     //   logger.error("Failed to start visa news cron job", { error: error.message });
     // }
 
-
     // Start ZIP cleanup cron
-    if (process.env.DISABLE_ZIP_CLEANUP !== 'true') {
+    if (process.env.DISABLE_ZIP_CLEANUP !== "true") {
       try {
         startCleanupCron();
-        logger.info('[ZIP Cleanup] Cleanup cron started successfully');
+        logger.info("[ZIP Cleanup] Cleanup cron started successfully");
       } catch (error) {
-        logger.error("Failed to start ZIP cleanup cron", { error: error.message });
+        logger.error("Failed to start ZIP cleanup cron", {
+          error: error.message,
+        });
       }
     }
 
-    if (process.env.DISABLE_EMAIL_WORKER !== 'true') {
+    if (process.env.DISABLE_EMAIL_WORKER !== "true") {
       try {
         startBatchAggregator();
-        logger.info('[Email] Batch aggregator started');
+        logger.info("[Email] Batch aggregator started");
       } catch (error) {
-        logger.error('Failed to start email batch aggregator', { error: error.message });
+        logger.error("Failed to start email batch aggregator", {
+          error: error.message,
+        });
       }
     }
 
-    if (process.env.DISABLE_CHECKLIST_REMINDER_CRON !== 'true') {
+    if (process.env.DISABLE_CHECKLIST_REMINDER_CRON !== "true") {
       try {
         startChecklistReminderCron();
-        logger.info('[Checklist Reminder] Cron started successfully');
+        logger.info("[Checklist Reminder] Cron started successfully");
       } catch (error) {
-        logger.error('Failed to start checklist reminder cron', { error: error.message });
+        logger.error("Failed to start checklist reminder cron", {
+          error: error.message,
+        });
       }
     }
 
-    if (process.env.DISABLE_STAGE2_EXPIRY_CRON !== 'true') {
+    if (process.env.DISABLE_STAGE2_EXPIRY_CRON !== "true") {
       try {
         startStage2ExpiryReminderCron();
-        logger.info('[Stage2 Expiry] Cron started successfully');
+        logger.info("[Stage2 Expiry] Cron started successfully");
       } catch (error) {
-        logger.error('Failed to start stage2 expiry reminder cron', { error: error.message });
+        logger.error("Failed to start stage2 expiry reminder cron", {
+          error: error.message,
+        });
+      }
+    }
+
+    // Australian State Nomination Cron
+    if (process.env.DISABLE_STATE_NOMINATION_CRON !== "true") {
+      try {
+        startStateNominationCron();
+        logger.info("[State Nomination] Cron scheduler started successfully");
+      } catch (error) {
+        logger.error("Failed to start state nomination cron", {
+          error: error.message,
+        });
       }
     }
   })
   .catch((err) => {
     dbConnected = false;
-    logger.error("Database connection error - server will continue without DB", {
-      error: err.message,
-      name: err.name,
-      code: err.code,
-    });
+    logger.error(
+      "Database connection error - server will continue without DB",
+      {
+        error: err.message,
+        name: err.name,
+        code: err.code,
+      },
+    );
     console.error("Database connection error:", err.message);
-    console.log("Server will continue running. Health checks will show unhealthy status.");
+    console.log(
+      "Server will continue running. Health checks will show unhealthy status.",
+    );
   });
 
 const io = new Server(server, {
   cors: {
     origin: [
-      'https://dms.worldvisagroup.com',
-      'https://admin.worldvisa-api.cloud',
-      'https://backend.worldvisa-api.cloud',
-      'http://localhost:3000',
-      'http://localhost:3002'
+      "https://dms.worldvisagroup.com",
+      "https://admin.worldvisa-api.cloud",
+      "https://backend.worldvisa-api.cloud",
+      "http://localhost:3000",
+      "http://localhost:3002",
     ],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  }
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  },
 });
 
 io.use(async (socket, next) => {
   try {
     const token = socket.handshake.auth?.token;
-    if (!token) return next(new Error('Unauthorized'));
+    if (!token) return next(new Error("Unauthorized"));
 
     const payload = await verifyToken(token, {
       secretKey: process.env.CLERK_SECRET_KEY,
@@ -342,21 +398,25 @@ io.use(async (socket, next) => {
 
     const clerkId = payload.sub;
     const dbUser =
-      await ZohoDmsUser.findOne({ clerk_id: clerkId }).select('_id role').lean() ??
-      await DmsZohoClient.findOne({ clerk_id: clerkId }).select('_id role').lean();
+      (await ZohoDmsUser.findOne({ clerk_id: clerkId })
+        .select("_id role")
+        .lean()) ??
+      (await DmsZohoClient.findOne({ clerk_id: clerkId })
+        .select("_id role")
+        .lean());
 
-    if (!dbUser) return next(new Error('Unauthorized'));
+    if (!dbUser) return next(new Error("Unauthorized"));
 
     socket.userId = dbUser._id.toString();
-    socket.chatActorType = dbUser.role === 'client' ? 'client' : 'staff';
+    socket.chatActorType = dbUser.role === "client" ? "client" : "staff";
     socket.chatRoom = `chat:${socket.chatActorType}:${socket.userId}`;
     return next();
   } catch {
-    return next(new Error('Unauthorized'));
+    return next(new Error("Unauthorized"));
   }
 });
 
-io.on('connection', (socket) => {
+io.on("connection", (socket) => {
   if (socket.userId) {
     socket.join(`user:${socket.userId}`);
     if (socket.chatRoom) socket.join(socket.chatRoom);
@@ -364,59 +424,88 @@ io.on('connection', (socket) => {
   }
 });
 
-app.set('io', io);
+app.set("io", io);
 
 // Resend webhook
-app.post('/api/email/webhook/resend', express.raw({ type: 'application/json' }), handleResendWebhook);
+app.post(
+  "/api/email/webhook/resend",
+  express.raw({ type: "application/json" }),
+  handleResendWebhook,
+);
 
 // Clerk webhook — text body required for Svix signature verification
-app.use('/webhook/clerk', express.text({ type: 'application/json' }), require('./routes/clerk/clerkWebhook'));
+app.use(
+  "/webhook/clerk",
+  express.text({ type: "application/json" }),
+  require("./routes/clerk/clerkWebhook"),
+);
 
 // Early request logger — runs before clerkMiddleware so every request is captured
 app.use((req, res, next) => {
-  if (req.path === '/health') return next();
+  if (req.path === "/health") return next();
   console.log(`API Call: ${req.method} ${req.originalUrl}`);
-  console.log('content-type:', req.headers['content-type']);
-  console.log('origin:', req.headers['origin']);
-  console.log('referer:', req.headers['referer']);
+  console.log("content-type:", req.headers["content-type"]);
+  console.log("origin:", req.headers["origin"]);
+  console.log("referer:", req.headers["referer"]);
   next();
 });
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: "10mb" }));
 
 // Zoho API-key routes — registered before clerkMiddleware so Clerk's JWKS refresh never blocks them
-app.post('/api/zoho_dms/clients/signup', apiKeyMiddleware, dmsZohoClientController.signup);
-app.post('/api/zoho_dms/clients/webhook/update-lead-owner', apiKeyMiddleware, dmsZohoClientController.updateLeadOwnerFromZoho);
-app.post('/api/zoho_dms/clients/webhook/add-note', apiKeyMiddleware, dmsZohoClientController.addNoteFromCRM);
+app.post(
+  "/api/zoho_dms/clients/signup",
+  apiKeyMiddleware,
+  dmsZohoClientController.signup,
+);
+app.post(
+  "/api/zoho_dms/clients/webhook/update-lead-owner",
+  apiKeyMiddleware,
+  dmsZohoClientController.updateLeadOwnerFromZoho,
+);
+app.post(
+  "/api/zoho_dms/clients/webhook/add-note",
+  apiKeyMiddleware,
+  dmsZohoClientController.addNoteFromCRM,
+);
 
 app.use(clerkMiddleware({ authorizedParties: AUTHORIZED_PARTIES }));
 app.use(auditLogger);
 app.use(compression());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(cors({
-  origin: [
-    'https://worldvisagroup.com',
-    'https://dms.worldvisagroup.com',
-    'https://new.worldvisagroup.com',
-    'https://admin.worldvisa-api.cloud',
-    'https://backend.worldvisa-api.cloud',
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://localhost:3002'
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'api-key', 'x-api-token', 'x-api-key', 'drafts', 'x-user-role'],
-  credentials: true
-}));
-
+app.use(
+  cors({
+    origin: [
+      "https://worldvisagroup.com",
+      "https://dms.worldvisagroup.com",
+      "https://new.worldvisagroup.com",
+      "https://admin.worldvisa-api.cloud",
+      "https://backend.worldvisa-api.cloud",
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "http://localhost:3002",
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "api-key",
+      "x-api-token",
+      "x-api-key",
+      "drafts",
+      "x-user-role",
+    ],
+    credentials: true,
+  }),
+);
 
 app.use((req, res, next) => {
   res.header("Access-Control-Allow-Origin", "*");
   next();
 });
 
-app.options('*', (req, res) => {
+app.options("*", (req, res) => {
   res.status(200).end();
 });
 
@@ -428,10 +517,10 @@ app.get("/", async (req, res) => {
 // Includes database status for ops visibility; app runs without DB so we never fail health.
 app.get("/health", (req, res) => {
   res.status(200).json({
-    status: 'ok',
+    status: "ok",
     timestamp: new Date().toISOString(),
     uptime: Math.floor(process.uptime()),
-    database: dbConnected ? 'connected' : 'disconnected',
+    database: dbConnected ? "connected" : "disconnected",
     redis: getRedisStatus(),
   });
 });
@@ -439,22 +528,23 @@ app.get("/health", (req, res) => {
 app.get("/ipinfo", async (req, res) => {
   const ip = req.query.ip;
   try {
-    const response = await axios.get(`http://ipinfo.io/${ip}?token=${process.env.IP_INFO_KEY}`);
+    const response = await axios.get(
+      `http://ipinfo.io/${ip}?token=${process.env.IP_INFO_KEY}`,
+    );
     res.json(response.data);
   } catch (error) {
-    res.json({ status: "failed" })
+    res.json({ status: "failed" });
   }
 });
-
 
 app.use("/blogs", blogsRouter);
 
 app.use("/news", newsRouter);
 
 app.use("/api/visa-news", apiKeyMiddleware, visaNewsRouter);
-app.use('/api/email', emailRouter);
-app.use('/api/zoho_dms/checklist-documents', checklistDocumentsRouter);
-app.use('/api/zoho_dms/tasks', applicationTasksRouter);
+app.use("/api/email", emailRouter);
+app.use("/api/zoho_dms/checklist-documents", checklistDocumentsRouter);
+app.use("/api/zoho_dms/tasks", applicationTasksRouter);
 
 app.use("/payment", paymentRouter);
 
@@ -472,7 +562,7 @@ app.use("/razorpay", razorpayController);
 
 app.use("/wati", mcubeApiKeyMiddleware, mcubeWatiRouter);
 
-app.use('/api/mcube', mcubeRouter);
+app.use("/api/mcube", mcubeRouter);
 
 app.use("/reviews", apiKeyMiddleware, reviewsRouter);
 
@@ -484,29 +574,28 @@ app.use("/api/zoho_dms/oauth", zohoDmsAuthRouter);
 
 app.use("/api/zoho_dms/visa_applications", zohoDmsVisaApplicationsRouter);
 
-app.use('/api/zoho_dms/users', clerkInvitationsRouter);
-app.use('/api/zoho_dms/users', zohoDmsUserAuthRouter);
+app.use("/api/zoho_dms/users", clerkInvitationsRouter);
+app.use("/api/zoho_dms/users", zohoDmsUserAuthRouter);
 
-app.use('/api/zoho_dms/clients', clientTasksRouter);
-app.use('/api/zoho_dms/clients', zohoDmsClientAuthRouter);
+app.use("/api/zoho_dms/clients", clientTasksRouter);
+app.use("/api/zoho_dms/clients", zohoDmsClientAuthRouter);
 
-const chatRouter = require('./routes/chat');
-app.use('/api/zoho_dms/chats', chatRouter);
+const chatRouter = require("./routes/chat");
+app.use("/api/zoho_dms/chats", chatRouter);
 
-app.use('/api/zoho_dms/presence', require('./routes/presence').default);
+app.use("/api/zoho_dms/presence", require("./routes/presence").default);
 
 // Technical Assessment
-app.use('/api/ai/technical-assessment', technicalAssessmentRouter);
+app.use("/api/ai/technical-assessment", technicalAssessmentRouter);
 
-app.use('/api/ai/travel-budget', travelBudget);
+app.use("/api/ai/travel-budget", travelBudget);
 
 // PDF Parser
-const pdfParserRouter = require('./routes/pdfParser');
-app.use('/api/parse-pdf', pdfParserRouter);
+const pdfParserRouter = require("./routes/pdfParser");
+app.use("/api/parse-pdf", pdfParserRouter);
 
 // Packages
-app.use('/api/packages', apiKeyMiddleware, packagesRouter);
-
+app.use("/api/packages", apiKeyMiddleware, packagesRouter);
 
 if (aiJobOpportunitiesRouter) {
   app.use("/api/ai/generatejobopportunities", aiJobOpportunitiesRouter);
@@ -516,8 +605,12 @@ const rateLimitMap = new Map();
 const RATE_LIMIT_WINDOW = 60000;
 const RATE_LIMIT_MAX_REQUESTS = 20;
 
-app.use('/api/ai/*', (req, res, next) => {
-  const clientIP = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'] || 'unknown';
+app.use("/api/ai/*", (req, res, next) => {
+  const clientIP =
+    req.ip ||
+    req.connection.remoteAddress ||
+    req.headers["x-forwarded-for"] ||
+    "unknown";
   const now = Date.now();
   const windowStart = now - RATE_LIMIT_WINDOW;
 
@@ -526,12 +619,14 @@ app.use('/api/ai/*', (req, res, next) => {
   }
 
   const requests = rateLimitMap.get(clientIP);
-  const validRequests = requests.filter(timestamp => timestamp > windowStart);
+  const validRequests = requests.filter((timestamp) => timestamp > windowStart);
 
   if (validRequests.length >= RATE_LIMIT_MAX_REQUESTS) {
     return res.status(429).json({
-      message: 'Too many requests. Please try again later.',
-      retryAfter: Math.ceil((validRequests[0] + RATE_LIMIT_WINDOW - now) / 1000)
+      message: "Too many requests. Please try again later.",
+      retryAfter: Math.ceil(
+        (validRequests[0] + RATE_LIMIT_WINDOW - now) / 1000,
+      ),
     });
   }
 
@@ -547,40 +642,50 @@ app.post("/webhook", (req, res) => {
 });
 
 // PDF generation routes
-app.use('/api/worldvisaV2/global-assessment-report', pdfRateLimiter, pdfRoutes, globalOpportunitiesContentRoutes);
+app.use(
+  "/api/worldvisaV2/global-assessment-report",
+  pdfRateLimiter,
+  pdfRoutes,
+  globalOpportunitiesContentRoutes,
+);
 
 // Meeting booking routes
-app.use('/api/worldvisaV2/schedule-meeting', meetingRouter);
+app.use("/api/worldvisaV2/schedule-meeting", meetingRouter);
 
 // ANABIN institution database
-app.use('/api/anabin', anabinRouter);
+app.use("/api/anabin", anabinRouter);
+
+// Australian State Nominations (Public & Admin API for landing page)
+app.use("/api/state-nominations", stateNominationRouter);
 
 // Graceful shutdown handler
-process.on('SIGTERM', async () => {
-  logger.info('SIGTERM received, initiating graceful shutdown');
+process.on("SIGTERM", async () => {
+  logger.info("SIGTERM received, initiating graceful shutdown");
   try {
     if (zipExportWorker) {
       await zipExportWorker.close();
-      logger.info('ZIP export worker closed successfully');
+      logger.info("ZIP export worker closed successfully");
     }
   } catch (error) {
-    logger.error('Error closing ZIP export worker', { error: error.message });
+    logger.error("Error closing ZIP export worker", { error: error.message });
   }
   try {
     if (emailWorker) {
       await emailWorker.close();
-      logger.info('Email worker closed successfully');
+      logger.info("Email worker closed successfully");
     }
   } catch (error) {
-    logger.error('Error closing email worker', { error: error.message });
+    logger.error("Error closing email worker", { error: error.message });
   }
   try {
     if (chatReminderWorker) {
       await chatReminderWorker.close();
-      logger.info('Chat reminder worker closed successfully');
+      logger.info("Chat reminder worker closed successfully");
     }
   } catch (error) {
-    logger.error('Error closing chat reminder worker', { error: error.message });
+    logger.error("Error closing chat reminder worker", {
+      error: error.message,
+    });
   }
   process.exit(0);
 });

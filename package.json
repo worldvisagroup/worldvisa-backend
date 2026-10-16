@@ -13,7 +13,8 @@
         "seed:mock-tasks": "node scripts/seedMockApplicationTasks.js",
         "seed:mock-tasks:dry": "node scripts/seedMockApplicationTasks.js --dry-run",
         "cleanup:mock-tasks": "node scripts/cleanupMockApplicationTasks.js",
-        "cleanup:mock-tasks:execute": "node scripts/cleanupMockApplicationTasks.js --execute"
+        "cleanup:mock-tasks:execute": "node scripts/cleanupMockApplicationTasks.js --execute",
+        "seed:nominations": "node scripts/seedStateNominations.js"
     },
     "author": "",
     "license": "ISC",
