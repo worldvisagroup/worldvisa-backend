@@ -73,7 +73,8 @@
         "tesseract.js": "^5.1.1",
         "tsx": "^4.21.0",
         "typescript": "^5.3.3",
-        "uuid": "^13.0.0"
+        "uuid": "^13.0.0",
+        "zod": "^4.4.3"
     },
     "devDependencies": {
         "@types/express": "^5.0.6",
