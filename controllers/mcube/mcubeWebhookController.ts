@@ -241,6 +241,8 @@ export async function handleInboundWebhook(req: Request, res: Response): Promise
     return;
   }
 
+  
+
   res.status(200).json({ received: true });
 
   const isHangup = Boolean(payload.endtime);
