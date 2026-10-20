@@ -237,7 +237,7 @@ const pdfRateLimiter = rateLimit({
 });
 
 const dbURL = process.env.MONGODB_CONNECTION_STRING;
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3000;
 
 // Track MongoDB connection status
 let dbConnected = false;
