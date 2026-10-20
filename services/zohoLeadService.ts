@@ -186,3 +186,31 @@ export async function updateRecord(
 
   return firstResult;
 }
+
+
+/**
+ * Search for a record in Leads or Contacts by email address.
+ */
+export async function searchRecordByEmail(
+  module: 'Leads' | 'Contacts',
+  email: string
+): Promise<Record<string, any> | null> {
+  try {
+    const encodedEmail = encodeURIComponent(email.trim());
+    const result = await executeZohoRequest<{ data?: Record<string, any>[] }>(
+      `${module}/search?email=${encodedEmail}`,
+      'GET'
+    );
+
+    if (result && Array.isArray(result.data) && result.data.length > 0) {
+      return result.data[0];
+    }
+    return null;
+  } catch (error: any) {
+    logger.warn(`[Zoho CRM] Search by email in ${module} failed or returned no results`, {
+      email,
+      error: error.message,
+    });
+    return null;
+  }
+}

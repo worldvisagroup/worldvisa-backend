@@ -23,6 +23,7 @@ const newsRouter = require("./routes/news");
 const visaNewsRouter = require("./routes/visaNews");
 const paymentRouter = require("./routes/payment");
 const leadsRouter = require("./routes/leads");
+const landingLeadRouter = require("./routes/lead.routes");
 const eligibilityRouter = require("./routes/eligibilityRouter");
 const taskRouter = require("./routes/tasks");
 const jobsRouter = require("./routes/jobs");
@@ -236,7 +237,7 @@ const pdfRateLimiter = rateLimit({
 });
 
 const dbURL = process.env.MONGODB_CONNECTION_STRING;
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 // Track MongoDB connection status
 let dbConnected = false;
@@ -549,6 +550,8 @@ app.use("/api/zoho_dms/tasks", applicationTasksRouter);
 app.use("/payment", paymentRouter);
 
 app.use("/leads", leadsRouter);
+app.use("/leads", landingLeadRouter);
+app.use("/api/leads", landingLeadRouter);
 
 app.use("/eligibility", eligibilityRouter);
 
