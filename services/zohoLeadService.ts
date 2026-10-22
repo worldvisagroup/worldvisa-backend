@@ -214,3 +214,137 @@ export async function searchRecordByEmail(
     return null;
   }
 }
+
+/**
+ * Upload a file attachment (Buffer or external URL) to a Zoho CRM record (Leads or Contacts).
+ */
+export async function uploadRecordAttachment(
+  module: 'Leads' | 'Contacts',
+  recordId: string,
+  file: Buffer | { url: string },
+  fileName: string = 'Assessment-Report.pdf'
+): Promise<any> {
+  const FormData = require('form-data');
+  let token = await getAccessToken();
+  if (!token) {
+    throw new Error('[Zoho CRM] No access token available from zohoAuth');
+  }
+
+  const endpoint = `${module}/${recordId}/Attachments`;
+  const url = `${ZOHO_CRM_BASE}/${endpoint}`;
+
+  const createFormData = () => {
+    const fd = new FormData();
+    if (Buffer.isBuffer(file)) {
+      fd.append('file', file, {
+        filename: fileName,
+        contentType: 'application/pdf',
+      });
+    } else if (file && typeof file.url === 'string') {
+      fd.append('attachmentUrl', file.url);
+      fd.append('title', fileName);
+    }
+    return fd;
+  };
+
+  const executeUpload = async (authToken: string) => {
+    const fd = createFormData();
+    return await axios.post(url, fd, {
+      headers: {
+        Authorization: `Zoho-oauthtoken ${authToken}`,
+        ...fd.getHeaders(),
+      },
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+      timeout: 30000,
+    });
+  };
+
+  try {
+    const response = await executeUpload(token);
+    const firstResult = response?.data?.data?.[0] || response?.data?.[0];
+    if (firstResult && firstResult.status === 'error') {
+      throw new Error(`Zoho attachment upload failed: ${JSON.stringify(firstResult)}`);
+    }
+
+    logger.info(`[Zoho CRM] Attachment uploaded successfully to ${module}/${recordId}`, {
+      status: response.status,
+      data: response.data,
+    });
+    return response.data;
+  } catch (err: any) {
+    const axiosError = err as AxiosError<any>;
+
+    if (axiosError.response && axiosError.response.status === 401) {
+      logger.warn('[Zoho CRM] Token expired (401) during attachment upload — refreshing token and retrying', {
+        endpoint,
+      });
+      token = await refreshAccessToken();
+      const retryResponse = await executeUpload(token);
+      const retryFirstResult = retryResponse?.data?.data?.[0] || retryResponse?.data?.[0];
+      if (retryFirstResult && retryFirstResult.status === 'error') {
+        throw new Error(`Zoho attachment upload failed on retry: ${JSON.stringify(retryFirstResult)}`);
+      }
+      return retryResponse.data;
+    }
+
+    const errorDetails = axiosError.response?.data || axiosError.message;
+    logger.error('[Zoho CRM] Attachment upload failed', {
+      endpoint,
+      status: axiosError.response?.status,
+      details: errorDetails,
+    });
+    throw err;
+  }
+}
+
+/**
+ * Downloads a file from a URL (e.g. S3/R2/Cloudinary or base64) and uploads it as an attachment to Zoho CRM.
+ * Falls back to attaching the URL directly if downloading the bytes fails.
+ */
+export async function uploadRecordAttachmentFromUrl(
+  module: 'Leads' | 'Contacts',
+  recordId: string,
+  fileUrl: string,
+  fileName: string = 'Assessment-Report.pdf'
+): Promise<any> {
+  if (!fileUrl || typeof fileUrl !== 'string') return null;
+
+  const trimmedUrl = fileUrl.trim();
+  if (!trimmedUrl) return null;
+
+  // Handle data URI base64
+  if (trimmedUrl.startsWith('data:')) {
+    const base64Index = trimmedUrl.indexOf('base64,');
+    if (base64Index !== -1) {
+      const base64Data = trimmedUrl.slice(base64Index + 7);
+      const buffer = Buffer.from(base64Data, 'base64');
+      return await uploadRecordAttachment(module, recordId, buffer, fileName);
+    }
+  }
+
+  // Attempt to download the buffer over HTTP/HTTPS
+  try {
+    logger.info(`[Zoho CRM] Fetching attachment bytes from URL`, {
+      module,
+      recordId,
+      url: trimmedUrl,
+    });
+    const downloadResponse = await axios.get(trimmedUrl, {
+      responseType: 'arraybuffer',
+      timeout: 20000,
+    });
+    const fileBuffer = Buffer.from(downloadResponse.data);
+    return await uploadRecordAttachment(module, recordId, fileBuffer, fileName);
+  } catch (downloadErr: any) {
+    logger.warn(`[Zoho CRM] Could not download file buffer from URL, falling back to Zoho URL attachment`, {
+      module,
+      recordId,
+      url: trimmedUrl,
+      error: downloadErr.message,
+    });
+    // Fallback: attach URL directly in Zoho CRM
+    return await uploadRecordAttachment(module, recordId, { url: trimmedUrl }, fileName);
+  }
+}
+

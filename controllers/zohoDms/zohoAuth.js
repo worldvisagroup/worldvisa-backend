@@ -52,21 +52,31 @@ async function exchangeCodeForTokens(code) {
 }
 
 async function refreshAccessToken() {
-  const { refreshToken } = await getTokensFromDB();
+  const { refreshToken: dbRefreshToken } = await getTokensFromDB();
+  const refreshToken = dbRefreshToken || process.env.REFRESH_TOKEN;
   if (!refreshToken) throw new Error("No refresh token stored yet");
 
+  const isCrmEnvToken = refreshToken === process.env.REFRESH_TOKEN || !process.env.ZOHO_DMS_CLIENT_ID;
+  const clientId = isCrmEnvToken
+    ? (process.env.CLIENT_ID || process.env.ZOHO_DMS_CLIENT_ID)
+    : (process.env.ZOHO_DMS_CLIENT_ID || process.env.CLIENT_ID);
+  const clientSecret = isCrmEnvToken
+    ? (process.env.CLIENT_SECRET || process.env.ZOHO_DMS_CLIENT_SECRET)
+    : (process.env.ZOHO_DMS_CLIENT_SECRET || process.env.CLIENT_SECRET);
+  const dc = process.env.ZOHO_DC || "in";
+
   const response = await axios.post(
-    `https://accounts.zoho.${process.env.ZOHO_DC}/oauth/v2/token`,
+    `https://accounts.zoho.${dc}/oauth/v2/token`,
     new URLSearchParams({
       grant_type: "refresh_token",
-      client_id: process.env.ZOHO_DMS_CLIENT_ID,
-      client_secret: process.env.ZOHO_DMS_CLIENT_SECRET,
+      client_id: clientId,
+      client_secret: clientSecret,
       refresh_token: refreshToken,
     })
   );
   const tokens = {
     accessToken: response.data.access_token,
-    refreshToken: refreshToken, // Keep the same refresh token
+    refreshToken: response.data.refresh_token || refreshToken, // Keep the same refresh token
   };
   await saveTokensToDB(tokens);
   return tokens.accessToken;
@@ -74,7 +84,7 @@ async function refreshAccessToken() {
 
 async function getAccessToken() {
   const tokenDoc = await getTokensFromDB();
-  const isExpired = !tokenDoc.expiresAt || Date.now() >= tokenDoc.expiresAt;
+  const isExpired = !tokenDoc.expiresAt || !tokenDoc.accessToken || Date.now() >= tokenDoc.expiresAt;
   if (isExpired) {
     return await refreshAccessToken();
   }
