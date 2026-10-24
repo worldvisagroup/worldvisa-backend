@@ -1,11 +1,12 @@
+import { MigratedLeadEntity } from '../sample-data/zoho-lead-schema';
 import {
   createLead as createZohoLead,
   getRecordById,
   searchRecordByEmail,
   searchRecordByPhone,
   updateRecord as updateZohoRecord,
+  uploadRecordAttachmentFromUrl,
 } from './zohoLeadService';
-import { MigratedLeadEntity } from '../sample-data/zoho-lead-schema';
 
 const logger = require('../utils/logger');
 
@@ -20,6 +21,7 @@ export interface LandingTracking {
   utm_term?: string;
   utm_content?: string;
   gclid?: string;
+  zc_gad?: string;
   fbclid?: string;
 }
 
@@ -38,7 +40,7 @@ export interface LandingCapturePayload {
   phone: string;
   countryCode?: string;
   nationalNumber?: string;
-  targetCountry?: string;
+  targetCountry?: 'Australia' | 'Canada' | 'Germany' | string;
   tracking?: LandingTracking;
   geoInfo?: LandingGeoInfo;
 }
@@ -63,13 +65,24 @@ export interface LandingAssessmentPayload {
   email?: string;
   phone?: string;
   phoneVerified?: boolean;
-  targetCountry?: string;
+  targetCountry?: 'Australia' | 'Canada' | 'Germany' | string;
   totalPoints?: number;
   threshold?: number;
   isEligible?: boolean;
-  leadStatus?: string;
-  rawAnswers?: RawAssessmentAnswers;
+  leadStatus?: 'Pre-Qualified' | 'Not Qualified' | string;
+  rawAnswers?: RawAssessmentAnswers | Record<string, unknown>;
   mappedZohoFields?: Record<string, any>;
+  pdfUrl?: string;
+
+  // Optional contact, tracking, and geo fields for direct flows (e.g. /check-eligibility)
+  // where the lead has not yet been pre-captured via Stage 1 form
+  fullName?: string;
+  firstName?: string;
+  lastName?: string;
+  countryCode?: string;
+  nationalNumber?: string;
+  tracking?: LandingTracking;
+  geoInfo?: LandingGeoInfo;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -91,6 +104,7 @@ export function determineLandingLeadSource(params: {
   utmCampaign?: string;
   utmTerm?: string;
   gclid?: string;
+  zc_gad?: string;
   fbclid?: string;
 }): string {
   const explicit = params.leadSource?.toLowerCase().trim() || '';
@@ -98,7 +112,7 @@ export function determineLandingLeadSource(params: {
   const medium = params.utmMedium?.toLowerCase().trim() || '';
   const campaign = params.utmCampaign?.toLowerCase().trim() || '';
   const term = params.utmTerm?.toLowerCase().trim() || '';
-  const gclid = params.gclid?.trim() || '';
+  const gclid = params.gclid?.trim() || params.zc_gad?.trim() || '';
   const fbclid = params.fbclid?.trim() || '';
 
   const allText = `${explicit} ${source} ${medium} ${campaign} ${term}`;
@@ -213,11 +227,11 @@ function mapEducationToZoho(qualification?: string): string {
     case 'masters':
       return "Master's Level or Professional Degree";
     case 'dual_degree':
-      return 'Two or more post-secondary credentials, one of which is a three-year or longer post-secondary credential';
+      return 'Dual Degrees';
     case 'bachelors':
-      return 'Three-year or longer post-secondary credential';
+      return 'Bachelor Degree';
     case 'diploma_3':
-      return 'Three-year or longer post-secondary credential';
+      return 'Diploma';
     case 'diploma_2':
       return 'Two-year post-secondary credential';
     case 'diploma_1':
@@ -346,7 +360,8 @@ export async function captureLandingLead(payload: LandingCapturePayload) {
     utmMedium: tracking.utm_medium,
     utmCampaign: tracking.utm_campaign,
     utmTerm: tracking.utm_term,
-    gclid: tracking.gclid,
+    gclid: tracking.gclid || tracking.zc_gad,
+    zc_gad: tracking.zc_gad,
     fbclid: tracking.fbclid,
   });
 
@@ -396,7 +411,8 @@ export async function captureLandingLead(payload: LandingCapturePayload) {
       updateFields.Service_Required1 = 'Permanent Residency';
     }
 
-    if (isBlank(fullRecord.GCLID) && tracking.gclid) updateFields.GCLID = tracking.gclid;
+    const effectiveGclid = tracking.gclid || tracking.zc_gad;
+    if (isBlank(fullRecord.GCLID) && effectiveGclid) updateFields.GCLID = effectiveGclid;
     if (isBlank(fullRecord.FBCLID) && tracking.fbclid) updateFields.FBCLID = tracking.fbclid;
     if (isBlank(fullRecord.UTM_Campaign_Name) && tracking.utm_campaign) {
       updateFields.UTM_Campaign_Name = tracking.utm_campaign;
@@ -460,7 +476,8 @@ export async function captureLandingLead(payload: LandingCapturePayload) {
   if (geoInfo.country) newLeadData.Country = geoInfo.country;
   if (geoInfo.ip) newLeadData.IP_Address = geoInfo.ip;
 
-  if (tracking.gclid) newLeadData.GCLID = tracking.gclid;
+  const effectiveGclid = tracking.gclid || tracking.zc_gad;
+  if (effectiveGclid) newLeadData.GCLID = effectiveGclid;
   if (tracking.fbclid) newLeadData.FBCLID = tracking.fbclid;
   if (tracking.utm_campaign) newLeadData.UTM_Campaign_Name = tracking.utm_campaign;
   if (tracking.utm_medium) newLeadData.UTM_Medium = tracking.utm_medium;
@@ -508,7 +525,17 @@ export async function updateLandingAssessment(payload: LandingAssessmentPayload)
     }
   }
 
-  // 2. Fallback search by phone
+  // 2. Fallback search by email
+  if (!existingRecord && payload.email) {
+    const cleanEmail = payload.email.trim();
+    existingRecord = await searchRecordByEmail('Leads', cleanEmail);
+    if (!existingRecord) {
+      existingRecord = await searchRecordByEmail('Contacts', cleanEmail);
+      if (existingRecord) targetModule = 'Contacts';
+    }
+  }
+
+  // 3. Fallback search by phone
   if (!existingRecord && payload.phone) {
     const rawDigits = payload.phone.replace(/\D/g, '');
     const nationalDigits = rawDigits.slice(-10);
@@ -519,24 +546,58 @@ export async function updateLandingAssessment(payload: LandingAssessmentPayload)
     }
   }
 
-  // 3. Fallback search by email
-  if (!existingRecord && payload.email) {
-    const cleanEmail = payload.email.trim();
-    existingRecord = await searchRecordByEmail('Leads', cleanEmail);
-    if (!existingRecord) {
-      existingRecord = await searchRecordByEmail('Contacts', cleanEmail);
-      if (existingRecord) targetModule = 'Contacts';
+
+  // 4. Auto-create Lead if record does not exist in Zoho CRM (e.g. direct /check-eligibility flow)
+  let isNewLead = false;
+  if (!existingRecord) {
+    const email = payload.email?.trim();
+    const phone = payload.phone?.trim();
+
+    if (!email || !phone) {
+      const error: any = new Error(
+        'Lead not found in Zoho CRM for the provided leadId, and cannot be auto-created without both email and phone'
+      );
+      error.statusCode = 404;
+      throw error;
+    }
+
+    logger.info('[Landing Assessment] Record not found in Zoho CRM — creating new Lead via captureLandingLead', {
+      email,
+      phone,
+      targetCountry: payload.targetCountry,
+    });
+
+    const captureResult = await captureLandingLead({
+      fullName: payload.fullName || `${payload.firstName || ''} ${payload.lastName || ''}`.trim() || 'Valued Applicant',
+      firstName: payload.firstName,
+      lastName: payload.lastName,
+      email,
+      phone,
+      countryCode: payload.countryCode,
+      nationalNumber: payload.nationalNumber,
+      targetCountry: payload.targetCountry,
+      tracking: payload.tracking,
+      geoInfo: payload.geoInfo,
+    });
+
+    if (captureResult && captureResult.leadId) {
+      existingRecord = (await getRecordById('Leads', captureResult.leadId)) || {
+        id: captureResult.leadId,
+        Description: '',
+      };
+      targetModule = (captureResult.module as 'Leads' | 'Contacts') || 'Leads';
+      isNewLead = Boolean(captureResult.isNew);
     }
   }
 
   if (!existingRecord) {
-    const error: any = new Error('Lead not found in Zoho CRM for the provided leadId, email, or phone');
-    error.statusCode = 404;
+    const error: any = new Error('Lead could not be found or created in Zoho CRM');
+    error.statusCode = 500;
     throw error;
   }
 
   const recordId = String(existingRecord.id);
-  const rawAnswers = payload.rawAnswers || {};
+  const rawAnswers = (payload.rawAnswers || {}) as Record<string, any>;
   const isEligible = Boolean(payload.isEligible);
   const totalPoints = Number(payload.totalPoints) || 0;
   const leadStatus = payload.leadStatus || (isEligible ? 'Pre-Qualified' : 'Not Qualified');
@@ -629,6 +690,9 @@ export async function updateLandingAssessment(payload: LandingAssessmentPayload)
   if (updateFields.Germany_Language) {
     summaryLines.push(`German Level: ${updateFields.Germany_Language}`);
   }
+  if (payload.pdfUrl) {
+    summaryLines.push(`PDF Report: ${payload.pdfUrl}`);
+  }
   summaryLines.push(`Submitted: ${new Date().toISOString()}`);
 
   const assessmentSummary = summaryLines.join('\n');
@@ -641,18 +705,65 @@ export async function updateLandingAssessment(payload: LandingAssessmentPayload)
     totalPoints,
     isEligible,
     leadStatus,
+    hasPdfUrl: Boolean(payload.pdfUrl),
     updatedFields: Object.keys(updateFields),
   });
 
   const updateResult = await updateZohoRecord(targetModule, recordId, updateFields);
 
+  // ── Upload Assessment PDF as attachment to Zoho CRM if pdfUrl is provided ──
+  let attachmentResult: any = null;
+  if (payload.pdfUrl && typeof payload.pdfUrl === 'string' && payload.pdfUrl.trim()) {
+    const rawPdfUrl = payload.pdfUrl.trim();
+    const cleanCountry = country
+      ? country.trim().charAt(0).toUpperCase() + country.trim().slice(1).toLowerCase()
+      : '';
+    const attachmentFileName = cleanCountry
+      ? `Assessment-Report-${cleanCountry}.pdf`
+      : 'Assessment-Report.pdf';
+
+    try {
+      logger.info(`[Landing Assessment] Uploading assessment PDF attachment to Zoho CRM ${targetModule}`, {
+        recordId,
+        targetModule,
+        fileName: attachmentFileName,
+        pdfUrl: rawPdfUrl,
+      });
+
+      attachmentResult = await uploadRecordAttachmentFromUrl(
+        targetModule,
+        recordId,
+        rawPdfUrl,
+        attachmentFileName
+      );
+
+      logger.info(`[Landing Assessment] PDF attachment uploaded successfully to Zoho CRM`, {
+        recordId,
+        targetModule,
+        attachmentResult,
+      });
+    } catch (attachErr: any) {
+      logger.error(`[Landing Assessment] Failed to upload PDF attachment to Zoho CRM`, {
+        recordId,
+        targetModule,
+        pdfUrl: rawPdfUrl,
+        error: attachErr.message,
+        details: attachErr.response?.data,
+      });
+    }
+  }
+
   return {
     success: true,
     leadId: recordId,
+    isNew: isNewLead,
     totalPoints,
     isEligible,
     leadStatus,
-    message: 'Assessment recorded in Zoho CRM successfully',
+    message: isNewLead
+      ? 'Lead created and assessment recorded in Zoho CRM successfully'
+      : 'Assessment recorded in Zoho CRM successfully',
     result: updateResult,
+    ...(attachmentResult ? { attachment: attachmentResult } : {}),
   };
 }

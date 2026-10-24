@@ -1,4 +1,4 @@
-﻿import { Request, Response } from 'express';
+import { Request, Response } from 'express';
 import {
   captureLandingLead,
   LandingCapturePayload,
@@ -84,7 +84,7 @@ export async function handleLandingAssessment(req: Request, res: Response): Prom
 
   try {
     const result = await updateLandingAssessment(payload);
-    res.status(200).json(result);
+    res.status(result.isNew ? 201 : 200).json(result);
   } catch (err: any) {
     logger.error('[Landing Lead Controller] Error updating landing assessment', {
       error: err.message,
