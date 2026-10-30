@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import McubeInboundLeadLog from '../../models/mcubeInboundLeadLog.model';
 import {
   createLead,
+  findZohoUserByName,
   getRecordById,
   searchRecordByPhone,
   updateRecord,
@@ -257,8 +258,8 @@ export async function handleInboundLeadsWebhook(req: Request, res: Response): Pr
       updateFields.Re_Contacted_Date = todayDate;
 
       // Increment Call_Count
-      const currentCallCount = Number(fullRecord.Call_Count) || 0;
-      updateFields.Call_Count = currentCallCount + 1;
+      // const currentCallCount = Number(fullRecord.Call_Count) || 0;
+      // updateFields.Call_Count = currentCallCount + 1;
 
       const result = await updateRecord(targetModule, recordId, updateFields);
 
@@ -301,6 +302,9 @@ export async function handleInboundLeadsWebhook(req: Request, res: Response): Pr
     }
 
     // Step 2B: Record does NOT exist → Create a new Lead
+    const agentName = payload.agent?.trim() || '';
+    const zohoAgent = agentName ? await findZohoUserByName(agentName) : null;
+
     const newLeadData: Record<string, any> = {
       Last_Name: customerName.length > 0 ? customerName : `Ivr-${cleanNumber}`,
       Email: `${cleanNumber}@gmail.com`,
@@ -322,7 +326,18 @@ export async function handleInboundLeadsWebhook(req: Request, res: Response): Pr
     if (gclid) newLeadData.GCLID = gclid;
     if (fbclid) newLeadData.FBCLID = fbclid;
 
-    const createResult = await createLead(newLeadData);
+    let createResult: any;
+
+    if (zohoAgent?.id) {
+      // Handling agent found in Zoho: assign explicitly and disable triggers (trigger: []) to prevent round-robin override
+      newLeadData.Owner = { id: String(zohoAgent.id) };
+      newLeadData.Record_Assigned = zohoAgent.fullName || agentName;
+      createResult = await createLead(newLeadData, true);
+    } else {
+      // Agent not found / not provided: do not set Owner and do not pass disableTriggers flag so Zoho executes round-robin
+      createResult = await createLead(newLeadData, false);
+    }
+
     const createdId = createResult?.details?.id || createResult?.id || null;
 
     logger.info('[MCube Leads Webhook] Successfully created new Lead in Zoho', {
@@ -330,6 +345,8 @@ export async function handleInboundLeadsWebhook(req: Request, res: Response): Pr
       phone: cleanNumber,
       countryCode: cleanCountryCode,
       leadSource,
+      assignedAgent: zohoAgent ? zohoAgent.fullName : null,
+      roundRobin: !zohoAgent,
     });
 
     // Persist to MongoDB for historical tracking
