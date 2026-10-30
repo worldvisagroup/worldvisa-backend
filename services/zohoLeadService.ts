@@ -125,17 +125,28 @@ export async function getRecordById(
 
 /**
  * Create a new Lead record in Zoho CRM.
+ * If disableTriggers is true, passes trigger: [] to suppress Zoho's automated assignment/workflow rules.
+ * If disableTriggers is false/omitted, trigger is omitted so Zoho executes its default round-robin rules.
  */
-export async function createLead(leadData: Record<string, any>): Promise<any> {
+export async function createLead(
+  leadData: Record<string, any>,
+  disableTriggers: boolean = false
+): Promise<any> {
   logger.info('[Zoho CRM] Creating new Lead record', {
     phone: leadData.Phone,
     lastName: leadData.Last_Name,
     source: leadData.Lead_Source,
+    owner: leadData.Owner?.id,
+    disableTriggers,
   });
 
-  const payload = {
+  const payload: Record<string, any> = {
     data: [leadData],
   };
+
+  if (disableTriggers) {
+    payload.trigger = [];
+  }
 
   const response = await executeZohoRequest<{ data?: any[] }>(
     'Leads',
@@ -346,5 +357,63 @@ export async function uploadRecordAttachmentFromUrl(
     // Fallback: attach URL directly in Zoho CRM
     return await uploadRecordAttachment(module, recordId, { url: trimmedUrl }, fileName);
   }
+}
+
+export interface ZohoUserSummary {
+  id: string;
+  fullName: string;
+  email: string;
+  status: string;
+}
+
+const zohoUserCache = new Map<string, { user: ZohoUserSummary; expiresAt: number }>();
+
+/**
+ * Search for an active user in Zoho CRM by name or keyword with 24-hour in-memory cache.
+ */
+export async function findZohoUserByName(agentName?: string): Promise<ZohoUserSummary | null> {
+  if (!agentName || !agentName.trim()) return null;
+  const key = agentName.trim().toLowerCase();
+
+  // 1. In-memory cache check
+  const cached = zohoUserCache.get(key);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.user;
+  }
+
+  // 2. Query Zoho CRM v5 /users/search?word=
+  try {
+    const encodedWord = encodeURIComponent(agentName.trim());
+    const res = await executeZohoRequest<{ users?: any[] }>(
+      `users/search?word=${encodedWord}`,
+      'GET'
+    );
+
+    if (res?.users && Array.isArray(res.users) && res.users.length > 0) {
+      const matched =
+        res.users.find(
+          (u) =>
+            u.status === 'active' &&
+            (u.full_name?.toLowerCase().includes(key) ||
+              u.first_name?.toLowerCase().includes(key) ||
+              u.email?.toLowerCase().includes(key))
+        ) || res.users[0];
+
+      if (matched?.id) {
+        const summary: ZohoUserSummary = {
+          id: String(matched.id),
+          fullName: matched.full_name || agentName,
+          email: matched.email || '',
+          status: matched.status || 'active',
+        };
+        zohoUserCache.set(key, { user: summary, expiresAt: Date.now() + 24 * 60 * 60 * 1000 });
+        return summary;
+      }
+    }
+  } catch (err: any) {
+    logger.warn('[Zoho CRM] Failed to search user by word in Zoho', { agentName, error: err.message });
+  }
+
+  return null;
 }
 

@@ -87,8 +87,176 @@ export interface LandingAssessmentPayload {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function isBlank(value: unknown): boolean {
-  return value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
+export function isBlank(value: unknown): boolean {
+  if (value === undefined || value === null) return true;
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed === '') return true;
+    const lower = trimmed.toLowerCase();
+    if (
+      lower === 'null' ||
+      lower === 'undefined' ||
+      lower === '-' ||
+      lower === '--' ||
+      lower === 'n/a' ||
+      lower === 'na' ||
+      lower === 'none'
+    ) {
+      return true;
+    }
+    return false;
+  }
+  if (Array.isArray(value)) {
+    return value.length === 0;
+  }
+  return false;
+}
+
+/**
+ * Checks if a name value is blank or a generic placeholder created by early capture flows.
+ */
+export function isGenericName(name?: unknown): boolean {
+  if (isBlank(name)) return true;
+  if (typeof name !== 'string') return false;
+  const lower = name.trim().toLowerCase();
+  return (
+    lower === 'applicant' ||
+    lower === 'valued applicant' ||
+    lower === 'valued' ||
+    lower === 'individual' ||
+    lower === 'user' ||
+    lower === 'lead' ||
+    lower === 'unknown'
+  );
+}
+
+/**
+ * Computes updates for existing Zoho lead/contact without overwriting any already-populated fields.
+ * If a field already has a value in `existingRecord`, it is preserved (skipped).
+ * Only missing / blank fields in `existingRecord` will be filled from incoming parameters.
+ */
+export function getNonDestructiveUpdateFields(
+  existingRecord: Record<string, any>,
+  incoming: {
+    leadSource?: string;
+    tracking?: LandingTracking;
+    geoInfo?: LandingGeoInfo;
+    targetCountry?: string;
+    countryCode?: string;
+    phone?: string;
+    mobile?: string;
+    firstName?: string;
+    lastName?: string;
+    fullName?: string;
+    serviceRequired?: string;
+  }
+): Record<string, any> {
+  const updateFields: Record<string, any> = {};
+
+  // 1. Lead Source: NEVER overwrite if already present in Zoho CRM
+  if (isBlank(existingRecord.Lead_Source) && !isBlank(incoming.leadSource)) {
+    updateFields.Lead_Source = incoming.leadSource;
+  }
+
+  // 2. Tracking: GCLID (support gclid or zc_gad)
+  const effectiveGclid = incoming.tracking?.gclid || incoming.tracking?.zc_gad;
+  if (isBlank(existingRecord.GCLID) && !isBlank(effectiveGclid)) {
+    updateFields.GCLID = effectiveGclid;
+  }
+
+  // 3. Tracking: FBCLID
+  if (isBlank(existingRecord.FBCLID) && !isBlank(incoming.tracking?.fbclid)) {
+    updateFields.FBCLID = incoming.tracking!.fbclid;
+  }
+
+  // 4. Tracking: UTM parameters
+  if (isBlank(existingRecord.UTM_Campaign_Name) && !isBlank(incoming.tracking?.utm_campaign)) {
+    updateFields.UTM_Campaign_Name = incoming.tracking!.utm_campaign;
+  }
+  if (isBlank(existingRecord.Campaigns_Name) && !isBlank(incoming.tracking?.utm_campaign)) {
+    updateFields.Campaigns_Name = incoming.tracking!.utm_campaign;
+  }
+  if (isBlank(existingRecord.UTM_Medium) && !isBlank(incoming.tracking?.utm_medium)) {
+    updateFields.UTM_Medium = incoming.tracking!.utm_medium;
+  }
+  if (isBlank(existingRecord.UTM_Lead_Source) && !isBlank(incoming.tracking?.utm_source)) {
+    updateFields.UTM_Lead_Source = incoming.tracking!.utm_source;
+  }
+  if (isBlank(existingRecord.UTM_Term) && !isBlank(incoming.tracking?.utm_term)) {
+    updateFields.UTM_Term = incoming.tracking!.utm_term;
+  }
+  if (isBlank(existingRecord.UTM_Content) && !isBlank(incoming.tracking?.utm_content)) {
+    updateFields.UTM_Content = incoming.tracking!.utm_content;
+  }
+
+  // 5. Data Source
+  if (isBlank(existingRecord.Data_Source)) {
+    updateFields.Data_Source = 'Webform';
+  }
+
+  // 6. Geo-location fields
+  if (isBlank(existingRecord.City) && !isBlank(incoming.geoInfo?.city)) {
+    updateFields.City = incoming.geoInfo!.city;
+  }
+  const effectiveRegion = incoming.geoInfo?.region;
+  if (isBlank(existingRecord.State) && !isBlank(effectiveRegion)) {
+    updateFields.State = effectiveRegion;
+  }
+  if (isBlank(existingRecord.Lead_Originated_Region) && !isBlank(effectiveRegion)) {
+    updateFields.Lead_Originated_Region = effectiveRegion;
+  }
+  if (isBlank(existingRecord.Country) && !isBlank(incoming.geoInfo?.country)) {
+    updateFields.Country = incoming.geoInfo!.country;
+  }
+  if (isBlank(existingRecord.Lead_Originated_Country) && !isBlank(incoming.geoInfo?.country)) {
+    updateFields.Lead_Originated_Country = incoming.geoInfo!.country;
+  }
+  if (isBlank(existingRecord.IP_Address) && !isBlank(incoming.geoInfo?.ip)) {
+    updateFields.IP_Address = incoming.geoInfo!.ip;
+  }
+
+  // 7. Contact / Phone fields
+  if (isBlank(existingRecord.Country_Code) && !isBlank(incoming.countryCode)) {
+    updateFields.Country_Code = incoming.countryCode;
+  }
+  if (isBlank(existingRecord.Phone) && !isBlank(incoming.phone)) {
+    updateFields.Phone = incoming.phone;
+  }
+  if (isBlank(existingRecord.Mobile) && !isBlank(incoming.mobile)) {
+    updateFields.Mobile = incoming.mobile;
+  }
+
+  // 8. Name fields (only update if existing record has blank or generic placeholder like "Valued Applicant")
+  if (isGenericName(existingRecord.First_Name) && !isGenericName(incoming.firstName)) {
+    updateFields.First_Name = incoming.firstName;
+  }
+  if (isGenericName(existingRecord.Last_Name) && !isGenericName(incoming.lastName)) {
+    updateFields.Last_Name = incoming.lastName;
+  }
+  if (isGenericName(existingRecord.Full_Name) && !isGenericName(incoming.fullName)) {
+    updateFields.Full_Name = incoming.fullName;
+  }
+
+  // 9. Destination and Service
+  if (isBlank(existingRecord.intended_Countrys) && !isBlank(incoming.targetCountry)) {
+    updateFields.intended_Countrys = incoming.targetCountry;
+  }
+  if (isBlank(existingRecord.Service_Required1)) {
+    updateFields.Service_Required1 = incoming.serviceRequired || 'Permanent Residency';
+  }
+
+  // 10. Landing Page in Description (append without duplication)
+  if (incoming.tracking?.pageUrl) {
+    const pageUrl = incoming.tracking.pageUrl.trim();
+    const currentDesc = (existingRecord.Description || '').toString();
+    if (pageUrl && !currentDesc.includes(pageUrl)) {
+      updateFields.Description = currentDesc
+        ? `${currentDesc}\nLanding Page: ${pageUrl}`
+        : `Landing Page: ${pageUrl}`;
+    }
+  }
+
+  return updateFields;
 }
 
 /**
@@ -326,8 +494,8 @@ function parseExperience(exp?: string | number): number {
 /**
  * Stage 1: Capture initial lead directly into Zoho CRM.
  * Checks if lead exists in Zoho CRM (by phone or email).
- * - If exists: Updates only empty / blank fields, preserving established values.
- * - If new: Creates a new Lead in Zoho CRM.
+ * - If exists: Updates only empty / blank fields, preserving established values (tracking, geo, lead source).
+ * - If new: Creates a new Lead in Zoho CRM with non-blank fields.
  */
 export async function captureLandingLead(payload: LandingCapturePayload) {
   const email = (payload.email || '').toLowerCase().trim();
@@ -391,51 +559,27 @@ export async function captureLandingLead(payload: LandingCapturePayload) {
     }
   }
 
-  // ── Step 2A: Record Exists in Zoho → Update blank / missing fields ─────────
+  // ── Step 2A: Record Exists in Zoho → Update ONLY blank / missing fields ────
   if (existingRecord) {
     const recordId = String(existingRecord.id);
     const fullRecord = (await getRecordById(targetModule, recordId)) || existingRecord;
 
-    const updateFields: Record<string, any> = {};
-
-    // Only update fields that are currently blank in Zoho
-    if (isBlank(fullRecord.Lead_Source)) updateFields.Lead_Source = leadSource;
-    if (isBlank(fullRecord.Country_Code)) updateFields.Country_Code = countryCode;
-    if (isBlank(fullRecord.Mobile)) updateFields.Mobile = mobile;
-    if (isBlank(fullRecord.Phone)) updateFields.Phone = phone;
-
-    if (isBlank(fullRecord.intended_Countrys) && payload.targetCountry) {
-      updateFields.intended_Countrys = payload.targetCountry;
-    }
-    if (isBlank(fullRecord.Service_Required1)) {
-      updateFields.Service_Required1 = 'Permanent Residency';
-    }
-
-    const effectiveGclid = tracking.gclid || tracking.zc_gad;
-    if (isBlank(fullRecord.GCLID) && effectiveGclid) updateFields.GCLID = effectiveGclid;
-    if (isBlank(fullRecord.FBCLID) && tracking.fbclid) updateFields.FBCLID = tracking.fbclid;
-    if (isBlank(fullRecord.UTM_Campaign_Name) && tracking.utm_campaign) {
-      updateFields.UTM_Campaign_Name = tracking.utm_campaign;
-    }
-    if (isBlank(fullRecord.UTM_Medium) && tracking.utm_medium) updateFields.UTM_Medium = tracking.utm_medium;
-    if (isBlank(fullRecord.UTM_Lead_Source) && tracking.utm_source) updateFields.UTM_Lead_Source = tracking.utm_source;
-    if (isBlank(fullRecord.UTM_Term) && tracking.utm_term) updateFields.UTM_Term = tracking.utm_term;
-    if (isBlank(fullRecord.UTM_Content) && tracking.utm_content) updateFields.UTM_Content = tracking.utm_content;
-
-    if (isBlank(fullRecord.City) && geoInfo.city) updateFields.City = geoInfo.city;
-    if (isBlank(fullRecord.State) && geoInfo.region) updateFields.State = geoInfo.region;
-    if (isBlank(fullRecord.Country) && geoInfo.country) updateFields.Country = geoInfo.country;
-    if (isBlank(fullRecord.IP_Address) && geoInfo.ip) updateFields.IP_Address = geoInfo.ip;
-
-    if (tracking.pageUrl && (!fullRecord.Description || !fullRecord.Description.includes(tracking.pageUrl))) {
-      updateFields.Description = fullRecord.Description
-        ? `${fullRecord.Description}\nLanding Page: ${tracking.pageUrl}`
-        : `Landing Page: ${tracking.pageUrl}`;
-    }
+    const updateFields = getNonDestructiveUpdateFields(fullRecord, {
+      leadSource,
+      tracking,
+      geoInfo,
+      targetCountry: payload.targetCountry,
+      countryCode,
+      phone,
+      mobile,
+      firstName,
+      lastName,
+      fullName,
+    });
 
     updateFields.Last_Activity_Time = new Date().toISOString();
 
-    logger.info(`[Landing Lead] Updating existing ${targetModule} in Zoho CRM`, {
+    logger.info(`[Landing Lead] Updating existing ${targetModule} in Zoho CRM (preserving established fields)`, {
       recordId,
       phone,
       updatedFields: Object.keys(updateFields),
@@ -455,9 +599,6 @@ export async function captureLandingLead(payload: LandingCapturePayload) {
 
   // ── Step 2B: Record does NOT exist in Zoho → Create new Lead in Zoho CRM ───
   const newLeadData: Partial<MigratedLeadEntity> & Record<string, any> = {
-    First_Name: firstName,
-    Last_Name: lastName,
-    Full_Name: fullName,
     Company: 'Individual',
     Email: email,
     Phone: phone,
@@ -471,20 +612,33 @@ export async function captureLandingLead(payload: LandingCapturePayload) {
     Last_Activity_Time: new Date().toISOString(),
   };
 
-  if (geoInfo.city) newLeadData.City = geoInfo.city;
-  if (geoInfo.region) newLeadData.State = geoInfo.region;
-  if (geoInfo.country) newLeadData.Country = geoInfo.country;
-  if (geoInfo.ip) newLeadData.IP_Address = geoInfo.ip;
+  if (!isBlank(firstName)) newLeadData.First_Name = firstName;
+  if (!isBlank(lastName)) newLeadData.Last_Name = lastName;
+  if (!isBlank(fullName)) newLeadData.Full_Name = fullName;
+
+  if (!isBlank(geoInfo.city)) newLeadData.City = geoInfo.city;
+  if (!isBlank(geoInfo.region)) {
+    newLeadData.State = geoInfo.region;
+    newLeadData.Lead_Originated_Region = geoInfo.region;
+  }
+  if (!isBlank(geoInfo.country)) {
+    newLeadData.Country = geoInfo.country;
+    newLeadData.Lead_Originated_Country = geoInfo.country;
+  }
+  if (!isBlank(geoInfo.ip)) newLeadData.IP_Address = geoInfo.ip;
 
   const effectiveGclid = tracking.gclid || tracking.zc_gad;
-  if (effectiveGclid) newLeadData.GCLID = effectiveGclid;
-  if (tracking.fbclid) newLeadData.FBCLID = tracking.fbclid;
-  if (tracking.utm_campaign) newLeadData.UTM_Campaign_Name = tracking.utm_campaign;
-  if (tracking.utm_medium) newLeadData.UTM_Medium = tracking.utm_medium;
-  if (tracking.utm_source) newLeadData.UTM_Lead_Source = tracking.utm_source;
-  if (tracking.utm_term) newLeadData.UTM_Term = tracking.utm_term;
-  if (tracking.utm_content) newLeadData.UTM_Content = tracking.utm_content;
-  if (tracking.pageUrl) newLeadData.Description = `Landing Page: ${tracking.pageUrl}`;
+  if (!isBlank(effectiveGclid)) newLeadData.GCLID = effectiveGclid;
+  if (!isBlank(tracking.fbclid)) newLeadData.FBCLID = tracking.fbclid;
+  if (!isBlank(tracking.utm_campaign)) {
+    newLeadData.UTM_Campaign_Name = tracking.utm_campaign;
+    newLeadData.Campaigns_Name = tracking.utm_campaign;
+  }
+  if (!isBlank(tracking.utm_medium)) newLeadData.UTM_Medium = tracking.utm_medium;
+  if (!isBlank(tracking.utm_source)) newLeadData.UTM_Lead_Source = tracking.utm_source;
+  if (!isBlank(tracking.utm_term)) newLeadData.UTM_Term = tracking.utm_term;
+  if (!isBlank(tracking.utm_content)) newLeadData.UTM_Content = tracking.utm_content;
+  if (!isBlank(tracking.pageUrl)) newLeadData.Description = `Landing Page: ${tracking.pageUrl}`;
 
   logger.info('[Landing Lead] Creating new Lead in Zoho CRM', {
     phone,
@@ -511,6 +665,8 @@ export async function captureLandingLead(payload: LandingCapturePayload) {
 
 /**
  * Stage 2: Record assessment questionnaire results and qualification scores directly in Zoho CRM.
+ * - If record exists: Updates assessment results, preserving existing tracking, geo, and lead source data.
+ * - If record does not exist: Auto-creates lead first via captureLandingLead, then saves assessment results.
  */
 export async function updateLandingAssessment(payload: LandingAssessmentPayload) {
   let existingRecord: Record<string, any> | null = null;
@@ -529,7 +685,9 @@ export async function updateLandingAssessment(payload: LandingAssessmentPayload)
   if (!existingRecord && payload.email) {
     const cleanEmail = payload.email.trim();
     existingRecord = await searchRecordByEmail('Leads', cleanEmail);
-    if (!existingRecord) {
+    if (existingRecord) {
+      targetModule = 'Leads';
+    } else {
       existingRecord = await searchRecordByEmail('Contacts', cleanEmail);
       if (existingRecord) targetModule = 'Contacts';
     }
@@ -540,12 +698,13 @@ export async function updateLandingAssessment(payload: LandingAssessmentPayload)
     const rawDigits = payload.phone.replace(/\D/g, '');
     const nationalDigits = rawDigits.slice(-10);
     existingRecord = await searchRecordByPhone('Leads', nationalDigits);
-    if (!existingRecord) {
+    if (existingRecord) {
+      targetModule = 'Leads';
+    } else {
       existingRecord = await searchRecordByPhone('Contacts', nationalDigits);
       if (existingRecord) targetModule = 'Contacts';
     }
   }
-
 
   // 4. Auto-create Lead if record does not exist in Zoho CRM (e.g. direct /check-eligibility flow)
   let isNewLead = false;
@@ -597,53 +756,98 @@ export async function updateLandingAssessment(payload: LandingAssessmentPayload)
   }
 
   const recordId = String(existingRecord.id);
+
+  // ── Step 5: Always retrieve the full record from Zoho to inspect all existing fields ───
+  // (Note: Zoho searchRecordByEmail/Phone only returns basic default fields)
+  const fullRecord = (await getRecordById(targetModule, recordId)) || existingRecord;
+
+  // ── Step 6: Non-destructively backfill missing tracking/geo fields without overwriting existing data ─
+  const tracking = payload.tracking || {};
+  const geoInfo = payload.geoInfo || {};
+
+  const effectiveLeadSource = determineLandingLeadSource({
+    leadSource: tracking.leadSource,
+    utmSource: tracking.utm_source,
+    utmMedium: tracking.utm_medium,
+    utmCampaign: tracking.utm_campaign,
+    utmTerm: tracking.utm_term,
+    gclid: tracking.gclid || tracking.zc_gad,
+    zc_gad: tracking.zc_gad,
+    fbclid: tracking.fbclid,
+  });
+
+  const { mobile, phone, countryCode } = normalizePhone({
+    phone: payload.phone,
+    nationalNumber: payload.nationalNumber,
+    countryCode: payload.countryCode,
+  });
+
+  const nonDestructiveUpdates = getNonDestructiveUpdateFields(fullRecord, {
+    leadSource: effectiveLeadSource,
+    tracking,
+    geoInfo,
+    targetCountry: payload.targetCountry,
+    countryCode: countryCode || undefined,
+    phone: phone || undefined,
+    mobile: mobile || undefined,
+    firstName: payload.firstName,
+    lastName: payload.lastName,
+    fullName: payload.fullName,
+  });
+
   const rawAnswers = (payload.rawAnswers || {}) as Record<string, any>;
   const isEligible = Boolean(payload.isEligible);
   const totalPoints = Number(payload.totalPoints) || 0;
   const leadStatus = payload.leadStatus || (isEligible ? 'Pre-Qualified' : 'Not Qualified');
 
   const updateFields: Record<string, any> = {
-    Lead_Status: leadStatus,
+    ...nonDestructiveUpdates,
     Last_Activity_Time: new Date().toISOString(),
   };
 
-  // ── Map Questionnaire Answers to Zoho Schema ──────────────────────────────
-  if (rawAnswers.highestQualification) {
+  // Protect mature lead statuses from being downgraded
+  const matureStatuses = ['Converted to Deal', 'Offer Accepted', 'Ready to Sign Up', 'Offer Made', 'Done'];
+  if (!fullRecord.Lead_Status || !matureStatuses.includes(fullRecord.Lead_Status)) {
+    updateFields.Lead_Status = leadStatus;
+  }
+
+  // ── Map Questionnaire Answers to Zoho Schema (only if provided in rawAnswers) ─
+  if (!isBlank(rawAnswers.highestQualification)) {
     updateFields.education = mapEducationToZoho(rawAnswers.highestQualification);
   }
 
-  if (rawAnswers.indianWorkExperience !== undefined) {
+  if (rawAnswers.indianWorkExperience !== undefined && !isBlank(rawAnswers.indianWorkExperience)) {
     updateFields.work_experience = parseExperience(rawAnswers.indianWorkExperience);
   }
 
-  if (rawAnswers.overseasWorkExperience !== undefined) {
+  if (rawAnswers.overseasWorkExperience !== undefined && !isBlank(rawAnswers.overseasWorkExperience)) {
     updateFields.work_overseas_experience = parseExperience(rawAnswers.overseasWorkExperience);
   }
 
-  if (rawAnswers.englishAbility) {
+  if (!isBlank(rawAnswers.englishAbility)) {
     updateFields.english_language_ability = mapEnglishAbility(rawAnswers.englishAbility);
   }
 
-  if (rawAnswers.maritalStatus) {
+  if (!isBlank(rawAnswers.maritalStatus)) {
     updateFields.marital_status = mapMaritalStatus(rawAnswers.maritalStatus);
   }
 
   // Spouse fields if married
   const isMarried = rawAnswers.maritalStatus?.toLowerCase() === 'married';
   if (isMarried) {
-    if (rawAnswers.spouseQualification) {
+    if (!isBlank(rawAnswers.spouseQualification)) {
       updateFields.spouse_education = mapSpouseEducationToZoho(rawAnswers.spouseQualification);
     }
-    if (rawAnswers.spouseWorkExperience !== undefined) {
+    if (rawAnswers.spouseWorkExperience !== undefined && !isBlank(rawAnswers.spouseWorkExperience)) {
       updateFields.spouse_work_experience = parseExperience(rawAnswers.spouseWorkExperience);
     }
-    if (rawAnswers.spouseEnglishAbility) {
+    if (!isBlank(rawAnswers.spouseEnglishAbility)) {
       updateFields.spouse_english_language_ability = mapEnglishAbility(rawAnswers.spouseEnglishAbility);
     }
   }
 
   // German ability
-  if (rawAnswers.germanAbility && rawAnswers.germanAbility.toLowerCase() !== 'none') {
+  if (!isBlank(rawAnswers.germanAbility) && rawAnswers.germanAbility.toLowerCase() !== 'none') {
     updateFields.Germany_Language = rawAnswers.germanAbility.toUpperCase();
   }
 
@@ -651,7 +855,7 @@ export async function updateLandingAssessment(payload: LandingAssessmentPayload)
   const country = (
     payload.targetCountry ||
     rawAnswers.country ||
-    existingRecord.intended_Countrys ||
+    fullRecord.intended_Countrys ||
     ''
   ).toLowerCase();
 
@@ -668,11 +872,11 @@ export async function updateLandingAssessment(payload: LandingAssessmentPayload)
     updateFields.Assessment_Report_Germany = true;
   }
 
-  // ── Readable summary appended to Description ──────────────────────────────
+  // ── Readable summary appended to Description without overwriting existing history ─
   const summaryLines = [
     '',
     '─── LANDING ASSESSMENT SUBMISSION ───',
-    `Destination: ${payload.targetCountry || rawAnswers.country || existingRecord.intended_Countrys || 'General'}`,
+    `Destination: ${payload.targetCountry || rawAnswers.country || fullRecord.intended_Countrys || 'General'}`,
     `Result: ${leadStatus} (Points: ${totalPoints})`,
     `Education: ${updateFields.education || rawAnswers.highestQualification || 'N/A'}`,
     `Work Exp: ${updateFields.work_experience ?? 'N/A'} yrs (Overseas: ${updateFields.work_overseas_experience ?? 0} yrs)`,
@@ -696,11 +900,12 @@ export async function updateLandingAssessment(payload: LandingAssessmentPayload)
   summaryLines.push(`Submitted: ${new Date().toISOString()}`);
 
   const assessmentSummary = summaryLines.join('\n');
-  updateFields.Description = existingRecord.Description
-    ? `${existingRecord.Description}\n${assessmentSummary}`
+  const baseDescription = updateFields.Description || fullRecord.Description || '';
+  updateFields.Description = baseDescription
+    ? `${baseDescription}\n${assessmentSummary}`
     : assessmentSummary;
 
-  logger.info(`[Landing Assessment] Updating assessment in Zoho CRM ${targetModule}`, {
+  logger.info(`[Landing Assessment] Updating assessment in Zoho CRM ${targetModule} (preserving established fields)`, {
     recordId,
     totalPoints,
     isEligible,
