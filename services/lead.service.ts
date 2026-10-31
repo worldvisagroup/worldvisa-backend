@@ -533,36 +533,21 @@ export async function captureLandingLead(payload: LandingCapturePayload) {
     fbclid: tracking.fbclid,
   });
 
-  // ── Step 1: Search Zoho CRM for existing record by phone or email ──────────
+  // ── Step 1: Search Zoho CRM for existing record in Leads ONLY (by phone or email) ──
   let existingRecord = await searchRecordByPhone('Leads', phone);
-  let targetModule: 'Leads' | 'Contacts' = 'Leads';
-
-  if (!existingRecord) {
-    const existingContact = await searchRecordByPhone('Contacts', phone);
-    if (existingContact) {
-      existingRecord = existingContact;
-      targetModule = 'Contacts';
-    }
-  }
+  const targetModule: 'Leads' = 'Leads';
 
   if (!existingRecord && email) {
     const existingLeadByEmail = await searchRecordByEmail('Leads', email);
     if (existingLeadByEmail) {
       existingRecord = existingLeadByEmail;
-      targetModule = 'Leads';
-    } else {
-      const existingContactByEmail = await searchRecordByEmail('Contacts', email);
-      if (existingContactByEmail) {
-        existingRecord = existingContactByEmail;
-        targetModule = 'Contacts';
-      }
     }
   }
 
   // ── Step 2A: Record Exists in Zoho → Update ONLY blank / missing fields ────
   if (existingRecord) {
     const recordId = String(existingRecord.id);
-    const fullRecord = (await getRecordById(targetModule, recordId)) || existingRecord;
+    const fullRecord = existingRecord;
 
     const updateFields = getNonDestructiveUpdateFields(fullRecord, {
       leadSource,
@@ -670,40 +655,24 @@ export async function captureLandingLead(payload: LandingCapturePayload) {
  */
 export async function updateLandingAssessment(payload: LandingAssessmentPayload) {
   let existingRecord: Record<string, any> | null = null;
-  let targetModule: 'Leads' | 'Contacts' = 'Leads';
+  const targetModule: 'Leads' = 'Leads';
 
-  // 1. Search by leadId (Zoho ID) if provided
+  // 1. Search by leadId (Zoho ID) in Leads if provided
   if (payload.leadId) {
     existingRecord = await getRecordById('Leads', payload.leadId);
-    if (!existingRecord) {
-      existingRecord = await getRecordById('Contacts', payload.leadId);
-      if (existingRecord) targetModule = 'Contacts';
-    }
   }
 
-  // 2. Fallback search by email
+  // 2. Fallback search by email in Leads
   if (!existingRecord && payload.email) {
     const cleanEmail = payload.email.trim();
     existingRecord = await searchRecordByEmail('Leads', cleanEmail);
-    if (existingRecord) {
-      targetModule = 'Leads';
-    } else {
-      existingRecord = await searchRecordByEmail('Contacts', cleanEmail);
-      if (existingRecord) targetModule = 'Contacts';
-    }
   }
 
-  // 3. Fallback search by phone
+  // 3. Fallback search by phone in Leads
   if (!existingRecord && payload.phone) {
     const rawDigits = payload.phone.replace(/\D/g, '');
     const nationalDigits = rawDigits.slice(-10);
     existingRecord = await searchRecordByPhone('Leads', nationalDigits);
-    if (existingRecord) {
-      targetModule = 'Leads';
-    } else {
-      existingRecord = await searchRecordByPhone('Contacts', nationalDigits);
-      if (existingRecord) targetModule = 'Contacts';
-    }
   }
 
   // 4. Auto-create Lead if record does not exist in Zoho CRM (e.g. direct /check-eligibility flow)
@@ -757,9 +726,8 @@ export async function updateLandingAssessment(payload: LandingAssessmentPayload)
 
   const recordId = String(existingRecord.id);
 
-  // ── Step 5: Always retrieve the full record from Zoho to inspect all existing fields ───
-  // (Note: Zoho searchRecordByEmail/Phone only returns basic default fields)
-  const fullRecord = (await getRecordById(targetModule, recordId)) || existingRecord;
+  // ── Step 5: Retrieve full record only if not already retrieved by ID ───
+  const fullRecord = payload.leadId ? existingRecord : ((await getRecordById(targetModule, recordId)) || existingRecord);
 
   // ── Step 6: Non-destructively backfill missing tracking/geo fields without overwriting existing data ─
   const tracking = payload.tracking || {};

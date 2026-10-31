@@ -3,48 +3,40 @@ const express = require("express");
 const app = express();
 const fs = require("fs");
 const { capitalize } = require("lodash");
+const { getAccessToken } = require("../controllers/zohoDms/zohoAuth");
+
 require("dotenv").config();
 
 const API_KEY = process.env.API_KEY;
 const API_KEY_MCUBE = process.env.API_KEY_MCUBE;
 
+/**
+ * Legacy alias for obtaining token.
+ * Routes directly to zohoAuth.getAccessToken() (MongoDB database backed).
+ */
 async function fetchInitialAccessToken() {
-  const formData = new URLSearchParams();
-  formData.append("grant_type", "authorization_code");
-  formData.append("client_id", process.env.CLIENT_ID);
-  formData.append("client_secret", process.env.CLIENT_SECRET);
-  formData.append("code", process.env.REFRESH_TOKEN);
-
-  try {
-    const response = await axios.post(
-      "https://accounts.zoho.in/oauth/v2/token",
-      formData
-    );
-    const token = response.data.access_token;
-    console.log("Got API Response", response.data);
-    return token;
-  } catch (error) {
-    console.error("Error fetching token:", error);
-    throw error;
-  }
+  return await getAccessToken();
 }
 
 async function fetchToken() {
   try {
-    const response = await axios.post(
-      `https://accounts.zoho.in/oauth/v2/token?refresh_token=${process.env.REFRESH_TOKEN}&client_id=${process.env.CLIENT_ID}&client_secret=${process.env.CLIENT_SECRET}&grant_type=refresh_token`
-    );
-    const token = response.data.access_token;
-    console.log("Token generated!");
+    const token = await getAccessToken();
     return token;
   } catch (error) {
-    console.log(error);
-    const errorMessage = zohoErrorHandler(error);
+    console.log("[helperFunction] Error in fetchToken:", error.message);
+    const errorMessage = zohoErrorHandler
+      ? zohoErrorHandler(error)
+      : error.message;
     throw errorMessage;
   }
 }
 
-const leadsApiDataParser = (eligibilityData, australiaData, canadaReport, germanyPoints) => {
+const leadsApiDataParser = (
+  eligibilityData,
+  australiaData,
+  canadaReport,
+  germanyPoints,
+) => {
   const { totalPoints: total_points_australia, points: australiaPoints } =
     australiaData;
 
@@ -58,7 +50,7 @@ const leadsApiDataParser = (eligibilityData, australiaData, canadaReport, german
     spouseEducation: spouse_education_points_australia,
     spouseWorkExperience: spouse_work_experience_points_australia,
     spouseEnglishLanguageAbility:
-    spouse_english_language_ability_points_australia,
+      spouse_english_language_ability_points_australia,
   } = australiaPoints;
 
   const { totalPoints: total_points_canada, points: canadaPoints } =
@@ -99,7 +91,7 @@ const leadsApiDataParser = (eligibilityData, australiaData, canadaReport, german
     spouseEducation,
     spouseWorkExperience,
     spouseEnglishLanguageAbility,
-    ip
+    ip,
   } = eligibilityData;
 
   return {
@@ -149,13 +141,17 @@ const leadsApiDataParser = (eligibilityData, australiaData, canadaReport, german
         total_points_canada, // Number
         // germany points
         age_points_germany: parseFloat(`${age_points_germany}.0`),
-        work_experience_points_germany: parseFloat(`${work_experience_points_germany}.0`),
+        work_experience_points_germany: parseFloat(
+          `${work_experience_points_germany}.0`,
+        ),
         education_points_germany: parseFloat(`${education_points_germany}.0`), // Number
-        english_language_ability_points_germany: parseFloat(`${english_language_ability_points_germany}.0`), // Number
+        english_language_ability_points_germany: parseFloat(
+          `${english_language_ability_points_germany}.0`,
+        ), // Number
         // ip information
         Country: ip?.country, // String
         City: ip?.city, // String
-        IP_Address: ip?.ipAddress // String
+        IP_Address: ip?.ipAddress, // String
       },
     ],
   };
@@ -210,7 +206,9 @@ const leadApiDataParser = (eligibilityData, showCampaignName = false) => {
         spouse_education: spouseEducation, // Pick List
         spouse_work_experience: spouseWorkExperience, // Number
         spouse_english_language_ability: spouseEnglishLanguageAbility, // Pick List
-        Campaigns_Name: showCampaignName ? "Subclass 462" : `${capitalize(country)} Assessment Report`,
+        Campaigns_Name: showCampaignName
+          ? "Subclass 462"
+          : `${capitalize(country)} Assessment Report`,
       },
     ],
   };
@@ -220,7 +218,7 @@ const updateLeadsApiDataParser = (
   eligibilityData,
   australiaData,
   canadaReport,
-  germanyPoints
+  germanyPoints,
 ) => {
   const { totalPoints: total_points_australia, points: australiaPoints } =
     australiaData;
@@ -235,7 +233,7 @@ const updateLeadsApiDataParser = (
     spouseEducation: spouse_education_points_australia,
     spouseWorkExperience: spouse_work_experience_points_australia,
     spouseEnglishLanguageAbility:
-    spouse_english_language_ability_points_australia,
+      spouse_english_language_ability_points_australia,
   } = australiaPoints;
 
   const { totalPoints: total_points_canada, points: canadaPoints } =
@@ -260,7 +258,6 @@ const updateLeadsApiDataParser = (
     language: english_language_ability_points_germany,
   } = germanyPoints;
 
-
   const {
     fullName,
     email,
@@ -276,7 +273,7 @@ const updateLeadsApiDataParser = (
     spouseEducation,
     spouseWorkExperience,
     spouseEnglishLanguageAbility,
-    ip
+    ip,
   } = eligibilityData;
 
   return {
@@ -325,7 +322,7 @@ const updateLeadsApiDataParser = (
         // ip information
         Country: ip?.country, // String
         City: ip?.city, // String
-        IP_Address: ip?.ipAddress // String
+        IP_Address: ip?.ipAddress, // String
       },
     ],
   };
@@ -361,7 +358,9 @@ const leadsUpdateeLeadsApiDataParser = (eligibilityData, isContact = false) => {
     data: [
       {
         Layout: {
-          id: isContact ? process.env.ZOHO_CRM_CONTACTS_LAYOUT_ID : process.env.ZOHO_CRM_NEW_LAYOUT_ID,
+          id: isContact
+            ? process.env.ZOHO_CRM_CONTACTS_LAYOUT_ID
+            : process.env.ZOHO_CRM_NEW_LAYOUT_ID,
         },
         Secondary_Source: `Subclass 462 Assessment Report`,
         Country_Code: countryCode,
@@ -389,7 +388,7 @@ const canadaLeadsApiData = (
   applicantLanguage,
   highestEducationQualification,
   maritalStatus,
-  partnerQualification
+  partnerQualification,
 ) => {
   return {
     data: [
@@ -432,7 +431,7 @@ const australiaLeadsApiData = (
   maritalStatus,
   partnerCriteria,
   gclid,
-  partnerQualification
+  partnerQualification,
 ) => {
   return {
     data: [
@@ -553,8 +552,7 @@ function convertTo24HourFormat(time12h) {
 
   return `${hours.toString().padStart(2, "0")}: ${minutes
     .toString()
-    .padStart(2, "0")
-    }`;
+    .padStart(2, "0")}`;
 }
 
 const currentDateTime = (daysToAdd = 0, time) => {
@@ -604,7 +602,7 @@ async function searchLeads(phone, token) {
           Authorization: `Zoho-oauthtoken ${token}`,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
     if (response.data.data) {
       const data = response.data.data[0];
@@ -630,13 +628,13 @@ const allWatiTemplates = {
   we_tried_calling_you: "we_tried_calling_you",
   book_appointment: "book_appointment_utility",
   know_more: "know_more",
-  welcome_template_101: "welcome_template_101"
+  welcome_template_101: "welcome_template_101",
 };
 
 const getAverageRatings = (allReviews) => {
   const totalRatings = allReviews.reduce(
     (sum, review) => sum + review.ratings,
-    0
+    0,
   );
 
   let averageRating = totalRatings / allReviews.length;
@@ -656,7 +654,7 @@ async function searchLeadsNew(module, params, token) {
           Authorization: `Zoho-oauthtoken ${token}`,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
     if (response.data.data) {
       console.log("searched Lead", true);
@@ -679,7 +677,7 @@ async function searchLeadsNew(module, params, token) {
  */
 const formatEmailContent = (content, subject, clientName) => {
   // If content is already HTML formatted, return as is
-  if (content.includes('<html>') && content.includes('<body>')) {
+  if (content.includes("<html>") && content.includes("<body>")) {
     return content;
   }
 
@@ -703,7 +701,7 @@ const formatEmailContent = (content, subject, clientName) => {
           <h1 style="color: #2c5aa0; margin: 0; font-size: 28px;">${subject}</h1>
         </div>
         <div style="line-height: 1.6; color: #333333; font-size: 16px;">
-          ${content.replace(/\n/g, '<br>')}
+          ${content.replace(/\n/g, "<br>")}
         </div>
         <div style="margin-top: 30px; text-align: center;">
           <a href="#" style="background-color: #2c5aa0; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;">Schedule Consultation</a>
@@ -729,30 +727,43 @@ const formatEmailContent = (content, subject, clientName) => {
  * @param {string} params.content - Email content
  * @returns {Object} - Formatted email object
  */
-const createProfessionalEmail = ({ subject, clientName, country, occupation, content }) => {
-  const formattedSubject = subject || `Exciting ${occupation} Job Opportunities in ${country}`;
-  const formattedContent = formatEmailContent(content, formattedSubject, clientName);
+const createProfessionalEmail = ({
+  subject,
+  clientName,
+  country,
+  occupation,
+  content,
+}) => {
+  const formattedSubject =
+    subject || `Exciting ${occupation} Job Opportunities in ${country}`;
+  const formattedContent = formatEmailContent(
+    content,
+    formattedSubject,
+    clientName,
+  );
 
   return {
     subject: formattedSubject,
     html: formattedContent,
-    text: content.replace(/<[^>]*>/g, ''), // Strip HTML for text version
+    text: content.replace(/<[^>]*>/g, ""), // Strip HTML for text version
     metadata: {
       country,
       occupation,
       clientName,
-      generatedAt: new Date().toISOString()
-    }
+      generatedAt: new Date().toISOString(),
+    },
   };
 };
 
 // Add to timeline
 const capitalizeFn = (str) => {
-  if (!str || typeof str !== 'string') return str;
+  if (!str || typeof str !== "string") return str;
   return str
-    .split(' ')
-    .map(word => word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : '')
-    .join(' ');
+    .split(" ")
+    .map((word) =>
+      word ? word.charAt(0).toUpperCase() + word.slice(1).toLowerCase() : "",
+    )
+    .join(" ");
 };
 
 /**
@@ -762,21 +773,23 @@ const capitalizeFn = (str) => {
  * @returns {string[]} Array of up to 4 clean bullet points
  */
 const parseMarkdownBullets = (bullets) => {
-  if (!bullets || typeof bullets !== 'string') return [];
+  if (!bullets || typeof bullets !== "string") return [];
   // Remove code fences if any
-  let cleaned = bullets.replace(/^```(?:markdown)?/gm, '').replace(/```$/gm, '');
+  let cleaned = bullets
+    .replace(/^```(?:markdown)?/gm, "")
+    .replace(/```$/gm, "");
 
   // Remove any leading/trailing * or _ from each line, enforce single dash list item
   const bulletList = cleaned
-    .split('\n')
-    .map(line =>
+    .split("\n")
+    .map((line) =>
       line
         .trim()
-        .replace(/^[-*]\s*([*_]*)(.*?)([*_]*)$/, '- $2')
-        .replace(/[*_]/g, '')
-        .trim()
+        .replace(/^[-*]\s*([*_]*)(.*?)([*_]*)$/, "- $2")
+        .replace(/[*_]/g, "")
+        .trim(),
     )
-    .filter(line => line.startsWith('- '))
+    .filter((line) => line.startsWith("- "))
     .slice(0, 4);
 
   return bulletList;
@@ -784,19 +797,22 @@ const parseMarkdownBullets = (bullets) => {
 
 // Helper function to extract token usage information from OpenAI API responses
 const pricingModel = {
-  "gpt-3.5-turbo": { inputCost: 0.50, outputCost: 1.50 },
-  "gpt-4": { inputCost: 30.00, outputCost: 60.00 },
-  "gpt-4-32k": { inputCost: 60.00, outputCost: 120.00 },
-  "gpt-4o": { inputCost: 2.50, outputCost: 10.00 },
-  "gpt-4o-mini": { inputCost: 0.15, outputCost: 0.60 },
+  "gpt-3.5-turbo": { inputCost: 0.5, outputCost: 1.5 },
+  "gpt-4": { inputCost: 30.0, outputCost: 60.0 },
+  "gpt-4-32k": { inputCost: 60.0, outputCost: 120.0 },
+  "gpt-4o": { inputCost: 2.5, outputCost: 10.0 },
+  "gpt-4o-mini": { inputCost: 0.15, outputCost: 0.6 },
 };
 
-function extractTokenUsage(apiResponse, totalTokens = {
-  prompt_tokens: 0,
-  completion_tokens: 0,
-  total_tokens: 0,
-  total_tokens_cost_in_inr: 0,
-}) {
+function extractTokenUsage(
+  apiResponse,
+  totalTokens = {
+    prompt_tokens: 0,
+    completion_tokens: 0,
+    total_tokens: 0,
+    total_tokens_cost_in_inr: 0,
+  },
+) {
   if (!apiResponse || !apiResponse.usage) {
     return totalTokens;
   }
@@ -805,10 +821,12 @@ function extractTokenUsage(apiResponse, totalTokens = {
   totalTokens.completion_tokens += apiResponse.usage.completion_tokens || 0;
   totalTokens.total_tokens += apiResponse.usage.total_tokens || 0;
 
-
   if (totalTokens.model && pricingModel[totalTokens.model]) {
     const { inputCost, outputCost } = pricingModel[totalTokens.model];
-    const totalUSD = (totalTokens.prompt_tokens * inputCost + totalTokens.completion_tokens * outputCost) / 1_000_000; // Total cost in USD
+    const totalUSD =
+      (totalTokens.prompt_tokens * inputCost +
+        totalTokens.completion_tokens * outputCost) /
+      1_000_000; // Total cost in USD
     totalTokens.total_tokens_cost_in_inr = totalUSD * 84; // Convert to INR based on exchange rate
   }
 
@@ -835,23 +853,24 @@ const Packages = require("../models/packages");
 
 function validateRequiredFields(requiredFields, reqBody) {
   for (const field of requiredFields) {
-    if (field.key === 'tags') {
+    if (field.key === "tags") {
       if (
-        !reqBody['tags'] ||
-        !Array.isArray(reqBody['tags']) ||
-        reqBody['tags'].length === 0
+        !reqBody["tags"] ||
+        !Array.isArray(reqBody["tags"]) ||
+        reqBody["tags"].length === 0
       ) {
         return { validated: false, errorMessage: field.label };
       }
-    } else if (field.key === 'type') {
-      const allowedTypes = Packages.schema.path('type')?.enumValues || [];
-      if (!reqBody['type'] || !allowedTypes.includes(reqBody['type'])) {
-        const enumInfo = allowedTypes.length > 0
-          ? ` Allowed values: ${allowedTypes.join(', ')}.`
-          : '';
+    } else if (field.key === "type") {
+      const allowedTypes = Packages.schema.path("type")?.enumValues || [];
+      if (!reqBody["type"] || !allowedTypes.includes(reqBody["type"])) {
+        const enumInfo =
+          allowedTypes.length > 0
+            ? ` Allowed values: ${allowedTypes.join(", ")}.`
+            : "";
         return {
           validated: false,
-          errorMessage: `Field 'type' is required.${enumInfo}`
+          errorMessage: `Field 'type' is required.${enumInfo}`,
         };
       }
     } else {
@@ -882,9 +901,9 @@ const zohoErrorHandler = (response) => {
     // Extract the relevant error message if the response includes it
     if (data && data.data) {
       if (Array.isArray(data.data)) {
-        data.data.forEach(errorDetail => {
-          errorMessage += `\nCode: ${errorDetail.code || 'N/A'}`;
-          errorMessage += `\nMessage: ${errorDetail.message || 'No message available'}`;
+        data.data.forEach((errorDetail) => {
+          errorMessage += `\nCode: ${errorDetail.code || "N/A"}`;
+          errorMessage += `\nMessage: ${errorDetail.message || "No message available"}`;
           if (errorDetail.details) {
             errorMessage += `\nDetails: ${JSON.stringify(errorDetail.details, null, 2)}`;
           }
@@ -902,20 +921,17 @@ const zohoErrorHandler = (response) => {
 
   // Extract error details for easier access
   const extractedError = {
-    error: data?.error || 'Unknown error',
-    error_description: data?.error_description || 'No description available'
+    error: data?.error || "Unknown error",
+    error_description: data?.error_description || "No description available",
   };
 
   // Append request details for enhanced debugging
   if (config) {
-    errorMessage += `\nRequest URL: ${config.url || 'N/A'}\nRequest Method: ${config.method || 'N/A'}\nRequest Data: ${JSON.stringify(config.data)}`;
+    errorMessage += `\nRequest URL: ${config.url || "N/A"}\nRequest Method: ${config.method || "N/A"}\nRequest Data: ${JSON.stringify(config.data)}`;
   }
 
   return { errorMessage, extractedError };
 };
-
-
-
 
 module.exports = {
   fetchInitialAccessToken,
@@ -943,5 +959,5 @@ module.exports = {
   parseMarkdownBullets,
   extractTokenUsage,
   validateRequiredFields,
-  zohoErrorHandler
+  zohoErrorHandler,
 };

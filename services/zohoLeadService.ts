@@ -41,7 +41,7 @@ async function executeZohoRequest<T = any>(
 
     if (axiosError.response && axiosError.response.status === 401) {
       logger.warn('[Zoho CRM] Token expired (401) — refreshing token and retrying request', { endpoint });
-      token = await refreshAccessToken();
+      token = await refreshAccessToken(true);
       config.headers = {
         ...config.headers,
         Authorization: `Zoho-oauthtoken ${token}`,
@@ -290,7 +290,7 @@ export async function uploadRecordAttachment(
       logger.warn('[Zoho CRM] Token expired (401) during attachment upload — refreshing token and retrying', {
         endpoint,
       });
-      token = await refreshAccessToken();
+      token = await refreshAccessToken(true);
       const retryResponse = await executeUpload(token);
       const retryFirstResult = retryResponse?.data?.data?.[0] || retryResponse?.data?.[0];
       if (retryFirstResult && retryFirstResult.status === 'error') {
