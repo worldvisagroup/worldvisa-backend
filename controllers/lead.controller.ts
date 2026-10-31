@@ -48,13 +48,23 @@ export async function handleLandingCapture(req: Request, res: Response): Promise
     const result = await captureLandingLead(payload);
     res.status(result.isNew ? 201 : 200).json(result);
   } catch (err: any) {
+    const status = err.statusCode || err.response?.status || 500;
+    const errorMessage =
+      err.response?.data?.message ||
+      err.response?.data?.error ||
+      err.message ||
+      'Internal server error while capturing lead';
+
     logger.error('[Landing Lead Controller] Error capturing landing lead', {
+      status,
       error: err.message,
+      details: err.response?.data,
       email: payload.email,
     });
-    res.status(err.statusCode || 500).json({
+    res.status(status).json({
       success: false,
-      error: err.message || 'Internal server error while capturing lead',
+      error: errorMessage,
+      details: err.response?.data,
     });
   }
 }
@@ -86,14 +96,24 @@ export async function handleLandingAssessment(req: Request, res: Response): Prom
     const result = await updateLandingAssessment(payload);
     res.status(result.isNew ? 201 : 200).json(result);
   } catch (err: any) {
+    const status = err.statusCode || err.response?.status || 500;
+    const errorMessage =
+      err.response?.data?.message ||
+      err.response?.data?.error ||
+      err.message ||
+      'Internal server error while updating assessment';
+
     logger.error('[Landing Lead Controller] Error updating landing assessment', {
+      status,
       error: err.message,
+      details: err.response?.data,
       leadId: payload.leadId,
       email: payload.email,
     });
-    res.status(err.statusCode || 500).json({
+    res.status(status).json({
       success: false,
-      error: err.message || 'Internal server error while updating assessment',
+      error: errorMessage,
+      details: err.response?.data,
     });
   }
 }

@@ -1,29 +1,23 @@
+/**
+ * DEPRECATED: Zoho OAuth redirection route is no longer needed.
+ * Zoho CRM authentication now operates purely via Self-Client environment variables:
+ * - CLIENT_ID
+ * - CLIENT_SECRET
+ * - REFRESH_TOKEN
+ * - ZOHO_DC
+ *
+ * Centralized token manager is located in: controllers/zohoDms/zohoAuth.js
+ */
+
 const express = require("express");
-const { exchangeCodeForTokens } = require("../../controllers/zohoDms/zohoAuth.js");
-
-
 const router = express.Router();
 
-router.get("/", (req, res) => {
-  const ZOHO_DMS_CLIENT_ID = process.env.ZOHO_DMS_CLIENT_ID;
-  const ZOHO_DMS_REDIRECT_URI = process.env.ZOHO_DMS_REDIRECT_URI;
-
-  const scope = "ZohoCRM.modules.all,ZohoCRM.coql.READ,WorkDrive.files.CREATE,WorkDrive.files.READ,WorkDrive.files.UPDATE,WorkDrive.files.DELETE,WorkDrive.files.ALL,ZohoFiles.files.ALL,ZohoCRM.settings.ALL,PhoneBridge.call.log";
-
-  const authUrl = `https://accounts.zoho.${process.env.ZOHO_DC}/oauth/v2/auth?response_type=code&client_id=${ZOHO_DMS_CLIENT_ID}&scope=${scope}&redirect_uri=${ZOHO_DMS_REDIRECT_URI}&access_type=offline`;
-
-  res.redirect(authUrl);
-});
-
-router.get("/callback", async (req, res) => {
-  try {
-    const { code } = req.query;
-    await exchangeCodeForTokens(code);
-    res.send("✅ Zoho OAuth setup successful. Tokens stored.");
-  } catch (err) {
-    console.error("OAuth callback error:", err.response?.data || err.message);
-    res.status(500).send("❌ Failed to exchange code for tokens.");
-  }
+router.get("*", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    message:
+      "Zoho CRM authentication is configured via Self-Client environment variables (.env). Browser OAuth is disabled.",
+  });
 });
 
 module.exports = router;

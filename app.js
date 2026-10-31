@@ -31,7 +31,6 @@ const mcubeWatiRouter = require("./routes/mcubeWati");
 const mcubeRouter = require("./routes/mcube");
 const { auditLogger } = require("./middleware/auditLogger");
 const reviewsRouter = require("./routes/reviews");
-const zohoDmsAuthRouter = require("./routes/zohoDms/auth");
 const zohoDmsVisaApplicationsRouter = require("./routes/zohoDms/visaApplications");
 const zohoDmsUserAuthRouter = require("./routes/zohoDmsAuth");
 const clerkInvitationsRouter = require("./routes/clerk/clerkInvitations");
@@ -572,8 +571,6 @@ app.use("/reviews", apiKeyMiddleware, reviewsRouter);
 app.use("/visa_reference_form", visaReferenceFormController);
 
 // Zoho DMS
-
-app.use("/api/zoho_dms/oauth", zohoDmsAuthRouter);
 
 app.use("/api/zoho_dms/visa_applications", zohoDmsVisaApplicationsRouter);
 

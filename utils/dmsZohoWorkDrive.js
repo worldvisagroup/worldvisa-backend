@@ -4,7 +4,10 @@ const dmsZohoLeadFolder = require('../models/dmsZohoLeadFolder');
 const { getAccessToken, refreshAccessToken } = require('../controllers/zohoDms/zohoAuth');
 
 function isInvalidToken(error) {
-  return error.response?.data?.errors?.[0]?.id === 'F7003';
+  return (
+    error.response?.data?.errors?.[0]?.id === 'F7003' ||
+    error.response?.status === 401
+  );
 }
 
 const WORKDRIVE_ROOT_FOLDER_ID = process.env.WORKDRIVE_ROOT_FOLDER_ID;

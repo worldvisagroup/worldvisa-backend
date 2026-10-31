@@ -224,22 +224,14 @@ export async function handleInboundLeadsWebhook(req: Request, res: Response): Pr
   const todayDate = getTodayDateIST();
 
   try {
-    // Step 1: Check if number exists in Zoho (Leads scope, then Contacts scope)
-    let existingRecord = await searchRecordByPhone('Leads', cleanNumber);
-    let targetModule: 'Leads' | 'Contacts' = 'Leads';
+    // Step 1: Check if number exists in Zoho Leads module only (no Contacts check per requirement)
+    const existingRecord = await searchRecordByPhone('Leads', cleanNumber);
+    const targetModule: 'Leads' = 'Leads';
 
-    if (!existingRecord) {
-      const existingContact = await searchRecordByPhone('Contacts', cleanNumber);
-      if (existingContact) {
-        existingRecord = existingContact;
-        targetModule = 'Contacts';
-      }
-    }
-
-    // Step 2A: Record exists → Update fields
+    // Step 2A: Record exists → Update fields (reuse existingRecord to eliminate redundant getRecordById call)
     if (existingRecord) {
       const recordId = String(existingRecord.id);
-      const fullRecord = (await getRecordById(targetModule, recordId)) || existingRecord;
+      const fullRecord = existingRecord;
 
       const updateFields: Record<string, any> = {};
 
