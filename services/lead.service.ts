@@ -713,7 +713,6 @@ export async function updateLandingAssessment(payload: LandingAssessmentPayload)
         id: captureResult.leadId,
         Description: '',
       };
-      targetModule = (captureResult.module as 'Leads' | 'Contacts') || 'Leads';
       isNewLead = Boolean(captureResult.isNew);
     }
   }
