@@ -45,6 +45,7 @@ const packagesRouter = require("./routes/packages");
 const travelBudget = require("./routes/ai/travelBudget");
 const checklistDocumentsRouter = require("./routes/zohoDms/checklist/checklistDocuments");
 const applicationTasksRouter = require("./routes/zohoDms/tasks").default;
+const migrationExportRouter = require("./migration-export/migration-export.router").default;
 const clientTasksRouter = require("./routes/zohoDms/clientTasks").default;
 
 const currecyController = require("./routes/currency");
@@ -545,6 +546,7 @@ app.use("/api/visa-news", apiKeyMiddleware, visaNewsRouter);
 app.use("/api/email", emailRouter);
 app.use("/api/zoho_dms/checklist-documents", checklistDocumentsRouter);
 app.use("/api/zoho_dms/tasks", applicationTasksRouter);
+app.use("/api/migration", migrationExportRouter);
 
 app.use("/payment", paymentRouter);
 

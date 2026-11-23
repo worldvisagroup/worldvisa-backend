@@ -25,10 +25,12 @@
     "middleware/**/*",
     "types/**/*",
     "constants/**/*",
-    "models/**/*"
+    "models/**/*",
+    "migration-export/**/*.ts"
   ],
   "exclude": [
     "node_modules",
+    "migration-export/**/*.spec.ts",
     "dist"
   ]
 }
