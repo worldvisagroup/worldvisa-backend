@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "description": "",
     "main": "index.js",
-    "packageManager": "pnpm@10.34.5",
+    "packageManager": "pnpm@12.21.0",
     "scripts": {
         "start": "node app.js",
         "dev": "nodemon",
