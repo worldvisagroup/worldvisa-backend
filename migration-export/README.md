@@ -6,12 +6,12 @@ The consumer side is specified in the new system's repo: `docs/discussions/dms-m
 
 ## Rules
 
-1. **Read only.** A use case reads and maps. It never writes. It never calls another service, with one exception: the `zoho/` use cases read Zoho CRM (read calls only), because this backend already holds the Zoho auth and the application detail exists only there. They group Zoho values by layout section and rename them; they never convert meaning (enums, stages, statuses), which the new system does.
+1. **Read only.** A use case reads and maps. It never writes. It never calls another service, with one exception: Zoho CRM (read calls only), because this backend already holds the Zoho auth. The `zoho/` use cases read the application detail, which exists only there: they group Zoho values by layout section and rename them, and never convert meaning (enums, stages, statuses), which the new system does. `applications` reads one value, the created time, for rows whose stored copy is empty.
 2. **Never return secrets.** No password fields, Clerk or session fields, tokens. Every list selects an explicit allow list of columns (`APPLICATION_COLUMNS` style); never "everything except".
-3. **Values untouched.** Return what is stored. Null stays null; empty stays empty. Dates are ISO strings or `null`, never `1970-01-01`.
+3. **Values untouched.** Return what is stored. Null stays null; empty stays empty. Dates are ISO strings or `null`, never `1970-01-01`. The one filled value is `applications.createdAt` (see that item).
 4. **Every item has `externalId`** (the Mongo `_id` as a string). Child rows also carry the parent's `leadId` and `externalId`.
 5. **Total order.** Every list sorts by `created_at` ascending, then `_id` ascending, so offset paging can never skip or repeat a row. A collection with no created time (documents) sorts by `_id` alone.
-6. **Same error shape on every endpoint:** `{ "status": "fail", "message": "...", "errors"?: [...] }` with `401` (bad or missing key), `400` (query validation, `errors` holds the zod issues), `429` (rate limit), `503` (key not configured).
+6. **Same error shape on every endpoint:** `{ "status": "fail", "message": "...", "errors"?: [...] }` with `401` (bad or missing key), `400` (query validation, `errors` holds the zod issues), `429` (rate limit), `503` (key not configured, or an endpoint that reads Zoho could not reach it).
 7. **Live reads.** No snapshots, no cache. A run re-reads everything.
 8. **One folder per resource,** like the new system's API: `<resource>/` holds its controller, router, `dtos/` and `usecases/<name>/`. A new endpoint is one use-case folder, one controller function, one router line, one README row, and a spec.
 
@@ -66,9 +66,11 @@ All planned endpoints are built. Tasks are not exported.
 | `packageFinalize`, `suggestedAnzsco`, `assessingAuthority`, `qualityCheckFrom` | same, snake case | |
 | `recentActivity` | `recent_activity` | ISO or `null` |
 | `role`, `accountStatus` | `role`, `account_status` | |
-| `createdAt` | `zoho_created_time` | ISO or `null` |
+| `createdAt` | `zoho_created_time`, else Zoho `Created_Time` | ISO or `null`; see below |
 | `modifiedAt` | `zoho_modified_time` | ISO or `null` |
 | `dmsCreatedAt` | `created_at` | when the row entered the old DMS; the sort key and the `from`/`to` window |
+
+`createdAt` is the time the record was created in Zoho. The old DMS keeps a copy (`zoho_created_time`) that is empty on rows saved before the field existed and never refreshed since. For those rows only, the endpoint reads `Created_Time` from Zoho (`Visa_Applications` or `Spouse_Skill_Assessment` by `record_type`, 100 ids per request, one request at a time) and returns it as a UTC ISO string. The stored copy always wins. `createdAt` is `null` only when Zoho does not have the record or its date, or the row has no `record_type` or a `lead_id` that is not a Zoho id. When Zoho is unreachable or rate limited the whole request answers `503`, so an unanswered lookup is never returned as `null`. Nothing is written to Zoho or the old DMS.
 
 There is **no `updatedSince`**: the collection has no reliable "updated at" (`zoho_modified_time` is Zoho's time and does not change when staff fix a contact in the old DMS). Consumers read the whole collection each run.
 
@@ -314,21 +316,24 @@ migration-export/
     paging.ts                         page, limit, skip, Page<T>
     iso-date.ts                       Date to ISO string or null (never 1970)
     iso-date-query.ts                 zod type for from/to
-    record-type.ts                    visa_application | spouse_skill_assessment
+    record-type.ts                    visa_application | spouse_skill_assessment, and the Zoho module of each
+    chunk.ts                          splits a list into groups of a given size
     send-validation-error.ts          the 400 shape
     to-file-link.ts                   the `file` object (url, storageKind, size, checksum, name)
-    lead-ids-query.ts                 zod type for `leadIds`, the `{ data, requested, found }` shape
-    zoho-read-client.ts               Zoho CRM read client: auth, 50-field chunks, related-list paging, retry on 429, 503 on outage
+    lead-ids-query.ts                 zod type for `leadIds`, the Zoho id pattern, the `{ data, requested, found }` shape
+    zoho-read-client.ts               Zoho CRM read client: auth, 50-field chunks, related-list paging, retry on 429, unavailable error on outage
+    handle-zoho-error.ts              the 503 answer when Zoho is unavailable
     file-base-url.ts                  absolute base of the migration API, for `file.url`
   applications/
     applications.router.ts            the resource's routes (the Express stand-in for a Nest module)
-    applications.controller.ts        thin: parse query into a command, call the use case, respond
+    applications.controller.ts        thin: parse query into a command, call the use case, respond (503 when Zoho is unreachable)
     dtos/application-response.dto.ts
     usecases/list-applications/
       list-applications.command.ts    zod schema and inferred command type
       list-applications.usecase.ts    plain function: read with .lean(), explicit columns, map
       list-applications.usecase.spec.ts
       map-application-to-dto.ts
+      read-zoho-created-times.ts      Zoho `Created_Time` for the rows with no stored copy
   chat-conversations/                 same shape as applications/
   chat-messages/                      same shape as applications/
   checklist-items/                    same shape as applications/
@@ -349,7 +354,7 @@ migration-export/
     usecases/list-zoho-visa-applications/, list-zoho-spouse-skill-assessments/, list-zoho-application-status-history/   same use-case shape as applications/
 ```
 
-Plain functions, no classes, no repository layer. A use case takes its model as an optional second argument so its spec can pass a stub; nothing else is injected. Resources may share `shared/` helpers; do not add an abstraction before a second endpoint needs it.
+Plain functions, no classes, no repository layer. A use case takes what it reads from (its model, and the Zoho client when it reads Zoho) as optional arguments after the command so its spec can pass stubs; nothing else is injected. Resources may share `shared/` helpers; do not add an abstraction before a second endpoint needs it.
 
 The module is TypeScript, loaded at runtime by the `tsx/cjs` hook at the top of `app.js`, like `routes/zohoDms/tasks.ts`.
 

@@ -1,4 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
+import { handleZohoError } from '../shared/handle-zoho-error';
 import { sendValidationError } from '../shared/send-validation-error';
 import { listApplicationsCommand } from './usecases/list-applications/list-applications.command';
 import { listApplications } from './usecases/list-applications/list-applications.usecase';
@@ -13,6 +14,6 @@ export const listApplicationsHandler = async (req: Request, res: Response, next:
   try {
     res.json(await listApplications(command.data));
   } catch (error) {
-    next(error);
+    handleZohoError(error, res, next);
   }
 };

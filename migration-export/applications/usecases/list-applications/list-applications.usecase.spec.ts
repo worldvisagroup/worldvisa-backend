@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import type { Model } from 'mongoose';
+import { ZohoUnavailableError, type ZohoReadClient, type ZohoRecord } from '../../../shared/zoho-read-client';
 import { APPLICATION_COLUMNS, type ApplicationRow } from './map-application-to-dto';
 import { listApplicationsCommand } from './list-applications.command';
 import { buildApplicationFilter, listApplications } from './list-applications.usecase';
@@ -35,12 +36,23 @@ const stubModel = (rows: ApplicationRow[], total: number) => {
   return { model, calls };
 };
 
+const stubZoho = (records: ZohoRecord[] = []) => {
+  const calls: { module: string; ids: string[]; fields: readonly string[] }[] = [];
+  const client: ZohoReadClient = {
+    getRecords: async (module, ids, fields) => {
+      calls.push({ module, ids, fields });
+      return records.filter((record) => ids.includes(record.id));
+    },
+  };
+  return { client, calls };
+};
+
 describe('listApplications', () => {
   it('pages in a total order and reports the matching total', async () => {
     const { model, calls } = stubModel([row()], 2267);
     const command = listApplicationsCommand.parse({ page: '3', limit: '500' });
 
-    const result = await listApplications(command, model);
+    const result = await listApplications(command, model, stubZoho().client);
 
     assert.deepEqual(calls.sort, { created_at: 1, _id: 1 });
     assert.equal(calls.skip, 1000);
@@ -54,7 +66,7 @@ describe('listApplications', () => {
   it('selects only the allow-listed columns, never secrets or embedded arrays', async () => {
     const { model, calls } = stubModel([], 0);
 
-    await listApplications(listApplicationsCommand.parse({}), model);
+    await listApplications(listApplicationsCommand.parse({}), model, stubZoho().client);
 
     const selected = String(calls.select).split(' ');
     assert.equal(selected.join(' '), APPLICATION_COLUMNS.join(' '));
@@ -69,7 +81,7 @@ describe('listApplications', () => {
       1
     );
 
-    const [item] = (await listApplications(listApplicationsCommand.parse({}), model)).data;
+    const [item] = (await listApplications(listApplicationsCommand.parse({}), model, stubZoho().client)).data;
 
     assert.equal(item.externalId, '65f000000000000000000001');
     assert.equal(item.leadId, '1234567890123456789');
@@ -83,9 +95,94 @@ describe('listApplications', () => {
   it('returns a null record type for a row that has none', async () => {
     const { model } = stubModel([row({ record_type: null })], 1);
 
-    const [item] = (await listApplications(listApplicationsCommand.parse({}), model)).data;
+    const [item] = (await listApplications(listApplicationsCommand.parse({}), model, stubZoho().client)).data;
 
     assert.equal(item.recordType, null);
+  });
+});
+
+describe('listApplications created time', () => {
+  const list = async (rows: ApplicationRow[], client: ZohoReadClient) =>
+    (await listApplications(listApplicationsCommand.parse({}), stubModel(rows, rows.length).model, client)).data;
+
+  it('reads it from Zoho when the stored copy is empty, asking for that field only', async () => {
+    const zoho = stubZoho([{ id: '111', Created_Time: '2022-12-27T15:30:00+05:30' }]);
+
+    const [item] = await list([row({ lead_id: '111', zoho_created_time: null })], zoho.client);
+
+    assert.equal(item.createdAt, '2022-12-27T10:00:00.000Z');
+    assert.deepEqual(zoho.calls, [{ module: 'Visa_Applications', ids: ['111'], fields: ['Created_Time'] }]);
+  });
+
+  it('keeps the stored value and does not call Zoho', async () => {
+    const zoho = stubZoho([{ id: '111', Created_Time: '2022-12-27T15:30:00+05:30' }]);
+
+    const [item] = await list([row({ lead_id: '111', zoho_created_time: new Date('2025-01-02T00:00:00Z') })], zoho.client);
+
+    assert.equal(item.createdAt, '2025-01-02T00:00:00.000Z');
+    assert.deepEqual(zoho.calls, []);
+  });
+
+  it('reads each record type from its own Zoho module', async () => {
+    const zoho = stubZoho([
+      { id: '111', Created_Time: '2023-01-01T00:00:00Z' },
+      { id: '222', Created_Time: '2024-01-01T00:00:00Z' },
+    ]);
+
+    const items = await list([row({ lead_id: '222', record_type: 'spouse_skill_assessment' }), row({ lead_id: '111' })], zoho.client);
+
+    assert.deepEqual(
+      items.map((item) => item.createdAt),
+      ['2024-01-01T00:00:00.000Z', '2023-01-01T00:00:00.000Z']
+    );
+    assert.deepEqual(
+      zoho.calls.map(({ module, ids }) => ({ module, ids })),
+      [
+        { module: 'Visa_Applications', ids: ['111'] },
+        { module: 'Spouse_Skill_Assessment', ids: ['222'] },
+      ]
+    );
+  });
+
+  it('stays null for a lead Zoho does not have or has no date for', async () => {
+    const zoho = stubZoho([{ id: '222', Created_Time: null }]);
+
+    const items = await list([row({ lead_id: '111' }), row({ lead_id: '222' })], zoho.client);
+
+    assert.deepEqual(
+      items.map((item) => item.createdAt),
+      [null, null]
+    );
+  });
+
+  it('asks for at most 100 distinct ids per request', async () => {
+    const zoho = stubZoho();
+    const rows = Array.from({ length: 150 }, (_, index) => row({ lead_id: String(1000 + index) }));
+
+    await list([...rows, row({ lead_id: '1000' })], zoho.client);
+
+    assert.deepEqual(
+      zoho.calls.map(({ ids }) => ids.length),
+      [100, 50]
+    );
+  });
+
+  it('does not ask Zoho about a row with no record type or a lead id that is not a Zoho id', async () => {
+    const zoho = stubZoho();
+
+    await list([row({ record_type: null }), row({ lead_id: 'manual-1' })], zoho.client);
+
+    assert.deepEqual(zoho.calls, []);
+  });
+
+  it('fails the request when Zoho does not answer instead of returning null', async () => {
+    const client: ZohoReadClient = {
+      getRecords: async () => {
+        throw new ZohoUnavailableError();
+      },
+    };
+
+    await assert.rejects(list([row()], client), ZohoUnavailableError);
   });
 });
 

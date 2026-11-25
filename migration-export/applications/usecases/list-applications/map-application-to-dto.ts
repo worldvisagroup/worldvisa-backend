@@ -61,7 +61,7 @@ export const APPLICATION_COLUMNS = [
   'created_at',
 ] as const satisfies ReadonlyArray<keyof ApplicationRow>;
 
-export const mapApplicationToDto = (row: ApplicationRow): ApplicationResponseDto => ({
+export const mapApplicationToDto = (row: ApplicationRow, zohoCreatedTime: string | null = null): ApplicationResponseDto => ({
   externalId: row._id.toString(),
   leadId: row.lead_id,
   recordType: row.record_type ?? null,
@@ -86,7 +86,7 @@ export const mapApplicationToDto = (row: ApplicationRow): ApplicationResponseDto
   recentActivity: toIsoOrNull(row.recent_activity),
   role: row.role ?? null,
   accountStatus: row.account_status ?? null,
-  createdAt: toIsoOrNull(row.zoho_created_time),
+  createdAt: toIsoOrNull(row.zoho_created_time) ?? zohoCreatedTime,
   modifiedAt: toIsoOrNull(row.zoho_modified_time),
   dmsCreatedAt: toIsoOrNull(row.created_at),
 });
