@@ -1,4 +1,5 @@
 import axios, { isAxiosError } from 'axios';
+import { chunk } from './chunk';
 
 const { getAccessToken } = require('../../controllers/zohoDms/zohoAuth');
 
@@ -38,9 +39,6 @@ export class ZohoUnavailableError extends Error {
 const baseUrl = (): string => `https://www.zohoapis.${process.env.ZOHO_DC || 'in'}/crm/v5`;
 
 const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
-
-const chunk = <T>(items: readonly T[], size: number): T[][] =>
-  Array.from({ length: Math.ceil(items.length / size) }, (_, index) => items.slice(index * size, (index + 1) * size));
 
 const get = async (path: string, params: Record<string, string | number>, retry = true): Promise<{ status: number; data: any }> => {
   const token: string = await getAccessToken();
